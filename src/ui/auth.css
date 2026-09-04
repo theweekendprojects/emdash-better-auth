@@ -1,0 +1,27 @@
+/**
+ * Tailwind v4 entry for the Better Auth UI (HeroUI) island.
+ *
+ * Mirrors Better Auth UI's own HeroUI example `app.css`: pull in Tailwind, the
+ * HeroUI style layers, and the Better Auth UI component styles, then bind the
+ * document surface to HeroUI's semantic theme tokens so light/dark backgrounds
+ * come from the theme (not hardcoded colors).
+ *
+ * Compiled by `@tailwindcss/vite`. Imported only by the auth island, so the
+ * resulting CSS is page-scoped to /auth and never touches the site theme.
+ */
+
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "@better-auth-ui/heroui/styles";
+
+/* Scan the component packages so Tailwind emits every utility/variant class
+   HeroUI and Better Auth UI reference at runtime. */
+@source "../../node_modules/@heroui/react/dist";
+@source "../../node_modules/@better-auth-ui/heroui/dist";
+@source "../../node_modules/@better-auth-ui/react/dist";
+
+/* Themed page surface via HeroUI's semantic tokens. */
+html,
+body {
+	@apply bg-background text-foreground;
+}

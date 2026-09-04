@@ -1,0 +1,8 @@
+---
+/**
+ * Friendly `/signup` alias → Better Auth UI sign-up view.
+ * Preserves any `?redirect=` param.
+ */
+const qs = Astro.url.search;
+return Astro.redirect(`/auth/sign-up${qs}`);
+---
