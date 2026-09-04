@@ -4,6 +4,38 @@ Email/password (and optional social — Google, GitHub) authentication for [EmDa
 
 It registers as an EmDash `AuthProviderDescriptor`, so it plugs in with a single line and ships everything it needs — the API handler, the styled auth pages, and a light/dark/system theme toggle — with **no per-site database migrations**.
 
+## Quickstart
+
+```bash
+pnpm add emdash-better-auth
+pnpm add -D @tailwindcss/vite            # required — compiles the auth-page styles
+wrangler secret put BETTER_AUTH_SECRET   # required — `openssl rand -base64 32`
+```
+
+```js
+// astro.config.mjs
+import react from "@astrojs/react";
+import tailwindcss from "@tailwindcss/vite";
+import { betterAuthProvider, betterAuthSettingsPlugin } from "emdash-better-auth";
+
+export default defineConfig({
+  output: "server",
+  vite: { plugins: [tailwindcss()] },          // required for the HeroUI auth styles
+  integrations: [
+    react(),                                    // auth pages are React islands
+    emdash({
+      /* ...your database/storage... */
+      authProviders: [betterAuthProvider()],    // sign-in/up, /auth/*, /login, /signup
+      plugins: [betterAuthSettingsPlugin()],    // optional: admin settings page
+    }),
+  ],
+});
+```
+
+Deploy, then visit `/login` or `/signup`. Email verification is **on by default** — see
+[Email](#email-password-reset--verification) (a working email provider is required).
+Social logins (Google, GitHub) and everything else are optional; details below.
+
 ## What you get
 
 - **Real EmDash users.** A Better Auth sign-up creates a row in EmDash's own `users` table, so the account is a first-class EmDash user: visible in the admin and governed by EmDash RBAC (the `role` column). New sign-ups default to the lowest role (subscriber, `10`) so hitting `/signup` never grants admin access.
