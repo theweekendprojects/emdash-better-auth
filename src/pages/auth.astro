@@ -33,8 +33,9 @@ const redirectTo = Astro.url.searchParams.get("redirect") || "/";
 // plugin is site-agnostic (no hardcoded site name). Falls back generically.
 const siteSettings = await getSiteSettings().catch(() => null);
 const siteName = siteSettings?.title || "Account";
-// Show a social button only for providers whose credentials are actually set.
-const socialProviders = configuredSocialProviders();
+// Show a social button only for providers whose credentials are actually set
+// (admin settings or env). Matches exactly what the auth route enables.
+const socialProviders = await configuredSocialProviders();
 ---
 
 <!doctype html>
