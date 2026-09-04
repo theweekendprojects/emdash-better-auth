@@ -5,3 +5,6 @@ dist/
 *.log
 .env
 .dev.vars
+
+# npm pack output
+*.tgz
