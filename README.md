@@ -473,6 +473,18 @@ are all derived from a single `PACKAGE_NAME` constant at the top of
 `src/index.ts` — update **just that constant and the `name` in `package.json`**
 (keep them identical) and everything else follows.
 
+## Roadmap
+
+Built on Better Auth, so the ecosystem is the runway. Planned / under consideration
+(tracked in [Issues](https://github.com/theweekendprojects/emdash-better-auth/issues)):
+
+- **Two-factor authentication** — TOTP authenticator apps + email OTP, with backup codes ([two-factor](https://better-auth.com) / [email-otp](https://better-auth.com) plugins). Targeting **v0.2.0**.
+- **More social providers** — Apple, Discord, Microsoft, GitLab, X (the provider list is data-driven; adding one is a two-line change).
+- **Username login** and **magic-link** sign-in.
+- **Organizations / teams** and **Stripe billing** — larger, exploratory.
+
+Have a request or want to help? Open an issue or PR.
+
 ## License
 
 MIT
