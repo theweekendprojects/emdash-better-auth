@@ -25,9 +25,17 @@
  * back — so the admin page and the auth route agree on the same values with no
  * translation. (Verified against EmDash's createKVAccess + getPluginSettings.)
  *
- * SECURITY: secret fields are stored in the database (masked in the UI via
- * `secret_input`/`has_value`, not encrypted at rest), the same way emdash-smtp
- * stores its API key. See settings.ts for the full tradeoff note.
+ * SECURITY (authorization): the `routes.admin` handler below reads/writes the
+ * Better Auth secret and OAuth credentials, so it is declared with
+ * `permission: "plugins:manage"` (= Role.ADMIN). EmDash enforces that at the
+ * `/_emdash/api/plugins/<id>/admin` API layer via `requirePerm`, so only admins
+ * can read or change these values; lower roles get 403. The admin page shell is
+ * only login-gated, but no sensitive data is exposed there — every read/write
+ * goes through the guarded route. See the route declaration for the full note.
+ *
+ * SECURITY (at rest): secret fields are stored in the database (masked in the
+ * UI via `secret_input`/`has_value`, not encrypted at rest), the same way
+ * emdash-smtp stores its API key. See settings.ts for the full tradeoff note.
  */
 
 import { definePlugin } from "emdash";
@@ -205,6 +213,24 @@ export function createPlugin() {
 		},
 		routes: {
 			admin: {
+				// ADMIN-ONLY GATE. This handler reads and writes the Better Auth
+				// secret + OAuth client credentials, so it must never be reachable
+				// by lower-privilege roles (subscriber/contributor/author/editor).
+				//
+				// EmDash gates a private plugin route at the API layer: the
+				// `/_emdash/api/plugins/<id>/admin` catch-all runs
+				// `requirePerm(user, route.permission ?? "plugins:manage")` before
+				// this handler. `plugins:manage` = Role.ADMIN (50), so non-admins
+				// get 403 and can neither read nor change these values. (The admin
+				// *page shell* is only login-gated, but nothing sensitive happens
+				// there — all reads/writes go through this guarded route.)
+				//
+				// We set `permission` EXPLICITLY rather than relying on the default
+				// so the admin-only intent is self-documenting and survives any
+				// future change to EmDash's default. Do NOT add `public: true` or
+				// lower this permission, and do NOT move credential logic into an
+				// SSR page render — either would bypass the RBAC gate.
+				permission: "plugins:manage",
 				handler: async (routeCtx: {
 					input?: AdminInteraction;
 					kv: import("emdash").KVAccess;
