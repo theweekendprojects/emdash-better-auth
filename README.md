@@ -38,6 +38,23 @@ It registers as an EmDash `AuthProviderDescriptor`, so it plugs in with a single
 | 🔑 **Social login** | Google & GitHub out of the box, per-provider, data-driven and easy to extend. |
 | ⚙️ **Admin settings page** | Configure verification, canonical URL, and OAuth credentials from the admin UI — no redeploy. |
 
+## 📸 Screenshots
+
+The hero above shows the sign-up page (light). Here's dark mode and the admin config surface:
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/signin-dark.png" alt="Sign-in page (dark)" width="100%" /><br />
+      <sub><b>Sign-in</b> — dark theme (light / dark / system toggle, persisted per visitor)</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/admin-settings.png" alt="Better Auth admin settings page" width="100%" /><br />
+      <sub><b>Admin settings</b> — verification toggles, canonical URL, and per-provider OAuth credentials, configurable without a redeploy</sub>
+    </td>
+  </tr>
+</table>
+
 ## Quickstart
 
 ```bash
