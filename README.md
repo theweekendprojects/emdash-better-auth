@@ -1,8 +1,42 @@
-# emdash-better-auth
+<div align="center">
 
-Email/password (and optional social — Google, GitHub) authentication for [EmDash](https://emdashcms.com) sites, powered by [Better Auth](https://better-auth.com) with prebuilt [Better Auth UI](https://better-auth-ui.com) (HeroUI) sign-in / sign-up pages.
+# 🔐 emdash-better-auth
+
+### Drop-in email/password + social login for [EmDash](https://emdashcms.com), powered by [Better Auth](https://better-auth.com)
+
+Turn EmDash from a passkey-first CMS admin into a full auth backend for your **public-facing app or membership site** — signup, email verification, password reset, and Google/GitHub login — in one line of config, with **zero database migrations**.
+
+[![npm](https://img.shields.io/npm/v/emdash-better-auth?color=cb3837&logo=npm)](https://www.npmjs.com/package/emdash-better-auth)
+[![npm downloads](https://img.shields.io/npm/dm/emdash-better-auth?color=cb3837&logo=npm)](https://www.npmjs.com/package/emdash-better-auth)
+[![license](https://img.shields.io/npm/l/emdash-better-auth?color=blue)](./LICENSE)
+[![built for EmDash](https://img.shields.io/badge/built%20for-EmDash-000000)](https://emdashcms.com)
+[![powered by Better Auth](https://img.shields.io/badge/powered%20by-Better%20Auth-4f46e5)](https://better-auth.com)
+
+**[Live demo](https://theweekendprojects.com/auth/sign-up)** · **[npm](https://www.npmjs.com/package/emdash-better-auth)** · **[Quickstart](#quickstart)**
+
+<img src="./assets/signup.png" alt="emdash-better-auth sign-up page — HeroUI-styled, dark/light/system theme toggle" width="420" />
+
+</div>
+
+---
+
+Email/password (and optional social — **Google, GitHub**) authentication for [EmDash](https://emdashcms.com) sites, powered by [Better Auth](https://better-auth.com) with prebuilt [Better Auth UI](https://better-auth-ui.com) (HeroUI) sign-in / sign-up pages.
 
 It registers as an EmDash `AuthProviderDescriptor`, so it plugs in with a single line and ships everything it needs — the API handler, the styled auth pages, and a light/dark/system theme toggle — with **no per-site database migrations**.
+
+> [!NOTE]
+> Built on [Better Auth](https://better-auth.com), so it's a **foundation, not a one-off**: sign-ups flow onto EmDash's own `users` table through a Better Auth adapter, which opens the door to the wider Better Auth ecosystem (more social providers, 2FA, username login, organizations, Stripe billing) as future additions on the same bridge.
+
+## ✨ Highlights
+
+| | |
+| --- | --- |
+| 🧩 **One-line install** | Register `betterAuthProvider()` and you get sign-in, sign-up, forgot/reset password, and sign-out routes. |
+| 👤 **Real EmDash users** | Sign-ups land in EmDash's own `users` table (RBAC-governed) — no second user store, no migrations. |
+| 🎨 **Prebuilt, themed UI** | HeroUI sign-in/sign-up pages with a dark / light / system toggle, self-contained (won't touch your site's styles). |
+| ✉️ **Mandatory email verification** | Blocks bot signups; re-sends the link on blocked login and auto-signs-in on click. |
+| 🔑 **Social login** | Google & GitHub out of the box, per-provider, data-driven and easy to extend. |
+| ⚙️ **Admin settings page** | Configure verification, canonical URL, and OAuth credentials from the admin UI — no redeploy. |
 
 ## Quickstart
 
