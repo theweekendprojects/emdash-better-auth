@@ -26,6 +26,7 @@ import "./auth.css";
 
 import { Auth, AuthProvider, UserButton } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
+import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { Button, Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -140,7 +141,15 @@ export default function AuthView({
 					redirectTo={redirectTo}
 					socialProviders={socialProviders}
 					emailAndPassword={{ requireEmailVerification }}
-					plugins={[themePlugin({ useTheme })]}
+					// usernamePlugin() makes the UI render a required username field on
+					// sign-up (and username-or-email on sign-in). Without it the auth
+					// client accepts usernames but the form never collects one, so
+					// signup would fail server-side validation. `displayUsername` is
+					// derived from `username`, so we don't render a separate field.
+					plugins={[
+						themePlugin({ useTheme }),
+						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);
 						else window.location.href = to;
