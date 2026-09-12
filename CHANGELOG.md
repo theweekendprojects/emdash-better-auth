@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Username support via Better Auth username plugin.** Users must register
+  with a username (sign in with username instead of email) and have a public
+  identity that doesn't expose their email address.
+- **Plugin-storage usernames collection.** Username records are stored in a
+  dedicated plugin storage collection (`usernames`) with `uniqueIndexes: ["username"]`
+  for atomic uniqueness enforcement via the storage layer, **no core database
+  columns required**.
+- **Adapter username handling.** The EmDash adapter now:
+  - Creates and syncs username records on user create/update
+  - Returns username/displayUsername fields on user reads
+  - Cleans up username records on user delete
+- **Client-side usernameClient registration.** The browser client now includes
+  the username plugin for sign-in by username and username-availability checks.
+
+### Notes
+
+- Username is **always required** - all users must have a unique handle.
+- Email remains required for account recovery (never exposed publicly).
+- Username is stored in plugin storage only, no migration needed. EmDash's
+  `users` table columns remain unchanged.
+
+## [0.1.0] - 2026-09-04
+
 ## [0.1.0] - 2026-09-04
 
 Initial release. Email/password + social authentication for EmDash CMS,

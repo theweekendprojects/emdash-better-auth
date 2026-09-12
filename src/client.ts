@@ -7,8 +7,10 @@
  * `window.location` at runtime.
  */
 
-import { createAuthClient } from "better-auth/react";
+import { createAuthClient, usernameClient } from "better-auth/react";
 
-export const authClient = createAuthClient();
+export const authClient = createAuthClient({
+	plugins: [usernameClient()],
+});
 
 export type AuthClient = typeof authClient;

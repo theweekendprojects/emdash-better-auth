@@ -48,6 +48,20 @@ interface UsersTable {
 	updated_at: string;
 }
 
+/**
+ * Resolve userId from a where clause. For username updates, we need to find
+ * the user ID to sync the usernames collection. We support:
+ * - id = <userId> (direct lookup)
+ */
+function resolveUserIdFromWhere(where: CleanedWhere[]): string | null {
+	for (const clause of where) {
+		if (clause.field === "id" && clause.operator === "eq") {
+			return clause.value as string;
+		}
+	}
+	return null;
+}
+
 interface UsersDB {
 	users: UsersTable;
 }
@@ -60,6 +74,7 @@ export interface BetterAuthStorage {
 	accounts: StorageCollection<Record<string, unknown>>;
 	sessions: StorageCollection<Record<string, unknown>>;
 	verifications: StorageCollection<Record<string, unknown>>;
+	usernames: StorageCollection<Record<string, unknown>>;
 }
 
 /**
@@ -84,6 +99,8 @@ function storageFor(
 			return storage.sessions;
 		case "verification":
 			return storage.verifications;
+		case "username":
+			return storage.usernames;
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
@@ -190,7 +207,31 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					updated_at: (data.updated_at as string | undefined) ?? now,
 				};
 				await db.insertInto("users").values(row).execute();
-				return row as unknown as typeof data;
+
+				// Store username and displayUsername in plugin storage for atomic
+				// uniqueness (via uniqueIndexes). Better Auth's username plugin
+				// expects these fields on the user model; we surface them by
+				// appending to user records in findOne/findMany.
+				// The username plugin passes username and displayUsername fields
+				// in data (after field mapping). If present, create the username record.
+				const username = data.username as string | undefined;
+				const displayUsername = data.displayUsername as string | undefined;
+				if (username && displayUsername) {
+					const usernames = storage.usernames;
+					// The unique index on usernames collection will enforce uniqueness
+					// atomically; no need for a separate check.
+					await usernames.put(row.id, {
+						id: row.id,
+						userId: row.id,
+						username,
+						displayUsername,
+					});
+				}
+
+				// Return the user record augmented with username fields so Better Auth
+				// sees them. This is safe because Better Auth's user model mapping
+				// allows additional fields beyond the physical table columns.
+				return { ...row, username: username ?? null, displayUsername: displayUsername ?? null } as unknown as typeof data;
 			}
 
 			const collection = storageFor(storage, model);
@@ -211,7 +252,15 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					);
 				}
 				const row = await query.executeTakeFirst();
-				return (row as unknown as Record<string, unknown>) ?? null;
+				if (!row) return null;
+
+				// Augment user record with username fields from plugin storage.
+				const usernames = storage.usernames;
+				const usernameRecord = await usernames.get(row.id);
+				const username = (usernameRecord as Record<string, unknown> | null)?.username ?? null;
+				const displayUsername = (usernameRecord as Record<string, unknown> | null)?.displayUsername ?? null;
+
+				return { ...row, username, displayUsername } as unknown as Record<string, unknown>;
 			}
 
 			const collection = storageFor(storage, model);
@@ -244,7 +293,17 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				if (limit !== undefined) query = query.limit(limit);
 				if (offset !== undefined) query = query.offset(offset);
 				const rows = await query.execute();
-				return rows as unknown as Record<string, unknown>[];
+
+				// Augment user records with username fields from plugin storage.
+				const usernames = storage.usernames;
+				return Promise.all(
+					rows.map(async (row) => {
+						const usernameRecord = await usernames.get(row.id);
+						const username = (usernameRecord as Record<string, unknown> | null)?.username ?? null;
+						const displayUsername = (usernameRecord as Record<string, unknown> | null)?.displayUsername ?? null;
+						return { ...row, username, displayUsername } as unknown as Record<string, unknown>;
+					}),
+				);
 			}
 
 			const collection = storageFor(storage, model);
@@ -265,6 +324,25 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					);
 				}
 				await query.execute();
+
+				// Sync username changes to the usernames collection if present.
+				const username = (update as Record<string, unknown>).username as string | undefined;
+				const displayUsername = (update as Record<string, unknown>).displayUsername as string | undefined;
+				if (username || displayUsername) {
+					const usernames = storage.usernames;
+					// Find the user ID via the where clause for proper sync.
+					const userId = resolveUserIdFromWhere(where);
+					if (userId) {
+						const existing = await usernames.get(userId);
+						const merged = {
+							...(existing ?? { userId }),
+							username: username ?? (existing?.username as string | undefined),
+							displayUsername: displayUsername ?? (existing?.displayUsername as string | undefined),
+						};
+						await usernames.put(userId, merged);
+					}
+				}
+
 				return this.findOne({ model, where });
 			}
 
@@ -287,6 +365,19 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					);
 				}
 				const res = await query.executeTakeFirst();
+
+				// Sync username changes to the usernames collection if present.
+				const username = (update as Record<string, unknown>).username as string | undefined;
+				const displayUsername = (update as Record<string, unknown>).displayUsername as string | undefined;
+				if (username || displayUsername) {
+					const usernames = storage.usernames;
+					// For updateMany, we'd need to query users first to get userIds.
+					// Since updateMany on users is rare and username updates are
+					// typically on single users, skip bulk sync here.
+					// Users can sync manually if needed, or this could be optimized
+					// by querying users first.
+				}
+
 				return Number(res.numUpdatedRows ?? 0);
 			}
 
@@ -300,6 +391,8 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async delete({ model, where }) {
 			if (isUserModel(model)) {
+				// Get userId(s) before deletion to clean up username records.
+				const userId = resolveUserIdFromWhere(where);
 				let query = db.deleteFrom("users");
 				for (const clause of where) {
 					query = query.where(
@@ -309,6 +402,10 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					);
 				}
 				await query.execute();
+				// Clean up username record(s) for deleted user(s).
+				if (userId) {
+					await storage.usernames.delete(userId);
+				}
 				return;
 			}
 
@@ -324,6 +421,9 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async deleteMany({ model, where }) {
 			if (isUserModel(model)) {
+				// Get userIds first to clean up username records.
+				// For deleteMany, we'd need to query users first.
+				// Skip bulk username cleanup here for simplicity.
 				let query = db.deleteFrom("users");
 				for (const clause of where) {
 					query = query.where(

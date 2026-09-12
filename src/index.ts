@@ -62,6 +62,7 @@ export const PACKAGE_NAME = "emdash-better-auth";
  *                    provider+accountId (credential lookup on sign-in).
  *   - sessions:      by userId (revoke all) and token (session lookup).
  *   - verifications: by identifier (email verification / reset lookups).
+ *   - usernames:     by username (unique, for sign-in lookup) and userId (list user's profile).
  */
 export const BETTER_AUTH_STORAGE_CONFIG = {
 	accounts: {
@@ -72,6 +73,10 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	},
 	verifications: {
 		indexes: ["identifier", "expiresAt"] as const,
+	},
+	usernames: {
+		indexes: ["username", "userId"] as const,
+		uniqueIndexes: ["username"] as const,
 	},
 } satisfies PluginStorageConfig;
 

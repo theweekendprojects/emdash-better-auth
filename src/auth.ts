@@ -6,7 +6,7 @@
  * so a Better-Auth account IS an EmDash user.
  */
 
-import { betterAuth } from "better-auth";
+import { betterAuth, username } from "better-auth";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 
@@ -126,6 +126,24 @@ export function createBetterAuth(
 		trustedOrigins: options.trustedOrigins,
 		// Our adapter routes user -> users table, others -> plugin storage.
 		database: emdashAdapter(db as unknown as Kysely<{ users: never }>, storage),
+		signUp: {
+			// Username is always required - no toggle needed.
+			// A mix of users with and without usernames would create a messy,
+			// inconsistent experience for bylines, comments, and public identity.
+			validate: ({ data }) => {
+				if (!data.username || data.username.trim().length === 0) {
+					return {
+						error: "Username is required",
+					};
+				}
+				if (!data.displayUsername || data.displayUsername.trim().length === 0) {
+					return {
+						error: "Display name is required",
+					};
+				}
+				return {};
+			},
+		},
 		emailAndPassword: {
 			enabled: true,
 			// Mandatory email verification: an unverified user cannot sign in.
@@ -218,6 +236,9 @@ export function createBetterAuth(
 		account: { modelName: "account" },
 		session: { modelName: "session" },
 		verification: { modelName: "verification" },
+		// username uses the dedicated storage collection, same as above.
+		username: { modelName: "username" },
+		plugins: [username()],
 		advanced: {
 			// D1 has no native joins config need; keep defaults. Ensure we don't
 			// try to use database-generated ids (our adapter makes ULIDs).
