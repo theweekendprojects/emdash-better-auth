@@ -1,6 +1,6 @@
 {
   "name": "emdash-better-auth",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Email/password + social (Google, GitHub) authentication for EmDash CMS, powered by Better Auth with prebuilt Better Auth UI sign-in/sign-up pages, mandatory email verification, and an admin settings page.",
   "type": "module",
   "license": "MIT",

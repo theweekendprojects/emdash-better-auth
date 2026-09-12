@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-12
+
 ### Added
 
 - **Username support via Better Auth username plugin.** Users register with a
@@ -104,5 +106,6 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/theweekendprojects/emdash-better-auth/releases/tag/v0.1.0
