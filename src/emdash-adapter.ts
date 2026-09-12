@@ -1,8 +1,8 @@
 /**
  * Custom Better-Auth database adapter for EmDash.
  *
- * Routes Better-Auth's four models to two different backing stores so the
- * plugin is portable across any EmDash site without hand-written migrations:
+ * Routes Better-Auth's models to two different backing stores so the plugin is
+ * portable across any EmDash site without hand-written migrations:
  *
  *   - `user`    -> EmDash's own `users` table (real Kysely SQL). This makes
  *                  Better-Auth accounts first-class EmDash users, visible in
@@ -11,6 +11,7 @@
  *                  OAuth tokens). Keyed by Better-Auth's generated id.
  *   - `session` -> plugin storage collection `sessions`.
  *   - `verification` -> plugin storage collection `verifications`.
+ *   - `username` -> plugin storage collection `usernames` (see USERNAME below).
  *
  * The storage-backed models use EmDash's `getAuthProviderStorage()` API, which
  * persists to the shared `_plugin_storage` table under the `auth:better-auth`
@@ -22,6 +23,42 @@
  * false` in the factory config (D1/SQLite has no native boolean/date/json).
  * That means every value we receive here is already a primitive safe to store
  * in SQLite, and every `where.field` is already the physical column/key name.
+ *
+ * USERNAME (the Better-Auth `username` plugin):
+ * The plugin adds `username` (used for login/lookup) and `displayUsername`
+ * (human-cased, display only) to the *user* model. EmDash's `users` table has
+ * NO such columns and this package ships no migrations, so we store both in a
+ * dedicated `usernames` plugin-storage collection keyed by userId.
+ *
+ * UNIQUENESS — IMPORTANT: we declare `uniqueIndexes: ["username"]` (index.ts),
+ * but EmDash 0.30's storage layer folds `uniqueIndexes` into the regular index
+ * list (verified: `createStorageAccess` does `[...indexes, ...uniqueIndexes]`)
+ * — it makes `username` INDEXED/queryable but does NOT enforce a DB uniqueness
+ * constraint. So handle uniqueness is enforced at the APPLICATION level, in two
+ * places: Better-Auth's username plugin (its own availability check) and our
+ * `syncUsername` (rejects a handle already owned by another user). Both are
+ * check-then-write, so a tiny TOCTOU race exists under truly concurrent
+ * same-handle signups; for a blog/community that window is negligible and
+ * D1 per-isolate serialization narrows it further. If EmDash later enforces
+ * `uniqueIndexes` as a real constraint, this becomes atomic for free. (Do not
+ * claim atomic uniqueness until then.)
+ *
+ * The username plugin normalizes `username` (default: lowercase) via an input
+ * transform BEFORE the adapter is called, so every `username` value we receive
+ * here (in `data` or in a where-clause) is already normalized; we store and
+ * match it verbatim, keeping both sides consistent for free.
+ *
+ * Because `username`/`displayUsername` are not real `users` columns, the user
+ * model needs two extra behaviours the plain SQL path can't provide:
+ *   1. READ AUGMENT  — after loading a user row, attach `username`/
+ *      `displayUsername` from the `usernames` collection so Better-Auth sees
+ *      the fields it expects on the user object.
+ *   2. REVERSE LOOKUP — when Better-Auth queries the user model *by* username
+ *      (the availability check and username sign-in both do
+ *      `findOne({ model: "user", where: [{ field: "username", value }] })`),
+ *      resolve that username -> userId via the `usernames` collection first,
+ *      then run the SQL query by `id`. Without this, username sign-in and
+ *      duplicate detection are broken.
  */
 
 import { createAdapterFactory } from "better-auth/adapters";
@@ -48,23 +85,27 @@ interface UsersTable {
 	updated_at: string;
 }
 
-/**
- * Resolve userId from a where clause. For username updates, we need to find
- * the user ID to sync the usernames collection. We support:
- * - id = <userId> (direct lookup)
- */
-function resolveUserIdFromWhere(where: CleanedWhere[]): string | null {
-	for (const clause of where) {
-		if (clause.field === "id" && clause.operator === "eq") {
-			return clause.value as string;
-		}
-	}
-	return null;
-}
-
 interface UsersDB {
 	users: UsersTable;
 }
+
+/** Physical columns of the `users` table — used to tell real column
+ * where-clauses apart from the virtual `username`/`displayUsername` fields. */
+const USER_COLUMNS = new Set<string>([
+	"id",
+	"email",
+	"name",
+	"avatar_url",
+	"role",
+	"email_verified",
+	"disabled",
+	"data",
+	"created_at",
+	"updated_at",
+]);
+
+/** Virtual (non-column) user fields backed by the `usernames` collection. */
+const USERNAME_FIELDS = new Set<string>(["username", "displayUsername"]);
 
 /**
  * Storage collections the plugin declares (see index.ts `storage`).
@@ -77,10 +118,18 @@ export interface BetterAuthStorage {
 	usernames: StorageCollection<Record<string, unknown>>;
 }
 
+/** Shape of a stored username record (keyed by userId in the collection). */
+interface UsernameRecord {
+	id: string;
+	userId: string;
+	username: string;
+	displayUsername: string | null;
+}
+
 /**
  * Model routing. Better-Auth calls the custom adapter with the *mapped* model
  * name (the `modelName` configured in auth.ts), so the user model arrives as
- * "users" (EmDash's table). The other three keep Better-Auth's default names.
+ * "users" (EmDash's table). The others keep Better-Auth's default names.
  */
 const USER_MODEL = "users";
 
@@ -104,6 +153,195 @@ function storageFor(
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
+}
+
+/** Resolve a direct `id = eq` userId from a where clause, if present. */
+function directUserId(where: CleanedWhere[]): string | null {
+	for (const clause of where) {
+		if (clause.field === "id" && clause.operator === "eq") {
+			return clause.value as string;
+		}
+	}
+	return null;
+}
+
+/**
+ * Read one username record by userId. Returns null when the user has no
+ * username claimed (never throws on a missing key).
+ */
+async function getUsernameRecord(
+	storage: BetterAuthStorage,
+	userId: string,
+): Promise<UsernameRecord | null> {
+	const rec = (await storage.usernames.get(userId)) as UsernameRecord | null;
+	return rec ?? null;
+}
+
+/**
+ * Find the userId that currently owns a (normalized) username, via the
+ * `usernames` collection's unique `username` index. Returns null if unclaimed.
+ * Uses the collection query (indexed) rather than a scan; falls back to an
+ * in-memory match if the storage layer ignores the where filter.
+ */
+async function userIdForUsername(
+	storage: BetterAuthStorage,
+	username: string,
+): Promise<string | null> {
+	// Bounded scan with in-memory match — the usernames working set is one row
+	// per user and storage queries are paginated; this is correct regardless of
+	// whether the backend honors the where filter, and it's only hit on the
+	// (rare) by-username path (sign-in / availability check), not on every read.
+	let cursor: string | undefined;
+	do {
+		const page = await storage.usernames.query({ limit: 1000, cursor });
+		for (const item of page.items) {
+			if ((item.data as UsernameRecord).username === username) {
+				return (item.data as UsernameRecord).userId ?? item.id;
+			}
+		}
+		cursor = page.hasMore ? page.cursor : undefined;
+	} while (cursor);
+	return null;
+}
+
+/**
+ * Given a user-model where clause, resolve it to a set of SQL-safe clauses
+ * (only real `users` columns) plus a decision about whether the clause is
+ * satisfiable at all.
+ *
+ * If the clause references a virtual username field (`username` /
+ * `displayUsername`), we translate it to an `id = <userId>` clause by looking
+ * the value up in the `usernames` collection first. Better-Auth only ever
+ * emits a single `{ field: "username", value }` clause for the by-username
+ * path, so we handle the common shapes and treat anything exotic as unmatched.
+ *
+ * Returns:
+ *   - `{ clauses }`      — SQL-safe where clauses to run against `users`.
+ *   - `{ unmatchable }`  — the query can't match any row (e.g. username not
+ *                          claimed, or an unsupported operator on a virtual
+ *                          field). Callers should short-circuit to empty.
+ */
+async function resolveUserWhere(
+	storage: BetterAuthStorage,
+	where: CleanedWhere[],
+): Promise<{ clauses: CleanedWhere[] } | { unmatchable: true }> {
+	const clauses: CleanedWhere[] = [];
+	for (const clause of where) {
+		if (!USERNAME_FIELDS.has(clause.field)) {
+			// Real column — pass through (guard against unexpected virtual keys).
+			if (!USER_COLUMNS.has(clause.field)) {
+				// Unknown field that isn't a username field: cannot satisfy in SQL.
+				return { unmatchable: true };
+			}
+			clauses.push(clause);
+			continue;
+		}
+
+		// Virtual username field. Only `username` is queryable/unique; a lookup
+		// by `displayUsername` isn't something Better-Auth does, but handle it
+		// defensively by scanning for a matching display value.
+		if (clause.operator !== "eq" || typeof clause.value !== "string") {
+			return { unmatchable: true };
+		}
+
+		let userId: string | null = null;
+		if (clause.field === "username") {
+			userId = await userIdForUsername(storage, clause.value);
+		} else {
+			// displayUsername — scan for a matching display value (rare).
+			let cursor: string | undefined;
+			do {
+				const page = await storage.usernames.query({ limit: 1000, cursor });
+				for (const item of page.items) {
+					if ((item.data as UsernameRecord).displayUsername === clause.value) {
+						userId = (item.data as UsernameRecord).userId ?? item.id;
+						break;
+					}
+				}
+				cursor = !userId && page.hasMore ? page.cursor : undefined;
+			} while (cursor);
+		}
+
+		if (!userId) return { unmatchable: true };
+		clauses.push({ field: "id", operator: "eq", value: userId, connector: "AND" });
+	}
+	return { clauses };
+}
+
+/**
+ * Persist / update a user's username record, enforcing uniqueness and freeing
+ * a previously-claimed handle on rename.
+ *
+ * - Uniqueness: enforced at the APPLICATION level here (EmDash's storage does
+ *   not enforce `uniqueIndexes` as a constraint — see the file header). We look
+ *   up the current owner of the handle and throw if it belongs to another user.
+ *   This is check-then-write, so it has a small race window under concurrent
+ *   same-handle signups; acceptable for the blog/community use case.
+ * - Rename: `put(userId, ...)` overwrites the user's own record in place, so an
+ *   old handle is freed automatically (the record is keyed by userId, and the
+ *   unique index tracks the current `username` value on that record).
+ * - Partial updates: when only `displayUsername` changes, the existing
+ *   `username` is preserved (and vice-versa).
+ */
+async function syncUsername(
+	storage: BetterAuthStorage,
+	userId: string,
+	next: { username?: string | null; displayUsername?: string | null },
+): Promise<void> {
+	const existing = await getUsernameRecord(storage, userId);
+
+	const username =
+		next.username !== undefined
+			? next.username
+			: (existing?.username ?? undefined);
+	const displayUsername =
+		next.displayUsername !== undefined
+			? next.displayUsername
+			: (existing?.displayUsername ?? null);
+
+	// Nothing to store (no username on this account) — clean up any stale record.
+	if (!username) {
+		if (existing) await storage.usernames.delete(userId);
+		return;
+	}
+
+	// Reject a handle already owned by a different user.
+	const owner = await userIdForUsername(storage, username);
+	if (owner && owner !== userId) {
+		throw new Error(`[better-auth] username "${username}" is already taken`);
+	}
+
+	await storage.usernames.put(userId, {
+		id: userId,
+		userId,
+		username,
+		displayUsername: displayUsername ?? null,
+	} satisfies UsernameRecord);
+}
+
+/** Extract username/displayUsername from a create/update payload (or {}). */
+function pickUsernameFields(data: Record<string, unknown>): {
+	username?: string | null;
+	displayUsername?: string | null;
+} {
+	const out: { username?: string | null; displayUsername?: string | null } = {};
+	if ("username" in data) out.username = (data.username as string | null) ?? null;
+	if ("displayUsername" in data) {
+		out.displayUsername = (data.displayUsername as string | null) ?? null;
+	}
+	return out;
+}
+
+/** Attach username/displayUsername to a user row for return to Better-Auth. */
+function withUsername(
+	row: Record<string, unknown>,
+	rec: UsernameRecord | null,
+): Record<string, unknown> {
+	return {
+		...row,
+		username: rec?.username ?? null,
+		displayUsername: rec?.displayUsername ?? null,
+	};
 }
 
 /**
@@ -187,6 +425,29 @@ async function queryStorage(
  * @param storage Plugin storage collections from `getAuthProviderStorage`.
  */
 export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
+	/** Build a where-filtered `users` query base from SQL-safe column clauses.
+	 * Call `.selectAll()` / `.select("id")` at the use site. */
+	function userWhere(clauses: CleanedWhere[]) {
+		let query = db.selectFrom("users");
+		for (const clause of clauses) {
+			query = query.where(
+				clause.field as keyof UsersTable & string,
+				"=",
+				clause.value as never,
+			);
+		}
+		return query;
+	}
+
+	/** Resolve all userIds matched by a user-model where clause (for bulk
+	 * username sync/cleanup). Resolves virtual username fields first. */
+	async function matchedUserIds(where: CleanedWhere[]): Promise<string[]> {
+		const resolved = await resolveUserWhere(storage, where);
+		if ("unmatchable" in resolved) return [];
+		const rows = await userWhere(resolved.clauses).select("id").execute();
+		return rows.map((r) => r.id);
+	}
+
 	const createCustomAdapter = (): CustomAdapter => ({
 		async create({ model, data }) {
 			if (isUserModel(model)) {
@@ -206,32 +467,25 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					created_at: (data.created_at as string | undefined) ?? now,
 					updated_at: (data.updated_at as string | undefined) ?? now,
 				};
-				await db.insertInto("users").values(row).execute();
 
-				// Store username and displayUsername in plugin storage for atomic
-				// uniqueness (via uniqueIndexes). Better Auth's username plugin
-				// expects these fields on the user model; we surface them by
-				// appending to user records in findOne/findMany.
-				// The username plugin passes username and displayUsername fields
-				// in data (after field mapping). If present, create the username record.
-				const username = data.username as string | undefined;
-				const displayUsername = data.displayUsername as string | undefined;
-				if (username && displayUsername) {
-					const usernames = storage.usernames;
-					// The unique index on usernames collection will enforce uniqueness
-					// atomically; no need for a separate check.
-					await usernames.put(row.id, {
-						id: row.id,
-						userId: row.id,
-						username,
-						displayUsername,
-					});
+				// Claim the username FIRST so a duplicate handle fails before we
+				// create the user row (avoids an orphaned user with no handle).
+				const uf = pickUsernameFields(data);
+				if (uf.username) {
+					await syncUsername(storage, row.id, uf);
 				}
 
-				// Return the user record augmented with username fields so Better Auth
-				// sees them. This is safe because Better Auth's user model mapping
-				// allows additional fields beyond the physical table columns.
-				return { ...row, username: username ?? null, displayUsername: displayUsername ?? null } as unknown as typeof data;
+				try {
+					await db.insertInto("users").values(row).execute();
+				} catch (err) {
+					// User insert failed after we claimed the handle — release it so
+					// the handle isn't orphaned by a failed signup.
+					if (uf.username) await storage.usernames.delete(row.id).catch(() => {});
+					throw err;
+				}
+
+				const rec = await getUsernameRecord(storage, row.id);
+				return withUsername(row as unknown as Record<string, unknown>, rec) as unknown as typeof data;
 			}
 
 			const collection = storageFor(storage, model);
@@ -243,24 +497,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async findOne({ model, where }) {
 			if (isUserModel(model)) {
-				let query = db.selectFrom("users").selectAll();
-				for (const clause of where) {
-					query = query.where(
-						clause.field as keyof UsersTable & string,
-						"=",
-						clause.value as never,
-					);
-				}
-				const row = await query.executeTakeFirst();
+				const resolved = await resolveUserWhere(storage, where);
+				if ("unmatchable" in resolved) return null;
+				const row = await userWhere(resolved.clauses).selectAll().executeTakeFirst();
 				if (!row) return null;
-
-				// Augment user record with username fields from plugin storage.
-				const usernames = storage.usernames;
-				const usernameRecord = await usernames.get(row.id);
-				const username = (usernameRecord as Record<string, unknown> | null)?.username ?? null;
-				const displayUsername = (usernameRecord as Record<string, unknown> | null)?.displayUsername ?? null;
-
-				return { ...row, username, displayUsername } as unknown as Record<string, unknown>;
+				const rec = await getUsernameRecord(storage, (row as UsersTable).id);
+				return withUsername(row as unknown as Record<string, unknown>, rec) as unknown as Record<string, unknown>;
 			}
 
 			const collection = storageFor(storage, model);
@@ -276,14 +518,9 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async findMany({ model, where, limit, sortBy, offset }) {
 			if (isUserModel(model)) {
-				let query = db.selectFrom("users").selectAll();
-				for (const clause of where ?? []) {
-					query = query.where(
-						clause.field as keyof UsersTable & string,
-						"=",
-						clause.value as never,
-					);
-				}
+				const resolved = await resolveUserWhere(storage, where ?? []);
+				if ("unmatchable" in resolved) return [];
+				let query = userWhere(resolved.clauses).selectAll();
 				if (sortBy) {
 					query = query.orderBy(
 						sortBy.field as keyof UsersTable & string,
@@ -295,13 +532,13 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const rows = await query.execute();
 
 				// Augment user records with username fields from plugin storage.
-				const usernames = storage.usernames;
 				return Promise.all(
 					rows.map(async (row) => {
-						const usernameRecord = await usernames.get(row.id);
-						const username = (usernameRecord as Record<string, unknown> | null)?.username ?? null;
-						const displayUsername = (usernameRecord as Record<string, unknown> | null)?.displayUsername ?? null;
-						return { ...row, username, displayUsername } as unknown as Record<string, unknown>;
+						const rec = await getUsernameRecord(storage, (row as UsersTable).id);
+						return withUsername(
+							row as unknown as Record<string, unknown>,
+							rec,
+						) as unknown as Record<string, unknown>;
 					}),
 				);
 			}
@@ -315,35 +552,42 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async update({ model, where, update }) {
 			if (isUserModel(model)) {
-				let query = db.updateTable("users").set(update as Record<string, never>);
-				for (const clause of where) {
-					query = query.where(
-						clause.field as keyof UsersTable & string,
-						"=",
-						clause.value as never,
-					);
-				}
-				await query.execute();
+				const resolved = await resolveUserWhere(storage, where);
+				if ("unmatchable" in resolved) return null;
 
-				// Sync username changes to the usernames collection if present.
-				const username = (update as Record<string, unknown>).username as string | undefined;
-				const displayUsername = (update as Record<string, unknown>).displayUsername as string | undefined;
-				if (username || displayUsername) {
-					const usernames = storage.usernames;
-					// Find the user ID via the where clause for proper sync.
-					const userId = resolveUserIdFromWhere(where);
-					if (userId) {
-						const existing = await usernames.get(userId);
-						const merged = {
-							...(existing ?? { userId }),
-							username: username ?? (existing?.username as string | undefined),
-							displayUsername: displayUsername ?? (existing?.displayUsername as string | undefined),
-						};
-						await usernames.put(userId, merged);
+				// Separate username fields from real column updates.
+				const upd = update as Record<string, unknown>;
+				const uf = pickUsernameFields(upd);
+				const columnUpdate: Record<string, unknown> = {};
+				for (const [k, v] of Object.entries(upd)) {
+					if (!USERNAME_FIELDS.has(k)) columnUpdate[k] = v;
+				}
+
+				// Resolve the target user id (username updates need it for sync).
+				const targetId =
+					directUserId(resolved.clauses) ??
+					(await userWhere(resolved.clauses).select("id").executeTakeFirst())?.id ??
+					null;
+
+				// Sync username first so a taken-handle rejection aborts before the
+				// column write (keeps the record and the row consistent).
+				if ((uf.username !== undefined || uf.displayUsername !== undefined) && targetId) {
+					await syncUsername(storage, targetId, uf);
+				}
+
+				if (Object.keys(columnUpdate).length > 0) {
+					let query = db.updateTable("users").set(columnUpdate as Record<string, never>);
+					for (const clause of resolved.clauses) {
+						query = query.where(
+							clause.field as keyof UsersTable & string,
+							"=",
+							clause.value as never,
+						);
 					}
+					await query.execute();
 				}
 
-				return this.findOne({ model, where });
+				return this.findOne({ model, where: resolved.clauses });
 			}
 
 			const collection = storageFor(storage, model);
@@ -356,29 +600,43 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async updateMany({ model, where, update }) {
 			if (isUserModel(model)) {
-				let query = db.updateTable("users").set(update as Record<string, never>);
-				for (const clause of where) {
-					query = query.where(
-						clause.field as keyof UsersTable & string,
-						"=",
-						clause.value as never,
-					);
-				}
-				const res = await query.executeTakeFirst();
+				const resolved = await resolveUserWhere(storage, where);
+				if ("unmatchable" in resolved) return 0;
 
-				// Sync username changes to the usernames collection if present.
-				const username = (update as Record<string, unknown>).username as string | undefined;
-				const displayUsername = (update as Record<string, unknown>).displayUsername as string | undefined;
-				if (username || displayUsername) {
-					const usernames = storage.usernames;
-					// For updateMany, we'd need to query users first to get userIds.
-					// Since updateMany on users is rare and username updates are
-					// typically on single users, skip bulk sync here.
-					// Users can sync manually if needed, or this could be optimized
-					// by querying users first.
+				const upd = update as Record<string, unknown>;
+				const uf = pickUsernameFields(upd);
+				const columnUpdate: Record<string, unknown> = {};
+				for (const [k, v] of Object.entries(upd)) {
+					if (!USERNAME_FIELDS.has(k)) columnUpdate[k] = v;
 				}
 
-				return Number(res.numUpdatedRows ?? 0);
+				// Sync username for every matched user. A bulk username set to the
+				// same value across multiple users would violate uniqueness — the
+				// second syncUsername throws, which is the correct behaviour.
+				if (uf.username !== undefined || uf.displayUsername !== undefined) {
+					const ids = await matchedUserIds(where);
+					for (const id of ids) {
+						await syncUsername(storage, id, uf);
+					}
+				}
+
+				let updated = 0;
+				if (Object.keys(columnUpdate).length > 0) {
+					let query = db.updateTable("users").set(columnUpdate as Record<string, never>);
+					for (const clause of resolved.clauses) {
+						query = query.where(
+							clause.field as keyof UsersTable & string,
+							"=",
+							clause.value as never,
+						);
+					}
+					const res = await query.executeTakeFirst();
+					updated = Number(res.numUpdatedRows ?? 0);
+				} else {
+					// username-only bulk update: report the count we synced.
+					updated = (await matchedUserIds(where)).length;
+				}
+				return updated;
 			}
 
 			const collection = storageFor(storage, model);
@@ -391,10 +649,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async delete({ model, where }) {
 			if (isUserModel(model)) {
-				// Get userId(s) before deletion to clean up username records.
-				const userId = resolveUserIdFromWhere(where);
+				const resolved = await resolveUserWhere(storage, where);
+				if ("unmatchable" in resolved) return;
+				// Resolve affected ids up front so we can free their handles.
+				const ids = await matchedUserIds(where);
 				let query = db.deleteFrom("users");
-				for (const clause of where) {
+				for (const clause of resolved.clauses) {
 					query = query.where(
 						clause.field as keyof UsersTable & string,
 						"=",
@@ -402,9 +662,9 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					);
 				}
 				await query.execute();
-				// Clean up username record(s) for deleted user(s).
-				if (userId) {
-					await storage.usernames.delete(userId);
+				// Free every deleted user's username so the handle can be reclaimed.
+				for (const id of ids) {
+					await storage.usernames.delete(id).catch(() => {});
 				}
 				return;
 			}
@@ -421,11 +681,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async deleteMany({ model, where }) {
 			if (isUserModel(model)) {
-				// Get userIds first to clean up username records.
-				// For deleteMany, we'd need to query users first.
-				// Skip bulk username cleanup here for simplicity.
+				const resolved = await resolveUserWhere(storage, where);
+				if ("unmatchable" in resolved) return 0;
+				// Free handles for all matched users before deleting the rows.
+				const ids = await matchedUserIds(where);
 				let query = db.deleteFrom("users");
-				for (const clause of where) {
+				for (const clause of resolved.clauses) {
 					query = query.where(
 						clause.field as keyof UsersTable & string,
 						"=",
@@ -433,7 +694,10 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					);
 				}
 				const res = await query.executeTakeFirst();
-				return Number(res.numDeletedRows ?? 0);
+				for (const id of ids) {
+					await storage.usernames.delete(id).catch(() => {});
+				}
+				return Number(res.numDeletedRows ?? ids.length);
 			}
 
 			const collection = storageFor(storage, model);
@@ -443,10 +707,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 		async count({ model, where }) {
 			if (isUserModel(model)) {
+				const resolved = await resolveUserWhere(storage, where ?? []);
+				if ("unmatchable" in resolved) return 0;
 				let query = db
 					.selectFrom("users")
 					.select((eb) => eb.fn.countAll<number>().as("count"));
-				for (const clause of where ?? []) {
+				for (const clause of resolved.clauses) {
 					query = query.where(
 						clause.field as keyof UsersTable & string,
 						"=",

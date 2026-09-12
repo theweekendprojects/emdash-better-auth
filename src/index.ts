@@ -74,6 +74,11 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	verifications: {
 		indexes: ["identifier", "expiresAt"] as const,
 	},
+	// NOTE: EmDash 0.30 treats `uniqueIndexes` as regular indexes (no DB-level
+	// uniqueness constraint); it makes `username` queryable. Handle uniqueness
+	// is enforced in the adapter at the application level. We keep the
+	// `uniqueIndexes` declaration so the intent is recorded and uniqueness
+	// becomes atomic automatically if EmDash starts enforcing it.
 	usernames: {
 		indexes: ["username", "userId"] as const,
 		uniqueIndexes: ["username"] as const,
