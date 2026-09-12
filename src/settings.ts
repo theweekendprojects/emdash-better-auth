@@ -207,12 +207,6 @@ export interface AuthEnvFallback {
 /** Placeholder secret value from the template — treated as "not set". */
 const PLACEHOLDER_SECRET = "PASTE_YOUR_CLIENT_SECRET_HERE";
 
-function trimOrUndefined(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
-}
-
 /**
  * Coerce a stored/env setting into a boolean, tolerating the string values
  * EmDash's form persistence may produce ("true"/"false"/"1"/"0").
@@ -226,6 +220,12 @@ function coerceBool(value: unknown, fallback: boolean): boolean {
 	}
 	if (typeof value === "number") return value !== 0;
 	return fallback;
+}
+
+function trimOrUndefined(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
 }
 
 /**

@@ -7,6 +7,7 @@
  */
 
 import { betterAuth } from "better-auth";
+import { username } from "better-auth/plugins";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 
@@ -126,6 +127,27 @@ export function createBetterAuth(
 		trustedOrigins: options.trustedOrigins,
 		// Our adapter routes user -> users table, others -> plugin storage.
 		database: emdashAdapter(db as unknown as Kysely<{ users: never }>, storage),
+		// Username is always required (no toggle): a mix of users with and
+		// without a handle would make bylines/comments/public identity
+		// inconsistent. The Better Auth `username` plugin makes the field
+		// OPTIONAL (schema `required: false`) and only validates a username when
+		// one is supplied, so we enforce presence ourselves in a create hook
+		// that runs before the user row is written. `displayUsername` is NOT
+		// required — the plugin derives it from `username` when omitted.
+		databaseHooks: {
+			user: {
+				create: {
+					before: async (user: Record<string, unknown>) => {
+						const username =
+							typeof user.username === "string" ? user.username.trim() : "";
+						if (!username) {
+							throw new Error("Username is required");
+						}
+						return { data: user };
+					},
+				},
+			},
+		},
 		emailAndPassword: {
 			enabled: true,
 			// Mandatory email verification: an unverified user cannot sign in.
@@ -218,6 +240,12 @@ export function createBetterAuth(
 		account: { modelName: "account" },
 		session: { modelName: "session" },
 		verification: { modelName: "verification" },
+		// The `username` plugin adds `username`/`displayUsername` to the USER
+		// model (there is no separate "username" model). EmDash's users table
+		// has no such columns, so our adapter persists them in the `usernames`
+		// plugin-storage collection (unique index on `username`) and augments
+		// user reads with them. See emdash-adapter.ts.
+		plugins: [username()],
 		advanced: {
 			// D1 has no native joins config need; keep defaults. Ensure we don't
 			// try to use database-generated ids (our adapter makes ULIDs).

@@ -37,6 +37,7 @@ It registers as an EmDash `AuthProviderDescriptor`, so it plugs in with a single
 | ✉️ **Mandatory email verification** | Blocks bot signups; re-sends the link on blocked login and auto-signs-in on click. |
 | 🔑 **Social login** | Google & GitHub out of the box, per-provider, data-driven and easy to extend. |
 | ⚙️ **Admin settings page** | Configure verification, canonical URL, and OAuth credentials from the admin UI — no redeploy. |
+| 🔔 **Username support** | Sign in with username, public identity without exposing email. Always required. |
 
 ## 📸 Screenshots
 
@@ -96,6 +97,7 @@ Social logins (Google, GitHub) and everything else are optional; details below.
 - **Portable storage.** Better Auth's session/account/verification state lives in EmDash's shared plugin storage (`getAuthProviderStorage`), namespaced `auth:better-auth` — no custom tables, no migration files.
 - **Social sign-in (Google, GitHub).** Enabled per-provider when credentials are configured (env vars or the admin UI). Data-driven and easy to extend to more providers — see [Enabling social sign-in](#enabling-social-sign-in).
 - **Optional admin settings UI.** An opt-in companion plugin (`betterAuthSettingsPlugin()`) adds a Better Auth settings page to the EmDash admin sidebar — verification toggles, canonical URL, the Better Auth secret, and per-provider social credentials — read at request time with env-var fallback. See [Admin settings](#admin-settings-optional).
+- **Username sign-in.** Users must register with a username (unique handle) and can sign in with it instead of email. The username is public; the email is kept private. See [Username support](#username-support).
 
 ## Requirements
 
@@ -350,6 +352,29 @@ the settings can't be read.
 > stops sending new users to the verify page. The server remains authoritative
 > either way; this only affects the redirect.
 
+### Username support
+
+Better Auth's [username plugin](https://better-auth.com/docs/plugins/username) adds a unique handle for public identity without exposing the email address. The plugin implements this via **plugin storage only** — no EmDash core changes or migrations needed.
+
+| Feature | Details |
+| --- | --- |
+| **Username sign-in** | Users sign in with `username` instead of email (`authClient.signIn.username({ username, password })`). |
+| **Unique index** | Username uniqueness is enforced atomically by the storage layer (`uniqueIndexes: ["username"]`), no check-then-write race. |
+| **Email private** | A verified email is still required for account recovery, but never shown publicly. |
+| **Always required** | Username is mandatory for all new sign-ups; no admin toggle needed. |
+| **Display name** | `displayUsername` is stored alongside (the user-typed form, normalized for storage). |
+
+**How it works:**
+- Username records are stored in EmDash's `_plugin_storage` table under `auth:better-auth:usernames`.
+- The EmDash adapter automatically creates/syncs/cleans up username records on user create/update/delete.
+- Better Auth UI renders the username field automatically when the username plugin is enabled.
+
+**No core migration needed.** EmDash's `users` table has no `username` column — the plugin stores usernames in its own storage collection with a unique index. This matches Better Auth's recommendation for databases that don't support native unique constraints on user columns.
+
+> **Why username is always required:** A mix of users with and without usernames would create a messy, inconsistent experience for bylines, comments, and public identity features. Email remains required for account recovery (password reset, etc.), but the username is the public-facing identity.
+
+### Email: password reset & verification
+
 ### Email: password reset & verification
 
 Better Auth doesn't send email itself — it hands the plugin a message + link,
@@ -480,7 +505,7 @@ Built on Better Auth, so the ecosystem is the runway. Planned / under considerat
 
 - **Two-factor authentication** — TOTP authenticator apps + email OTP, with backup codes ([two-factor](https://better-auth.com) / [email-otp](https://better-auth.com) plugins). Targeting **v0.2.0**.
 - **More social providers** — Apple, Discord, Microsoft, GitLab, X (the provider list is data-driven; adding one is a two-line change).
-- **Username login** and **magic-link** sign-in.
+- **Magic-link** sign-in.
 - **Organizations / teams** and **Stripe billing** — larger, exploratory.
 
 Have a request or want to help? Open an issue or PR.

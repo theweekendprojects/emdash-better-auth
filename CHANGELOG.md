@@ -6,6 +6,58 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Username support via Better Auth username plugin.** Users register with a
+  required username and can sign in with it instead of email, giving a public
+  identity that never exposes their email address.
+- **Plugin-storage `usernames` collection.** Username records live in a
+  dedicated plugin storage collection keyed by userId (`username` +
+  `displayUsername`), **no core database columns or migrations required**.
+  EmDash's `users` table is unchanged.
+- **Adapter username handling.** The EmDash adapter now, for the user model:
+  - stores/syncs the username record on create and update (a rename frees the
+    old handle; a failed user insert rolls the claimed handle back);
+  - resolves `username`/`displayUsername` where-clauses back to a user so
+    **sign-in by username and duplicate detection work** (the plugin looks users
+    up by username, which the `users` table has no column for);
+  - augments user reads with `username`/`displayUsername`;
+  - frees the handle on user delete, including bulk `deleteMany`/`updateMany`.
+- **Client-side `usernameClient`** for sign-in by username and availability
+  checks.
+
+### Notes
+
+- **Username is always required** (enforced in a `databaseHooks.user.create`
+  hook); `displayUsername` is optional and derived from `username` when omitted.
+- **Email remains required** for account recovery (never exposed publicly).
+- **Uniqueness is enforced at the application level**, not by the database.
+  EmDash 0.30 treats `uniqueIndexes` as regular (queryable) indexes with no
+  uniqueness constraint, so a duplicate handle is rejected by Better Auth's own
+  availability check and by the adapter's owner check. This is check-then-write,
+  so a small race window exists under truly concurrent same-handle signups —
+  negligible for the blog/community use case, and it becomes atomic
+  automatically if EmDash begins enforcing `uniqueIndexes`.
+- Usernames are normalized (lowercased) by the Better Auth plugin before the
+  adapter, so uniqueness is case-insensitive.
+
+### Fixed (review of the initial username implementation)
+
+- Corrected plugin imports: `username` from `better-auth/plugins` and
+  `usernameClient` from `better-auth/client/plugins` (the previous
+  `better-auth` / `better-auth/react` imports broke the consuming-site build).
+- Replaced a no-op `signUp.validate` (not a real Better Auth option) with a
+  `databaseHooks.user.create.before` hook that actually enforces the required
+  username.
+- Removed a bogus `username: { modelName: "username" }` mapping (the plugin adds
+  fields to the user model; there is no separate `username` model).
+- Implemented the username→user reverse lookup and bulk-delete handle cleanup
+  the initial pass was missing.
+- Username is stored in plugin storage only, no migration needed. EmDash's
+  `users` table columns remain unchanged.
+
+## [0.1.0] - 2026-09-04
+
 ## [0.1.0] - 2026-09-04
 
 Initial release. Email/password + social authentication for EmDash CMS,

@@ -62,6 +62,7 @@ export const PACKAGE_NAME = "emdash-better-auth";
  *                    provider+accountId (credential lookup on sign-in).
  *   - sessions:      by userId (revoke all) and token (session lookup).
  *   - verifications: by identifier (email verification / reset lookups).
+ *   - usernames:     by username (unique, for sign-in lookup) and userId (list user's profile).
  */
 export const BETTER_AUTH_STORAGE_CONFIG = {
 	accounts: {
@@ -72,6 +73,15 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	},
 	verifications: {
 		indexes: ["identifier", "expiresAt"] as const,
+	},
+	// NOTE: EmDash 0.30 treats `uniqueIndexes` as regular indexes (no DB-level
+	// uniqueness constraint); it makes `username` queryable. Handle uniqueness
+	// is enforced in the adapter at the application level. We keep the
+	// `uniqueIndexes` declaration so the intent is recorded and uniqueness
+	// becomes atomic automatically if EmDash starts enforcing it.
+	usernames: {
+		indexes: ["username", "userId"] as const,
+		uniqueIndexes: ["username"] as const,
 	},
 } satisfies PluginStorageConfig;
 
