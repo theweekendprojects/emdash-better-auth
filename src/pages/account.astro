@@ -1,0 +1,78 @@
+---
+/**
+ * Plugin-shipped Better Auth UI (HeroUI) account settings catch-all page.
+ *
+ * Injected at `/account/[...path]` via the plugin's AuthProviderDescriptor.routes.
+ * Serves Better Auth UI's account settings views: `/account` (root redirect to
+ * Settings), `/account/settings` (the main settings page), and sub-routes like
+ * `/account/security` for password/linked-accounts management.
+ *
+ * The header, layout, and theme switcher all live inside the AccountView island
+ * (they need Better Auth UI's provider context); this page is just the document
+ * shell. Self-styled: HeroUI's stylesheet loads only with this island, so the
+ * site's themed content pages are untouched.
+ */
+import { viewPaths } from "@better-auth-ui/core";
+import { getSiteSettings } from "emdash";
+import { configuredSocialProviders } from "../providers.ts";
+import AccountView from "../ui/AccountView.tsx";
+
+const { path } = Astro.params;
+// Better Auth UI's settings view paths default to `account` and `security`
+// (there is NO `settings` segment). The account view is the default landing
+// view, so an empty/root path resolves to `account`.
+const view = path && path !== "" ? path : "account";
+
+const knownViews = Object.values(viewPaths.settings) as string[];
+if (!knownViews.includes(view)) {
+	return new Response("Not found", { status: 404 });
+}
+
+// Login-gated: if no user is authenticated, redirect to sign-in and come back.
+if (!Astro.locals.user) {
+	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
+	return Astro.redirect(redirectUrl);
+}
+
+const redirectTo = "/account";
+// Brand shown in the header — read from EmDash site settings so the
+// plugin is site-agnostic (no hardcoded site name). Falls back generically.
+const siteSettings = await getSiteSettings().catch(() => null);
+const siteName = siteSettings?.title || "Account";
+// Show a social button only for providers whose credentials are actually set
+// (admin settings or env). Matches exactly what the auth route enables.
+const socialProviders = await configuredSocialProviders();
+---
+
+<!doctype html>
+<html lang="en" class="antialiased">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Account</title>
+		<!-- Apply the saved theme before paint to avoid a light/dark flash.
+		     Mirrors next-themes' storage key/behavior so the island hydrates
+		     into the same state. -->
+		<script is:inline>
+			(() => {
+				try {
+					const stored = localStorage.getItem("theme") || "system";
+					const dark =
+						stored === "dark" ||
+						(stored === "system" &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches);
+					document.documentElement.classList.toggle("dark", dark);
+				} catch {}
+			})();
+		</script>
+	</head>
+	<body class="min-h-svh flex flex-col">
+		<AccountView
+			path={view}
+			redirectTo={redirectTo}
+			siteName={siteName}
+			socialProviders={socialProviders}
+			client:load
+		/>
+	</body>
+</html>

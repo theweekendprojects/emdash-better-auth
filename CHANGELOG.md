@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Subscriber profile editing.** Public, login-gated account settings at
+  `/account` — a new `AccountView` island rendering Better Auth UI's `Settings`
+  (account + security tabs), reusing the same auth client, HeroUI styling,
+  theme plugin, and username plugin as the sign-in/up pages. Served via a
+  `/account/[...path]` catch-all (Better Auth UI's `account`/`security` views)
+  plus a friendly `/account` alias that forwards into it, mirroring `/login`
+  → `/auth/*`. Login-gated: anonymous visitors are redirected to sign-in.
+- **Editable fields:** name, username (from the username plugin), and **bio**.
+  Bio is stored in EmDash's `users.data` JSON column (no migration); the adapter
+  merges it in without clobbering other keys and surfaces it on user reads.
+- **Avatar:** editable via Better Auth UI's built-in avatar control. With no
+  custom upload handler configured, Better Auth UI resizes the image and stores
+  a compact data URL directly in `user.image` (→ `users.avatar_url`), so avatar
+  changes work with no backend. R2-backed avatar upload (via EmDash's media
+  pipeline) is a planned follow-up.
+
+Verified end-to-end (Playwright + live deploy): the account page renders
+name/username/bio, the login-gate redirects anonymous visitors, and a saved
+bio round-trips through `users.data`.
+
 ## [0.2.0] - 2026-09-12
 
 ### Added

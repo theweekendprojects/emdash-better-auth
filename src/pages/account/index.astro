@@ -1,0 +1,14 @@
+---
+/**
+ * Friendly `/account` alias → the account settings view served by the
+ * `/account/[...path]` catch-all (`/account/account`, Better Auth UI's default
+ * account view). Mirrors how `/login` and `/signup` forward into `/auth/*`.
+ *
+ * The catch-all does all the real work — login-gating and rendering — so this
+ * alias only forwards (preserving any query string). We deliberately do NOT
+ * gate/render here: `Astro.locals.user` is reliably populated on the catch-all
+ * route, so gating belongs there, not on this bare alias.
+ */
+const qs = Astro.url.search;
+return Astro.redirect(`/account/account${qs}`);
+---

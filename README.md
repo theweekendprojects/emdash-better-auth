@@ -38,6 +38,7 @@ It registers as an EmDash `AuthProviderDescriptor`, so it plugs in with a single
 | 🔑 **Social login** | Google & GitHub out of the box, per-provider, data-driven and easy to extend. |
 | ⚙️ **Admin settings page** | Configure verification, canonical URL, and OAuth credentials from the admin UI — no redeploy. |
 | 🔔 **Username support** | Sign in with username, public identity without exposing email. Always required. |
+| 📝 **Subscriber profile editing** | Public, login-gated account settings at `/account` — edit name, avatar, username, and bio (stored in `users.data`), plus password/linked-accounts security tab. |
 
 ## 📸 Screenshots
 
@@ -154,6 +155,10 @@ That's it — the plugin injects all of these routes for you:
 | `/auth/[...path]` | Prebuilt auth UI: `/auth/sign-in`, `/auth/sign-up`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/sign-out` |
 | `/login` | Friendly alias → `/auth/sign-in` |
 | `/signup` | Friendly alias → `/auth/sign-up` |
+| `/account/[...path]` | Subscriber profile settings: `/account/account`, `/account/security` |
+| `/account` | Friendly alias → `/account/account` (login-gated) |
+
+Do **not** create your own `src/pages/login.astro` / `signup.astro` / `api/auth/*` — they would conflict with the injected routes.
 
 Do **not** create your own `src/pages/login.astro` / `signup.astro` / `api/auth/*` — they would conflict with the injected routes.
 
@@ -373,7 +378,34 @@ Better Auth's [username plugin](https://better-auth.com/docs/plugins/username) a
 
 > **Why username is always required:** A mix of users with and without usernames would create a messy, inconsistent experience for bylines, comments, and public identity features. Email remains required for account recovery (password reset, etc.), but the username is the public-facing identity.
 
-### Email: password reset & verification
+### Subscriber profile editing
+
+Better Auth UI's [Settings](https://better-auth-ui.com/docs/heroui/components/settings/settings) component provides a login-gated account settings page where users can manage their profile and security.
+
+#### Public routes
+
+| Route | Purpose |
+| --- | --- |
+| `/account` | Friendly alias → `/account/account` (login-gated) |
+| `/account/account` | Main settings: name, avatar, username, bio |
+| `/account/security` | Password management and linked accounts |
+
+Users must be authenticated to access `/account`; unauthenticated requests are redirected to `/auth/sign-in`. (The view segments — `account`, `security` — are Better Auth UI's own settings view paths.)
+
+#### Bio field
+
+The **bio** field is stored in EmDash's `users.data` JSON column — no new database columns or migrations required. The EmDash adapter merges bio into the data object on read/update, preserving other keys already stored in `data`.
+
+#### Avatar
+
+Avatars are editable via Better Auth UI's built-in avatar control. No custom upload handler is configured, so Better Auth UI resizes the selected image and stores a compact **data URL** directly in `user.image` (→ `users.avatar_url`). This works with no backend wiring.
+
+> R2-backed avatar upload (storing the file via EmDash's media pipeline and saving a servable media URL) is a planned follow-up; until then, avatars are inline data URLs.
+
+#### Usage in your site
+
+No extra setup is required beyond registering `betterAuthProvider()`. The routes are injected automatically, and the `AccountView` island renders Better Auth UI's `Settings` component with the same authClient, HeroUI styling, theme plugin, and username plugin used for sign-in/sign-up. The `bio` field is contributed via the provider's `additionalFields`.
+
 
 ### Email: password reset & verification
 

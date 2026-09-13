@@ -107,6 +107,9 @@ const USER_COLUMNS = new Set<string>([
 /** Virtual (non-column) user fields backed by the `usernames` collection. */
 const USERNAME_FIELDS = new Set<string>(["username", "displayUsername"]);
 
+/** Additional user fields stored in users.data JSON column (not real DB columns). */
+const ADDITIONAL_DATA_FIELDS = new Set<string>(["bio"]);
+
 /**
  * Storage collections the plugin declares (see index.ts `storage`).
  * Everything Better-Auth stores that isn't a user lands in one of these.
@@ -227,10 +230,10 @@ async function resolveUserWhere(
 ): Promise<{ clauses: CleanedWhere[] } | { unmatchable: true }> {
 	const clauses: CleanedWhere[] = [];
 	for (const clause of where) {
-		if (!USERNAME_FIELDS.has(clause.field)) {
+		if (!USERNAME_FIELDS.has(clause.field) && !ADDITIONAL_DATA_FIELDS.has(clause.field)) {
 			// Real column — pass through (guard against unexpected virtual keys).
 			if (!USER_COLUMNS.has(clause.field)) {
-				// Unknown field that isn't a username field: cannot satisfy in SQL.
+				// Unknown field that isn't a username or additional field: cannot satisfy in SQL.
 				return { unmatchable: true };
 			}
 			clauses.push(clause);
@@ -244,11 +247,22 @@ async function resolveUserWhere(
 			return { unmatchable: true };
 		}
 
+		if (ADDITIONAL_DATA_FIELDS.has(clause.field)) {
+			// Bio is stored in users.data JSON column. Better Auth doesn't query
+			// by bio, so we just pass this through as-is (the SQL engine will
+			// handle JSON extraction if needed). For now, we skip it since
+			// Better Auth doesn't need to filter users by bio.
+			// If needed in future, we could implement JSON_CONTAINS or similar.
+			continue;
+		}
+
+		// Handle a username-field lookup. `username` uses the unique index;
+		// `displayUsername` (rarely queried) falls back to a bounded scan.
 		let userId: string | null = null;
 		if (clause.field === "username") {
 			userId = await userIdForUsername(storage, clause.value);
 		} else {
-			// displayUsername — scan for a matching display value (rare).
+			// displayUsername — scan for a matching display value.
 			let cursor: string | undefined;
 			do {
 				const page = await storage.usernames.query({ limit: 1000, cursor });
@@ -332,15 +346,51 @@ function pickUsernameFields(data: Record<string, unknown>): {
 	return out;
 }
 
-/** Attach username/displayUsername to a user row for return to Better-Auth. */
+/** Extract bio from a create/update payload (or {}). */
+function pickBioField(data: Record<string, unknown>): string | null | undefined {
+	if ("bio" in data) return (data.bio as string) ?? null;
+	return undefined;
+}
+
+/** Parse the users.data JSON column and extract additional fields. */
+function parseAdditionalData(dataJson: string | null): { bio?: string } {
+	if (!dataJson) return {};
+	try {
+		return JSON.parse(dataJson) as { bio?: string };
+	} catch {
+		return {};
+	}
+}
+
+/** Merge additional fields (like bio) into the users.data JSON. */
+function mergeAdditionalData(
+	currentDataJson: string | null,
+	next: { bio?: string | null },
+): string | null {
+	const current = currentDataJson ? parseAdditionalData(currentDataJson) : {};
+	if (next.bio === undefined) return currentDataJson; // No change
+	if (next.bio === null) {
+		// Remove bio from data
+		delete current.bio;
+		return Object.keys(current).length > 0 ? JSON.stringify(current) : null;
+	}
+	current.bio = next.bio;
+	return Object.keys(current).length > 0 ? JSON.stringify(current) : null;
+}
+
+/** Attach username/displayUsername/bio to a user row for return to Better-Auth. */
 function withUsername(
 	row: Record<string, unknown>,
 	rec: UsernameRecord | null,
 ): Record<string, unknown> {
+	const data = (row.data as string | null) ?? null;
+	const bio = data ? parseAdditionalData(data).bio : null;
+
 	return {
 		...row,
 		username: rec?.username ?? null,
 		displayUsername: rec?.displayUsername ?? null,
+		bio: bio ?? null,
 	};
 }
 
@@ -475,6 +525,14 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					await syncUsername(storage, row.id, uf);
 				}
 
+				// Merge bio into the users.data JSON column. Bio is not a real column
+				// but stored inside the data JSON. We merge it in carefully to avoid
+				// clobbering other keys already in data.
+				const bio = pickBioField(data);
+				if (bio !== undefined) {
+					row.data = mergeAdditionalData(row.data, { bio });
+				}
+
 				try {
 					await db.insertInto("users").values(row).execute();
 				} catch (err) {
@@ -555,15 +613,18 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return null;
 
-				// Separate username fields from real column updates.
+				// Separate username fields, bio, and real column updates.
 				const upd = update as Record<string, unknown>;
 				const uf = pickUsernameFields(upd);
+				const bio = pickBioField(upd);
 				const columnUpdate: Record<string, unknown> = {};
 				for (const [k, v] of Object.entries(upd)) {
-					if (!USERNAME_FIELDS.has(k)) columnUpdate[k] = v;
+					if (!USERNAME_FIELDS.has(k) && !ADDITIONAL_DATA_FIELDS.has(k)) {
+						columnUpdate[k] = v;
+					}
 				}
 
-				// Resolve the target user id (username updates need it for sync).
+				// Resolve the target user id (username/bio updates need it for sync).
 				const targetId =
 					directUserId(resolved.clauses) ??
 					(await userWhere(resolved.clauses).select("id").executeTakeFirst())?.id ??
@@ -573,6 +634,22 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				// column write (keeps the record and the row consistent).
 				if ((uf.username !== undefined || uf.displayUsername !== undefined) && targetId) {
 					await syncUsername(storage, targetId, uf);
+				}
+
+				// Merge bio into users.data if present (separate from column updates).
+				if (bio !== undefined && targetId) {
+					const row = await userWhere(resolved.clauses).selectAll().executeTakeFirst();
+					if (row) {
+						const currentData = (row as UsersTable).data as string | null;
+						const newData = mergeAdditionalData(currentData, { bio });
+						if (newData !== currentData) {
+							await db
+								.updateTable("users")
+								.set({ data: newData })
+								.where("id", "=", targetId)
+								.execute();
+						}
+					}
 				}
 
 				if (Object.keys(columnUpdate).length > 0) {
@@ -605,9 +682,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 
 				const upd = update as Record<string, unknown>;
 				const uf = pickUsernameFields(upd);
+				const bio = pickBioField(upd);
 				const columnUpdate: Record<string, unknown> = {};
 				for (const [k, v] of Object.entries(upd)) {
-					if (!USERNAME_FIELDS.has(k)) columnUpdate[k] = v;
+					if (!USERNAME_FIELDS.has(k) && !ADDITIONAL_DATA_FIELDS.has(k)) {
+						columnUpdate[k] = v;
+					}
 				}
 
 				// Sync username for every matched user. A bulk username set to the
@@ -617,6 +697,21 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					const ids = await matchedUserIds(where);
 					for (const id of ids) {
 						await syncUsername(storage, id, uf);
+					}
+				}
+
+				// Merge bio into users.data for every matched user.
+				if (bio !== undefined) {
+					const ids = await matchedUserIds(where);
+					for (const id of ids) {
+						const row = await db.selectFrom("users").selectAll().where("id", "=", id).executeTakeFirst();
+						if (row) {
+							const currentData = (row as UsersTable).data as string | null;
+							const newData = mergeAdditionalData(currentData, { bio });
+							if (newData !== currentData) {
+								await db.updateTable("users").set({ data: newData }).where("id", "=", id).execute();
+							}
+						}
 					}
 				}
 
@@ -633,7 +728,7 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					const res = await query.executeTakeFirst();
 					updated = Number(res.numUpdatedRows ?? 0);
 				} else {
-					// username-only bulk update: report the count we synced.
+					// username/bio-only bulk update: report the count we synced.
 					updated = (await matchedUserIds(where)).length;
 				}
 				return updated;

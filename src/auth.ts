@@ -223,6 +223,10 @@ export function createBetterAuth(
 		// Map Better-Auth's `user` model onto EmDash's `users` columns. The
 		// adapter's field-name mapping (via the factory) turns these logical
 		// field names into physical column names before any SQL is built.
+		// - `name`, `email`, `emailVerified`, `image` (→ `avatar_url`) map to
+		//   real columns via the factory.
+		// - `bio` is stored in the users.data JSON column (handled by the adapter).
+		// - `username`/`displayUsername` live in the usernames collection (handled by adapter).
 		user: {
 			modelName: "users",
 			fields: {
@@ -232,6 +236,14 @@ export function createBetterAuth(
 				image: "avatar_url",
 				createdAt: "created_at",
 				updatedAt: "updated_at",
+			},
+			// `bio` is an extra profile field with no real `users` column; the
+			// adapter persists it inside the users.data JSON blob (see
+			// emdash-adapter.ts) and surfaces it on user reads. Declared here so
+			// Better Auth accepts/passes it through. `username`/`displayUsername`
+			// are NOT listed — the username plugin owns those fields.
+			additionalFields: {
+				bio: { type: "string", required: false, input: true },
 			},
 		},
 		// account / session / verification live in schemaless plugin storage,
