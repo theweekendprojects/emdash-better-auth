@@ -75,6 +75,14 @@
     "./pages/signup": {
       "import": "./src/pages/signup.astro",
       "default": "./src/pages/signup.astro"
+    },
+    "./pages/account": {
+      "import": "./src/pages/account.astro",
+      "default": "./src/pages/account.astro"
+    },
+    "./pages/account/index": {
+      "import": "./src/pages/account/index.astro",
+      "default": "./src/pages/account/index.astro"
     }
   },
   "files": [

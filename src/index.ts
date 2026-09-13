@@ -123,6 +123,19 @@ export function betterAuthProvider(): AuthProviderDescriptor {
 				pattern: "/signup",
 				entrypoint: `${PACKAGE_NAME}/pages/signup`,
 			},
+			// Subscriber profile editing. Public, login-gated route that mirrors
+			// the /auth pattern: a catch-all at /account/[...path] (Better Auth's
+			// account settings views: /account, /account/settings, etc.) plus a
+			// friendly /account alias. The island is an AuthView wrapper around
+			// Better Auth UI's Account component (Settings/AccountSettings view).
+			{
+				pattern: "/account/[...path]",
+				entrypoint: `${PACKAGE_NAME}/pages/account`,
+			},
+			{
+				pattern: "/account",
+				entrypoint: `${PACKAGE_NAME}/pages/account/index`,
+			},
 		],
 		storage: BETTER_AUTH_STORAGE_CONFIG,
 	};

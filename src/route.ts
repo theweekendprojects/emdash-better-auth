@@ -237,3 +237,10 @@ const handler: APIRoute = async ({ request, session, site }) => {
 
 export const GET = handler;
 export const POST = handler;
+
+// NOTE: Avatar upload (R2-backed) is intentionally not implemented yet.
+// Better Auth UI stores a resized data URL directly in user.image when no
+// `avatar.upload` handler is configured (see AccountView.tsx), so avatar
+// changes work without a backend endpoint. A future R2-backed upload would
+// add a route here that goes through EmDash's media pipeline (handleMediaCreate)
+// and returns a servable media URL — not a raw storage key.
