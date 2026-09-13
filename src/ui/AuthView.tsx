@@ -141,6 +141,16 @@ export default function AuthView({
 					redirectTo={redirectTo}
 					socialProviders={socialProviders}
 					emailAndPassword={{ requireEmailVerification }}
+					// Point the `settings` base path at /account so the UserButton
+					// dropdown's "Settings" link (and any settings link from the auth
+					// flow) resolves to our mounted account page, not the default
+					// "/settings" (which would 404). Keep `auth` at /auth.
+					basePaths={{
+						auth: "/auth",
+						settings: "/account",
+						admin: "/admin",
+						organization: "/organization",
+					}}
 					// usernamePlugin() makes the UI render a required username field on
 					// sign-up (and username-or-email on sign-in). Without it the auth
 					// client accepts usernames but the form never collects one, so

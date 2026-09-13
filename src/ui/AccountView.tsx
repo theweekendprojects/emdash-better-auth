@@ -75,6 +75,19 @@ export default function AccountView({
 					authClient={authClient}
 					redirectTo={redirectTo}
 					socialProviders={socialProviders}
+					// IMPORTANT: Better Auth UI builds its internal links from
+					// `basePaths`, whose `settings` default is "/settings". We mount
+					// the account UI at /account, so without this override the
+					// Settings component's tabs (e.g. Security) would link to
+					// /settings/security → 404. Point `settings` at /account so the
+					// tab links resolve to our real routes (/account/account,
+					// /account/security). `auth` stays /auth to match the auth pages.
+					basePaths={{
+						auth: "/auth",
+						settings: "/account",
+						admin: "/admin",
+						organization: "/organization",
+					}}
 					// The Settings view handles account editing (name, avatar,
 					// username, bio) and security (password, linked accounts).
 					plugins={[
