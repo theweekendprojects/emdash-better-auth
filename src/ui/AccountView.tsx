@@ -130,7 +130,18 @@ export default function AccountView({
 					</header>
 
 					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
-						<Settings path={path} />
+						{/* Constrain the settings column so the Account tab matches
+						    the compact, centered width the Security tab already uses.
+						    Without this, Better Auth UI's account cards stretch the
+						    full viewport width. Inline style (not a Tailwind class):
+						    this island only emits utilities Tailwind finds via the
+						    @source scan of the HeroUI / Better Auth UI packages (see
+						    auth.css), so a max-w-* class used only here is purged and
+						    silently no-ops — the inline style can't be. ~28rem ≈ the
+						    Security panel's column width. */}
+						<div style={{ width: "100%", maxWidth: "28rem" }}>
+							<Settings path={path} />
+						</div>
 					</main>
 
 					<Toast.Provider />
