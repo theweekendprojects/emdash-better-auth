@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **TOTP two-factor authentication (2FA).** Users can enroll in TOTP via their
+  account settings (scan QR code with an authenticator app), use TOTP codes on
+  sign-in, and recover with backup codes. Two-factor authentication is a site
+  feature flag (`twoFactorEnabled` setting) — disabled by default.
+- **Plugin-storage `twoFactors` collection.** Per-user TOTP secrets and backup
+  codes live in a dedicated plugin storage collection (`twoFactors`), **no core
+  database columns or migrations required**. EmDash's `users` table is unchanged.
+- **Adapter two-factor handling.** The EmDash adapter now:
+  - routes the `twoFactor` model to the `twoFactors` storage collection;
+  - stores `twoFactorEnabled` in the `users.data` JSON column (no migration);
+  - surfaces `twoFactorEnabled` on user reads.
+- **Admin setting toggle.** A new `twoFactorEnabled` boolean setting in the
+  Better Auth settings page to turn the feature on/off for the whole site.
+- **Two-factor plugin issuer.** The TOTP issuer is derived from the canonical
+  site URL (hostname) so authenticator apps label entries with the site name.
+
+Verified patterns from the existing architecture: the twoFactor plugin persists
+to plugin storage (no migrations), `twoFactorEnabled` mirrors the `bio` field
+(stored in `users.data` JSON), and the plugin is feature-flagged via the admin
+setting.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added

@@ -39,6 +39,7 @@ export {
 	resolveSettings,
 	type ResolvedAuthSettings,
 } from "./settings.js";
+export type { TwoFactorMethod } from "./auth.js";
 
 /** Provider id — also the storage namespace (`auth:better-auth`). */
 export const PROVIDER_ID = "better-auth";
@@ -63,6 +64,7 @@ export const PACKAGE_NAME = "emdash-better-auth";
  *   - sessions:      by userId (revoke all) and token (session lookup).
  *   - verifications: by identifier (email verification / reset lookups).
  *   - usernames:     by username (unique, for sign-in lookup) and userId (list user's profile).
+ *   - twoFactors:    by userId (list a user's 2FA config).
  */
 export const BETTER_AUTH_STORAGE_CONFIG = {
 	accounts: {
@@ -82,6 +84,9 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	usernames: {
 		indexes: ["username", "userId"] as const,
 		uniqueIndexes: ["username"] as const,
+	},
+	twoFactors: {
+		indexes: ["userId"] as const,
 	},
 } satisfies PluginStorageConfig;
 

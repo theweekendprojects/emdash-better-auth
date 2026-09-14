@@ -85,6 +85,7 @@ export const SETTINGS_KEYS = {
 	autoSignInAfterVerification: "autoSignInAfterVerification",
 	baseUrl: "baseUrl",
 	betterAuthSecret: "betterAuthSecret",
+	twoFactorEnabled: "twoFactorEnabled",
 } as const;
 
 /**
@@ -96,6 +97,7 @@ export const SETTINGS_DEFAULTS = {
 	requireEmailVerification: true,
 	sendOnSignIn: true,
 	autoSignInAfterVerification: true,
+	twoFactorEnabled: false,
 } as const;
 
 /** Boolean-typed setting keys (rendered as toggles, coerced on read). */
@@ -103,6 +105,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.requireEmailVerification,
 	SETTINGS_KEYS.sendOnSignIn,
 	SETTINGS_KEYS.autoSignInAfterVerification,
+	SETTINGS_KEYS.twoFactorEnabled,
 ] as const;
 
 /** Secret-typed setting keys (masked in UI; preserved on save when blank). */
@@ -181,6 +184,7 @@ export interface ResolvedAuthSettings {
 	requireEmailVerification: boolean;
 	sendOnSignIn: boolean;
 	autoSignInAfterVerification: boolean;
+	twoFactorEnabled: boolean;
 	/** Canonical origin override, or undefined to let the route resolve it. */
 	baseUrl?: string;
 	/** Session signing secret, or undefined to fall back to env. */
@@ -254,6 +258,10 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.autoSignInAfterVerification],
 		SETTINGS_DEFAULTS.autoSignInAfterVerification,
 	);
+	const twoFactorEnabled = coerceBool(
+		saved[SETTINGS_KEYS.twoFactorEnabled],
+		SETTINGS_DEFAULTS.twoFactorEnabled,
+	);
 
 	const baseUrl =
 		trimOrUndefined(saved[SETTINGS_KEYS.baseUrl]) ?? trimOrUndefined(env.baseUrl);
@@ -281,6 +289,7 @@ export function resolveSettings(
 		requireEmailVerification,
 		sendOnSignIn,
 		autoSignInAfterVerification,
+		twoFactorEnabled,
 		baseUrl,
 		secret,
 		socialProviders,
