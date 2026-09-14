@@ -13,14 +13,25 @@
  */
 import { viewPaths } from "@better-auth-ui/core";
 import { getSiteSettings } from "emdash";
-import { configuredSocialProviders } from "../providers.ts";
+import { configuredSocialProviders, twoFactorEnabled } from "../providers.ts";
 import AuthView from "../ui/AuthView.tsx";
 
 const { path } = Astro.params;
 const view = path ?? "sign-in";
 
+// Whether 2FA is enabled site-wide — gates both the two-factor plugin on the
+// island and the challenge view path below (same setting the auth route reads).
+const is2faEnabled = await twoFactorEnabled();
+
+// The base `viewPaths.auth` from @better-auth-ui/core does NOT include the
+// two-factor challenge segment — the twoFactorPlugin only augments it at the
+// TYPE level, not the runtime object. So when 2FA is on we must explicitly
+// allow the plugin's challenge path ("two-factor", its default) through this
+// guard; otherwise `/auth/two-factor` would 404 before the island renders and
+// a 2FA-enabled user could never complete sign-in.
 const knownViews = Object.values(viewPaths.auth) as string[];
-if (!knownViews.includes(view)) {
+const allowedViews = is2faEnabled ? [...knownViews, "two-factor"] : knownViews;
+if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
 
@@ -66,6 +77,7 @@ const socialProviders = await configuredSocialProviders();
 			redirectTo={redirectTo}
 			siteName={siteName}
 			socialProviders={socialProviders}
+			twoFactorEnabled={is2faEnabled}
 			client:load
 		/>
 	</body>

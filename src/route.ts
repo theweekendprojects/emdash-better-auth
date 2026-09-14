@@ -42,6 +42,15 @@ const SESSION_ESTABLISHING = [
 	"/api/auth/sign-in/email",
 	"/api/auth/sign-up/email",
 	"/api/auth/callback/",
+	// Two-factor challenge completion. For a 2FA-enabled user, `sign-in/email`
+	// returns a CHALLENGE (no session yet) — the real session is only created
+	// when the second factor is verified here. Without these, a 2FA user's
+	// Better Auth session is valid but the EmDash session never gets bridged,
+	// so the site's SSR (header, login-gated pages like /account) still sees
+	// them as logged out. `verify-totp` / `verify-backup-code` cover TOTP; the
+	// prefix-less exact paths mirror how the sign-in entries are matched.
+	"/api/auth/two-factor/verify-totp",
+	"/api/auth/two-factor/verify-backup-code",
 ];
 
 /**

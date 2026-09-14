@@ -30,6 +30,7 @@ import "./auth.css";
 import { AuthProvider, Settings, UserButton } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
+import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -58,6 +59,15 @@ export interface AccountViewProps {
 	socialProviders?: string[];
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/**
+	 * Whether two-factor authentication is enabled site-wide (mirrors the
+	 * `twoFactorEnabled` admin setting the auth route reads). When true, the
+	 * Better Auth UI two-factor plugin is registered so the Security tab shows
+	 * the "enable 2FA" enrollment card (QR + backup codes). When false, no 2FA
+	 * card renders — matching the backend, which only registers the server
+	 * `twoFactor` plugin when the flag is on. Defaults to false.
+	 */
+	twoFactorEnabled?: boolean;
 }
 
 export default function AccountView({
@@ -65,6 +75,7 @@ export default function AccountView({
 	redirectTo = "/account",
 	socialProviders = [],
 	siteName = "Account",
+	twoFactorEnabled = false,
 }: AccountViewProps) {
 	const queryClient = getQueryClient();
 
@@ -90,9 +101,18 @@ export default function AccountView({
 					}}
 					// The Settings view handles account editing (name, avatar,
 					// username, bio) and security (password, linked accounts).
+					// twoFactorPlugin contributes the "Two-Factor Authentication"
+					// card to the Security tab (enroll via authenticator app → QR +
+					// backup codes, and disable). Only registered when the site flag
+					// is on, so the card matches the backend (which only registers the
+					// server `twoFactor` plugin when enabled). TOTP-only for now —
+					// email OTP is a deliberate follow-up.
 					plugins={[
 						themePlugin({ useTheme }),
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+						...(twoFactorEnabled
+							? [twoFactorPlugin({ enrollmentMethods: ["totp"] })]
+							: []),
 					]}
 					// `bio` is a profile-only field, stored in users.data by the
 					// adapter (see emdash-adapter.ts). Declared here so Better Auth

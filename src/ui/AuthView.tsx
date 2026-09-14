@@ -27,6 +27,7 @@ import "./auth.css";
 import { Auth, AuthProvider, UserButton } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
+import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { Button, Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -122,6 +123,15 @@ export interface AuthViewProps {
 	 * match the plugin's default server config.
 	 */
 	requireEmailVerification?: boolean;
+	/**
+	 * Whether two-factor authentication is enabled site-wide (mirrors the
+	 * `twoFactorEnabled` admin setting). When true, the Better Auth UI
+	 * two-factor plugin is registered so the sign-in flow can render the TOTP
+	 * challenge view (at `/auth/two-factor`) for users who have 2FA enabled.
+	 * Must match the backend — the server only issues a two-factor challenge
+	 * when its `twoFactor` plugin is registered (same flag). Defaults to false.
+	 */
+	twoFactorEnabled?: boolean;
 }
 
 export default function AuthView({
@@ -130,6 +140,7 @@ export default function AuthView({
 	socialProviders = [],
 	siteName = "Home",
 	requireEmailVerification = true,
+	twoFactorEnabled = false,
 }: AuthViewProps) {
 	const queryClient = getQueryClient();
 
@@ -156,9 +167,17 @@ export default function AuthView({
 					// client accepts usernames but the form never collects one, so
 					// signup would fail server-side validation. `displayUsername` is
 					// derived from `username`, so we don't render a separate field.
+					// twoFactorPlugin registers the TOTP challenge view so a user
+					// with 2FA enabled is prompted for their authenticator code after
+					// their password. Only added when the site flag is on, matching
+					// the backend (which only issues a challenge when its `twoFactor`
+					// plugin is registered). TOTP-only for now.
 					plugins={[
 						themePlugin({ useTheme }),
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+						...(twoFactorEnabled
+							? [twoFactorPlugin({ enrollmentMethods: ["totp"] })]
+							: []),
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);

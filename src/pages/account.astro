@@ -14,7 +14,7 @@
  */
 import { viewPaths } from "@better-auth-ui/core";
 import { getSiteSettings } from "emdash";
-import { configuredSocialProviders } from "../providers.ts";
+import { configuredSocialProviders, twoFactorEnabled } from "../providers.ts";
 import AccountView from "../ui/AccountView.tsx";
 
 const { path } = Astro.params;
@@ -42,6 +42,9 @@ const siteName = siteSettings?.title || "Account";
 // Show a social button only for providers whose credentials are actually set
 // (admin settings or env). Matches exactly what the auth route enables.
 const socialProviders = await configuredSocialProviders();
+// Whether 2FA is enabled site-wide — gates the Security tab's enrollment card
+// so it matches the backend (same setting the auth route reads).
+const is2faEnabled = await twoFactorEnabled();
 ---
 
 <!doctype html>
@@ -72,6 +75,7 @@ const socialProviders = await configuredSocialProviders();
 			redirectTo={redirectTo}
 			siteName={siteName}
 			socialProviders={socialProviders}
+			twoFactorEnabled={is2faEnabled}
 			client:load
 		/>
 	</body>

@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-14
+
 ### Added
 
 - **TOTP two-factor authentication (2FA).** Users can enroll in TOTP via their
@@ -23,11 +25,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Better Auth settings page to turn the feature on/off for the whole site.
 - **Two-factor plugin issuer.** The TOTP issuer is derived from the canonical
   site URL (hostname) so authenticator apps label entries with the site name.
-
-Verified patterns from the existing architecture: the twoFactor plugin persists
-to plugin storage (no migrations), `twoFactorEnabled` mirrors the `bio` field
-(stored in `users.data` JSON), and the plugin is feature-flagged via the admin
-setting.
+- **Account + auth UI wiring.** The Better Auth UI `twoFactorPlugin` is
+  registered on both the account island (Security tab enrollment card: QR +
+  backup codes, disable) and the auth island (the TOTP challenge shown on
+  sign-in). Both are gated on the same `twoFactorEnabled` site flag so the UI
+  never diverges from the backend. The `/auth/[...path]` route guard explicitly
+  allows the `two-factor` challenge segment when the flag is on (the base
+  `viewPaths.auth` from `@better-auth-ui/core` only augments that path at the
+  type level, not at runtime, so an unguarded challenge path would 404).
+- **EmDash session bridge for 2FA sign-in.** The `two-factor/verify-totp` and
+  `two-factor/verify-backup-code` endpoints now establish the EmDash Astro
+  session, like `sign-in/email` does. For a 2FA user, `sign-in/email` only
+  returns a challenge (no session yet); the session is created when the second
+  factor is verified, so without bridging there the site's SSR (header,
+  login-gated pages) would still treat the user as logged out.
 
 ## [0.3.0] - 2026-09-13
 
