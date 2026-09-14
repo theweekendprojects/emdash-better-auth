@@ -108,6 +108,14 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.twoFactorEnabled,
+					label: "Enable two-factor authentication (TOTP)",
+					description:
+						"Allow users to enable TOTP 2FA via their account settings. When enabled, users can enroll with an authenticator app and use backup codes for recovery.",
+					initial_value: bool(saved[SETTINGS_KEYS.twoFactorEnabled]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.sendOnSignIn,
 					label: "Re-send verification on sign-in",
 					description: "Re-send the link when an unverified user tries to log in.",

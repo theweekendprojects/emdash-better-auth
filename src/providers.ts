@@ -56,3 +56,21 @@ export async function configuredSocialProviders(): Promise<string[]> {
 	const settings = resolveSettings(saved, { social: readSocialEnv() });
 	return Object.keys(settings.socialProviders);
 }
+
+/**
+ * Whether two-factor authentication (TOTP) is enabled site-wide, for the auth
+ * UI's `twoFactorPlugin` gating. Uses the SAME source of truth and precedence
+ * as the auth route (`resolveSettings` over saved admin settings > env >
+ * default-false), so the account page's 2FA card and the login challenge only
+ * render when the backend actually registers the `twoFactor` plugin. Never
+ * throws — a settings read failure degrades to the default (off).
+ */
+export async function twoFactorEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// No DB / settings unavailable — fall back to the built-in default (off).
+	}
+	return resolveSettings(saved, {}).twoFactorEnabled;
+}

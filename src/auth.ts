@@ -8,6 +8,7 @@
 
 import { betterAuth } from "better-auth";
 import { username } from "better-auth/plugins";
+import { twoFactor } from "better-auth/plugins";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 
@@ -43,6 +44,12 @@ export const ROLE_SUBSCRIBER = 10;
  * `createBetterAuth` below.
  */
 export type SocialProviderId = "google" | "github";
+
+/**
+ * Two-factor authentication methods. Currently only TOTP is supported.
+ * Email OTP is a deliberate follow-up.
+ */
+export type TwoFactorMethod = "totp";
 
 export interface BetterAuthOptions {
 	/**
@@ -83,6 +90,12 @@ export interface BetterAuthOptions {
 	 * are disabled gracefully (users see a friendly message).
 	 */
 	email?: EmailPipeline | null;
+	/**
+	 * Whether two-factor authentication (TOTP) is enabled for the site.
+	 * Default is false (opt-in per-user). When true, the twoFactor plugin
+	 * is registered and users can enroll in TOTP 2FA.
+	 */
+	twoFactorEnabled?: boolean;
 }
 
 /**
@@ -121,10 +134,23 @@ export function createBetterAuth(
 		}
 	}
 
+	// Extract just the host from the baseURL to use as the TOTP issuer.
+	// Better Auth uses this to label entries in authenticator apps.
+	const issuer = (() => {
+		try {
+			return new URL(options.baseURL).hostname;
+		} catch {
+			return "EmDash";
+		}
+	})();
+
 	return betterAuth({
 		baseURL: options.baseURL,
 		secret: options.secret,
 		trustedOrigins: options.trustedOrigins,
+		// The app name is used as the TOTP issuer when the plugin doesn't
+		// specify its own. We also set it for general app identification.
+		appName: issuer,
 		// Our adapter routes user -> users table, others -> plugin storage.
 		database: emdashAdapter(db as unknown as Kysely<{ users: never }>, storage),
 		// Username is always required (no toggle): a mix of users with and
@@ -257,7 +283,14 @@ export function createBetterAuth(
 		// has no such columns, so our adapter persists them in the `usernames`
 		// plugin-storage collection (unique index on `username`) and augments
 		// user reads with them. See emdash-adapter.ts.
-		plugins: [username()],
+		// The `twoFactor` plugin adds per-user TOTP secret + backup codes to
+		// plugin storage (`twoFactors` collection) and `twoFactorEnabled` to
+		// the user model (stored in users.data JSON). Only enabled when the
+		// admin feature flag is set.
+		plugins: [
+			...(options.twoFactorEnabled ? [twoFactor()] : []),
+			username(),
+		],
 		advanced: {
 			// D1 has no native joins config need; keep defaults. Ensure we don't
 			// try to use database-generated ids (our adapter makes ULIDs).

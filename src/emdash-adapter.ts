@@ -108,7 +108,7 @@ const USER_COLUMNS = new Set<string>([
 const USERNAME_FIELDS = new Set<string>(["username", "displayUsername"]);
 
 /** Additional user fields stored in users.data JSON column (not real DB columns). */
-const ADDITIONAL_DATA_FIELDS = new Set<string>(["bio"]);
+const ADDITIONAL_DATA_FIELDS = new Set<string>(["bio", "twoFactorEnabled"]);
 
 /**
  * Storage collections the plugin declares (see index.ts `storage`).
@@ -119,6 +119,7 @@ export interface BetterAuthStorage {
 	sessions: StorageCollection<Record<string, unknown>>;
 	verifications: StorageCollection<Record<string, unknown>>;
 	usernames: StorageCollection<Record<string, unknown>>;
+	twoFactors: StorageCollection<Record<string, unknown>>;
 }
 
 /** Shape of a stored username record (keyed by userId in the collection). */
@@ -153,6 +154,8 @@ function storageFor(
 			return storage.verifications;
 		case "username":
 			return storage.usernames;
+		case "twoFactor":
+			return storage.twoFactors;
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
@@ -352,45 +355,64 @@ function pickBioField(data: Record<string, unknown>): string | null | undefined 
 	return undefined;
 }
 
+/** Extract twoFactorEnabled from a create/update payload (or {}). */
+function pickTwoFactorField(data: Record<string, unknown>): boolean | null | undefined {
+	if ("twoFactorEnabled" in data) return (data.twoFactorEnabled as boolean) ?? null;
+	return undefined;
+}
+
 /** Parse the users.data JSON column and extract additional fields. */
-function parseAdditionalData(dataJson: string | null): { bio?: string } {
+function parseAdditionalData(dataJson: string | null): { bio?: string; twoFactorEnabled?: boolean } {
 	if (!dataJson) return {};
 	try {
-		return JSON.parse(dataJson) as { bio?: string };
+		return JSON.parse(dataJson) as { bio?: string; twoFactorEnabled?: boolean };
 	} catch {
 		return {};
 	}
 }
 
-/** Merge additional fields (like bio) into the users.data JSON. */
+/** Merge additional fields (like bio, twoFactorEnabled) into the users.data JSON. */
 function mergeAdditionalData(
 	currentDataJson: string | null,
-	next: { bio?: string | null },
+	next: { bio?: string | null; twoFactorEnabled?: boolean | null },
 ): string | null {
 	const current = currentDataJson ? parseAdditionalData(currentDataJson) : {};
-	if (next.bio === undefined) return currentDataJson; // No change
-	if (next.bio === null) {
-		// Remove bio from data
-		delete current.bio;
-		return Object.keys(current).length > 0 ? JSON.stringify(current) : null;
+	if (next.bio === undefined && next.twoFactorEnabled === undefined) return currentDataJson; // No change
+	
+	if (next.bio !== undefined) {
+		if (next.bio === null) {
+			// Remove bio from data
+			delete current.bio;
+		} else {
+			current.bio = next.bio;
+		}
 	}
-	current.bio = next.bio;
+	if (next.twoFactorEnabled !== undefined) {
+		if (next.twoFactorEnabled === null) {
+			// Remove twoFactorEnabled from data
+			delete current.twoFactorEnabled;
+		} else {
+			current.twoFactorEnabled = next.twoFactorEnabled;
+		}
+	}
+	
 	return Object.keys(current).length > 0 ? JSON.stringify(current) : null;
 }
 
-/** Attach username/displayUsername/bio to a user row for return to Better-Auth. */
+/** Attach username/displayUsername/bio/twoFactorEnabled to a user row for return to Better-Auth. */
 function withUsername(
 	row: Record<string, unknown>,
 	rec: UsernameRecord | null,
 ): Record<string, unknown> {
 	const data = (row.data as string | null) ?? null;
-	const bio = data ? parseAdditionalData(data).bio : null;
+	const additional = data ? parseAdditionalData(data) : {};
 
 	return {
 		...row,
 		username: rec?.username ?? null,
 		displayUsername: rec?.displayUsername ?? null,
-		bio: bio ?? null,
+		bio: additional.bio ?? null,
+		twoFactorEnabled: additional.twoFactorEnabled ?? null,
 	};
 }
 
@@ -533,6 +555,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					row.data = mergeAdditionalData(row.data, { bio });
 				}
 
+				// Merge twoFactorEnabled into the users.data JSON column.
+				const twoFactorEnabled = pickTwoFactorField(data);
+				if (twoFactorEnabled !== undefined) {
+					row.data = mergeAdditionalData(row.data, { twoFactorEnabled });
+				}
+
 				try {
 					await db.insertInto("users").values(row).execute();
 				} catch (err) {
@@ -613,10 +641,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return null;
 
-				// Separate username fields, bio, and real column updates.
+				// Separate username fields, bio, twoFactorEnabled, and real column updates.
 				const upd = update as Record<string, unknown>;
 				const uf = pickUsernameFields(upd);
 				const bio = pickBioField(upd);
+				const tf = pickTwoFactorField(upd);
 				const columnUpdate: Record<string, unknown> = {};
 				for (const [k, v] of Object.entries(upd)) {
 					if (!USERNAME_FIELDS.has(k) && !ADDITIONAL_DATA_FIELDS.has(k)) {
@@ -624,7 +653,7 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					}
 				}
 
-				// Resolve the target user id (username/bio updates need it for sync).
+				// Resolve the target user id (username/bio/twoFactorEnabled updates need it for sync).
 				const targetId =
 					directUserId(resolved.clauses) ??
 					(await userWhere(resolved.clauses).select("id").executeTakeFirst())?.id ??
@@ -636,12 +665,12 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					await syncUsername(storage, targetId, uf);
 				}
 
-				// Merge bio into users.data if present (separate from column updates).
-				if (bio !== undefined && targetId) {
+				// Merge bio and twoFactorEnabled into users.data if present (separate from column updates).
+				if ((bio !== undefined || tf !== undefined) && targetId) {
 					const row = await userWhere(resolved.clauses).selectAll().executeTakeFirst();
 					if (row) {
 						const currentData = (row as UsersTable).data as string | null;
-						const newData = mergeAdditionalData(currentData, { bio });
+						const newData = mergeAdditionalData(currentData, { bio, twoFactorEnabled: tf });
 						if (newData !== currentData) {
 							await db
 								.updateTable("users")
@@ -680,9 +709,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return 0;
 
+				// Separate username fields, bio, twoFactorEnabled, and real column updates.
 				const upd = update as Record<string, unknown>;
 				const uf = pickUsernameFields(upd);
 				const bio = pickBioField(upd);
+				const tf = pickTwoFactorField(upd);
 				const columnUpdate: Record<string, unknown> = {};
 				for (const [k, v] of Object.entries(upd)) {
 					if (!USERNAME_FIELDS.has(k) && !ADDITIONAL_DATA_FIELDS.has(k)) {
@@ -700,14 +731,14 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					}
 				}
 
-				// Merge bio into users.data for every matched user.
-				if (bio !== undefined) {
+				// Merge bio and twoFactorEnabled into users.data for every matched user.
+				if (bio !== undefined || tf !== undefined) {
 					const ids = await matchedUserIds(where);
 					for (const id of ids) {
 						const row = await db.selectFrom("users").selectAll().where("id", "=", id).executeTakeFirst();
 						if (row) {
 							const currentData = (row as UsersTable).data as string | null;
-							const newData = mergeAdditionalData(currentData, { bio });
+							const newData = mergeAdditionalData(currentData, { bio, twoFactorEnabled: tf });
 							if (newData !== currentData) {
 								await db.updateTable("users").set({ data: newData }).where("id", "=", id).execute();
 							}
