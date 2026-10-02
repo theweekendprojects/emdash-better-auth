@@ -15,6 +15,14 @@ import { getSiteSettings } from "emdash";
 import { adminEnabled } from "../../providers.ts";
 import AdminView from "../../ui/AdminView.tsx";
 
+// EmDash's ADMIN role level. `users.role` is a numeric RBAC level
+// (SUBSCRIBER=10 … ADMIN=50); admin-tier capabilities require 50.
+// ponytail: compared inline rather than importing a `hasPermission`/`Role`
+// helper — the published `emdash` package doesn't re-export the RBAC module to
+// consumers, so a direct level check is the dependency-free option. If EmDash
+// later exports `hasPermission`, switch to `hasPermission(user, "users:manage")`.
+const ROLE_ADMIN = 50;
+
 // Gate the whole route behind the admin feature flag.
 if (!(await adminEnabled())) {
 	return new Response("Not found", { status: 404 });
@@ -28,10 +36,17 @@ if (view !== "users") {
 	return new Response("Not found", { status: 404 });
 }
 
-// Login-gated: anonymous visitors go to sign-in and return here afterward.
-if (!Astro.locals.user) {
+// Admin-only, enforced server-side here (defense-in-depth on top of Better
+// Auth's own admin permission checks inside the UI). Anon → sign-in;
+// signed-in-but-not-admin → 403, so a non-admin can't even load the page shell.
+// `locals.user` is populated from the session on this public route.
+const user = Astro.locals.user;
+if (!user) {
 	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
 	return Astro.redirect(redirectUrl);
+}
+if ((user.role ?? 0) < ROLE_ADMIN) {
+	return new Response("Forbidden", { status: 403 });
 }
 
 const siteSettings = await getSiteSettings().catch(() => null);
