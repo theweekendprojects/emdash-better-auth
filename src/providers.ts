@@ -106,3 +106,18 @@ export async function orgEnabled(): Promise<boolean> {
 	}
 	return resolveSettings(saved, {}).orgEnabled;
 }
+
+/**
+ * Whether organization teams are enabled site-wide. `resolveSettings` already
+ * forces this false unless organizations are on, so it mirrors exactly what the
+ * auth route registers. Gates the Teams tab in the org UI. Never throws.
+ */
+export async function teamsEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).teamsEnabled;
+}
