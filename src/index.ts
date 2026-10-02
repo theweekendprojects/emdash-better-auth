@@ -118,6 +118,18 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	organizationRoles: {
 		indexes: ["organizationId"] as const,
 	},
+	// Stripe plugin (subscription billing). The subscription model routes to
+	// plugin storage via the adapter — no site table, no migration. The user's
+	// `stripeCustomerId` is a user field, stored in users.data JSON (see
+	// ADDITIONAL_DATA_FIELDS in emdash-adapter.ts), not here. Indexes mirror the
+	// fields the plugin queries by:
+	//   - referenceId:          list a user's (or org's) subscriptions.
+	//   - stripeSubscriptionId: webhook lookups (subscription.updated/deleted).
+	//   - stripeCustomerId:     resolve the owner from a customer-scoped event.
+	// Empty until the billing flag is enabled, so declaring it always is free.
+	subscriptions: {
+		indexes: ["referenceId", "stripeSubscriptionId", "stripeCustomerId"] as const,
+	},
 } satisfies PluginStorageConfig;
 
 /**

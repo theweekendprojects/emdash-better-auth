@@ -12,6 +12,7 @@ import { usernameClient } from "better-auth/client/plugins";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { adminClient } from "better-auth/client/plugins";
 import { organizationClient } from "better-auth/client/plugins";
+import { stripeClient } from "@better-auth/stripe/client";
 
 // The client is a single static build and can't read the per-request feature
 // flags that gate the server plugins, so the admin + organization client
@@ -21,7 +22,16 @@ import { organizationClient } from "better-auth/client/plugins";
 // is inert for sites that don't opt in. Teams use the organization namespace
 // too — no separate client flag is needed for basic team calls.
 export const authClient = createAuthClient({
-	plugins: [usernameClient(), twoFactorClient(), adminClient(), organizationClient()],
+	plugins: [
+		usernameClient(),
+		twoFactorClient(),
+		adminClient(),
+		organizationClient(),
+		// Adds authClient.subscription.* (upgrade/list/cancel/restore/portal).
+		// Always registered; the server only honors it when the Stripe plugin is
+		// enabled, so it's inert on sites without billing.
+		stripeClient({ subscription: true }),
+	],
 });
 
 export type AuthClient = typeof authClient;

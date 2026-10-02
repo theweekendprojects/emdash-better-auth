@@ -69,4 +69,23 @@ import { resolveSettings } from "../src/settings.js";
 	equal(r.socialProviders.google, undefined);
 }
 
-console.log("settings-resolve self-check: all 6 cases passed");
+// 7. Billing flag defaults off; turns on from a saved boolean. Stripe secrets
+//    resolve saved-over-env; absent → undefined.
+{
+	const off = resolveSettings({}, {});
+	equal(off.billingEnabled, false);
+	equal(off.stripeSecretKey, undefined);
+	equal(off.stripeWebhookSecret, undefined);
+
+	const on = resolveSettings(
+		{ billingEnabled: true, stripeSecretKey: "sk_saved" },
+		{ stripeSecretKey: "sk_env", stripeWebhookSecret: "whsec_env" },
+	);
+	equal(on.billingEnabled, true);
+	// Saved wins over env for the secret key…
+	equal(on.stripeSecretKey, "sk_saved");
+	// …and the env fallback fills the webhook secret that wasn't saved.
+	equal(on.stripeWebhookSecret, "whsec_env");
+}
+
+console.log("settings-resolve self-check: all 7 cases passed");

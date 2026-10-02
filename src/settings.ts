@@ -93,6 +93,9 @@ export const SETTINGS_KEYS = {
 	adminEnabled: "adminEnabled",
 	orgEnabled: "orgEnabled",
 	teamsEnabled: "teamsEnabled",
+	billingEnabled: "billingEnabled",
+	stripeSecretKey: "stripeSecretKey",
+	stripeWebhookSecret: "stripeWebhookSecret",
 } as const;
 
 /**
@@ -108,6 +111,7 @@ export const SETTINGS_DEFAULTS = {
 	adminEnabled: false,
 	orgEnabled: false,
 	teamsEnabled: false,
+	billingEnabled: false,
 } as const;
 
 /** Boolean-typed setting keys (rendered as toggles, coerced on read). */
@@ -119,11 +123,14 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.adminEnabled,
 	SETTINGS_KEYS.orgEnabled,
 	SETTINGS_KEYS.teamsEnabled,
+	SETTINGS_KEYS.billingEnabled,
 ] as const;
 
 /** Secret-typed setting keys (masked in UI; preserved on save when blank). */
 const SECRET_KEYS: readonly string[] = [
 	SETTINGS_KEYS.betterAuthSecret,
+	SETTINGS_KEYS.stripeSecretKey,
+	SETTINGS_KEYS.stripeWebhookSecret,
 	...SOCIAL_PROVIDERS.map((p) => providerClientSecretKey(p.id)),
 ];
 
@@ -204,6 +211,12 @@ export interface ResolvedAuthSettings {
 	orgEnabled: boolean;
 	/** Organization teams enabled (only meaningful when orgEnabled). */
 	teamsEnabled: boolean;
+	/** Stripe subscription billing enabled. */
+	billingEnabled: boolean;
+	/** Stripe secret key, or undefined to fall back to env. */
+	stripeSecretKey?: string;
+	/** Stripe webhook signing secret, or undefined to fall back to env. */
+	stripeWebhookSecret?: string;
 	/** Canonical origin override, or undefined to let the route resolve it. */
 	baseUrl?: string;
 	/** Session signing secret, or undefined to fall back to env. */
@@ -225,6 +238,9 @@ export interface AuthEnvFallback {
 	 * caller from `<PREFIX>_CLIENT_ID` / `<PREFIX>_CLIENT_SECRET` env vars.
 	 */
 	social?: Partial<Record<SocialProviderId, Partial<ResolvedProviderCreds>>>;
+	/** Stripe env fallbacks (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET). */
+	stripeSecretKey?: string;
+	stripeWebhookSecret?: string;
 }
 
 /** Placeholder secret value from the template — treated as "not set". */
@@ -293,6 +309,17 @@ export function resolveSettings(
 	// stale saved toggle can't register team collections without the org plugin.
 	const teamsEnabled =
 		orgEnabled && coerceBool(saved[SETTINGS_KEYS.teamsEnabled], SETTINGS_DEFAULTS.teamsEnabled);
+	const billingEnabled = coerceBool(
+		saved[SETTINGS_KEYS.billingEnabled],
+		SETTINGS_DEFAULTS.billingEnabled,
+	);
+
+	const stripeSecretKey =
+		trimOrUndefined(saved[SETTINGS_KEYS.stripeSecretKey]) ??
+		trimOrUndefined(env.stripeSecretKey);
+	const stripeWebhookSecret =
+		trimOrUndefined(saved[SETTINGS_KEYS.stripeWebhookSecret]) ??
+		trimOrUndefined(env.stripeWebhookSecret);
 
 	const baseUrl =
 		trimOrUndefined(saved[SETTINGS_KEYS.baseUrl]) ?? trimOrUndefined(env.baseUrl);
@@ -324,6 +351,9 @@ export function resolveSettings(
 		adminEnabled,
 		orgEnabled,
 		teamsEnabled,
+		billingEnabled,
+		stripeSecretKey,
+		stripeWebhookSecret,
 		baseUrl,
 		secret,
 		socialProviders,

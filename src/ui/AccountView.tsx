@@ -32,6 +32,9 @@ import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
+import { billingPlugin } from "@better-auth-ui/heroui/plugins/billing";
+import { createStripeBillingAdapter } from "@better-auth-ui/core/plugins/billing";
+import { PLAN_DEFINITIONS, toBillingPlans, type PlanPriceIds } from "../billing-plans.js";
 import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -75,6 +78,20 @@ export interface AccountViewProps {
 	 * user's orgs + pending invitations, create new ones). Defaults to false.
 	 */
 	orgEnabled?: boolean;
+	/**
+	 * Whether Stripe subscription billing is enabled (mirrors `billingEnabled`).
+	 * When true AND at least one plan has a monthly price id, the billing UI
+	 * plugin adds a "Billing" tab (pricing, checkout, portal, cancel). Defaults
+	 * to false.
+	 */
+	billingEnabled?: boolean;
+	/**
+	 * Per-plan Stripe price ids keyed by plan id, e.g.
+	 * `{ pro: { month: "price_...", year: "price_..." } }`. NOT secret (price
+	 * ids are safe to expose client-side), so passed into the island. Plans
+	 * without a monthly id are dropped from the pricing UI.
+	 */
+	planPriceIds?: Record<string, PlanPriceIds | undefined>;
 }
 
 export default function AccountView({
@@ -84,8 +101,25 @@ export default function AccountView({
 	siteName = "Account",
 	twoFactorEnabled = false,
 	orgEnabled = false,
+	billingEnabled = false,
+	planPriceIds = {},
 }: AccountViewProps) {
 	const queryClient = getQueryClient();
+
+	// Build the billing adapter once per mount, only when billing is on and at
+	// least one plan has a monthly price id. Memoized so the adapter identity is
+	// stable across renders (the plugin keys queries off it).
+	const billingAdapter = React.useMemo(() => {
+		if (!billingEnabled) return null;
+		const plans = toBillingPlans(PLAN_DEFINITIONS, planPriceIds);
+		if (plans.length === 0) return null;
+		return createStripeBillingAdapter(authClient, {
+			plans,
+			successUrl: "/account/billing?checkout=success",
+			cancelUrl: "/account/billing?checkout=canceled",
+			returnUrl: "/account/billing",
+		});
+	}, [billingEnabled, planPriceIds]);
 
 	return (
 		<QueryClientProvider client={queryClient}>
@@ -124,6 +158,12 @@ export default function AccountView({
 						// Adds the "Organizations" tab to Settings (list orgs + pending
 						// invitations + create). Only when org is on.
 						...(orgEnabled ? [organizationPlugin()] : []),
+						// Adds the "Billing" tab (pricing, checkout, portal, cancel).
+						// Personal (user) billing only — org billing is intentionally
+						// off. Only when billing is on and plans resolved.
+						...(billingAdapter
+							? [billingPlugin({ adapter: billingAdapter, user: true })]
+							: []),
 					]}
 					// `bio` is a profile-only field, stored in users.data by the
 					// adapter (see emdash-adapter.ts). Declared here so Better Auth

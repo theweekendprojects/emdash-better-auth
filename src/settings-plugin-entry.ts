@@ -140,6 +140,26 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.billingEnabled,
+					label: "Enable subscription billing (Stripe)",
+					description:
+						"Registers the Better Auth Stripe plugin and adds a Billing tab to each user's account. Requires the Stripe secret key and webhook secret below, plus plans configured in the site's auth config.",
+					initial_value: bool(saved[SETTINGS_KEYS.billingEnabled]),
+				},
+				{
+					type: "secret_input",
+					action_id: SETTINGS_KEYS.stripeSecretKey,
+					label: "Stripe secret key",
+					has_value: hasVal(saved[SETTINGS_KEYS.stripeSecretKey]),
+				},
+				{
+					type: "secret_input",
+					action_id: SETTINGS_KEYS.stripeWebhookSecret,
+					label: "Stripe webhook signing secret",
+					has_value: hasVal(saved[SETTINGS_KEYS.stripeWebhookSecret]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.sendOnSignIn,
 					label: "Re-send verification on sign-in",
 					description: "Re-send the link when an unverified user tries to log in.",
@@ -171,6 +191,10 @@ function buildSettingsPage(
 		{
 			type: "context",
 			text: "Security: secret fields are stored in the database (masked here, not encrypted at rest) — the same as other EmDash plugins. For the strongest posture on the session signing key, leave 'Better Auth secret' blank and keep BETTER_AUTH_SECRET as a Worker secret.",
+		},
+		{
+			type: "context",
+			text: `Billing (Stripe): after enabling, register a webhook in your Stripe dashboard pointing at ${str(saved[SETTINGS_KEYS.baseUrl]).replace(/\/+$/, "") || "https://<your-site>"}/api/auth/stripe/webhook for the events checkout.session.completed, customer.subscription.created, .updated, and .deleted — then paste its signing secret above. Plans (price IDs) are set in the site's auth config.`,
 		},
 	];
 

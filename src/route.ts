@@ -34,6 +34,7 @@ import {
 	type AuthEnvFallback,
 } from "./settings.js";
 import type { BetterAuthStorage } from "./emdash-adapter.js";
+import { PLAN_DEFINITIONS } from "./billing-plans.js";
 
 export const prerender = false;
 
@@ -51,6 +52,12 @@ const SESSION_ESTABLISHING = [
 	// prefix-less exact paths mirror how the sign-in entries are matched.
 	"/api/auth/two-factor/verify-totp",
 	"/api/auth/two-factor/verify-backup-code",
+	// NOTE: the Stripe webhook (`/api/auth/stripe/webhook`) is deliberately NOT
+	// listed — it's a server-to-server POST from Stripe with no user session and
+	// its own signature verification (handled inside the stripe plugin). It must
+	// pass straight through to the Better Auth handler without session bridging.
+	// Being a public `/api/auth/*` path, it also isn't subject to EmDash's admin
+	// CSRF header check. Don't add it here.
 ];
 
 /**
@@ -131,12 +138,37 @@ function readEnvConfig(request: Request, siteFromConfig: URL | undefined) {
 	// untrusted during CSRF / redirect validation. De-duplicated.
 	const trustedOrigins = Array.from(new Set([baseURL, requestOrigin]));
 
+	// Stripe env fallbacks (saved admin settings win over these, like social).
+	const stripeSecretKey = workerEnv.STRIPE_SECRET_KEY;
+	const stripeWebhookSecret = workerEnv.STRIPE_WEBHOOK_SECRET;
+
 	return {
 		baseURL,
 		secret,
 		social,
 		trustedOrigins,
+		stripeSecretKey,
+		stripeWebhookSecret,
 	};
+}
+
+/**
+ * Resolve each plan's Stripe price ids from env, keyed by plan id. Price ids
+ * are operator config (per Stripe account, differ test/live), so they live in
+ * env vars rather than code: `STRIPE_PRICE_<PLAN>_MONTH` / `_YEAR` (plan id
+ * upper-cased), e.g. `STRIPE_PRICE_PRO_MONTH`. A plan with no month id is
+ * simply absent, which drops it from the usable plan list downstream.
+ */
+function readPlanPriceIds(): Record<string, { month: string; year?: string } | undefined> {
+	const workerEnv = env as Record<string, string | undefined>;
+	const out: Record<string, { month: string; year?: string } | undefined> = {};
+	for (const def of PLAN_DEFINITIONS) {
+		const key = def.id.toUpperCase();
+		const month = workerEnv[`STRIPE_PRICE_${key}_MONTH`];
+		const year = workerEnv[`STRIPE_PRICE_${key}_YEAR`];
+		if (month) out[def.id] = year ? { month, year } : { month };
+	}
+	return out;
 }
 
 /** Endpoints whose success should tear down the EmDash session. */
@@ -180,6 +212,8 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				secret: envConfig.secret,
 				baseUrl: envConfig.baseURL,
 				social: envConfig.social,
+				stripeSecretKey: envConfig.stripeSecretKey,
+				stripeWebhookSecret: envConfig.stripeWebhookSecret,
 			});
 
 			// A saved canonical URL overrides the env/request-resolved origin.
@@ -206,6 +240,13 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				adminEnabled: settings.adminEnabled,
 				orgEnabled: settings.orgEnabled,
 				teamsEnabled: settings.teamsEnabled,
+				// Stripe subscription billing. Enabled only when the flag is on and
+				// the keys + at least one plan price id resolve (buildStripePlugins
+				// enforces that); price ids come from env, keyed by plan id.
+				billingEnabled: settings.billingEnabled,
+				stripeSecretKey: settings.stripeSecretKey,
+				stripeWebhookSecret: settings.stripeWebhookSecret,
+				planPriceIds: readPlanPriceIds(),
 				// Pass the EmDash email pipeline to Better Auth for password reset
 				// and email verification emails. This plugin stays provider-agnostic
 				// — it depends only on EmDash's runtime.email, never on a specific

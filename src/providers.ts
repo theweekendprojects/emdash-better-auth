@@ -21,6 +21,7 @@ import {
 	resolveSettings,
 	type AuthEnvFallback,
 } from "./settings.js";
+import { PLAN_DEFINITIONS } from "./billing-plans.js";
 
 /**
  * Build the per-provider env-credentials fallback map, keyed by provider id,
@@ -120,4 +121,38 @@ export async function teamsEnabled(): Promise<boolean> {
 		// Settings unavailable — default off.
 	}
 	return resolveSettings(saved, {}).teamsEnabled;
+}
+
+/**
+ * Whether Stripe subscription billing is enabled site-wide. Same source of
+ * truth/precedence as the auth route, so the Billing tab only renders when the
+ * backend Stripe plugin is actually registered. Never throws — default off.
+ */
+export async function billingEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).billingEnabled;
+}
+
+/**
+ * Resolve each plan's Stripe price ids from env, keyed by plan id. Mirrors
+ * `readPlanPriceIds` in route.ts (same `STRIPE_PRICE_<PLAN>_MONTH/_YEAR`
+ * convention) so the account page's Billing tab shows exactly the plans the
+ * server will accept at checkout. Price ids are NOT secret, so it's safe to
+ * forward these to the client island.
+ */
+export function planPriceIds(): Record<string, { month: string; year?: string } | undefined> {
+	const workerEnv = env as Record<string, string | undefined>;
+	const out: Record<string, { month: string; year?: string } | undefined> = {};
+	for (const def of PLAN_DEFINITIONS) {
+		const key = def.id.toUpperCase();
+		const month = workerEnv[`STRIPE_PRICE_${key}_MONTH`];
+		const year = workerEnv[`STRIPE_PRICE_${key}_YEAR`];
+		if (month) out[def.id] = year ? { month, year } : { month };
+	}
+	return out;
 }

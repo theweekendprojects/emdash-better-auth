@@ -14,7 +14,13 @@
  */
 import { viewPaths } from "@better-auth-ui/core";
 import { getSiteSettings } from "emdash";
-import { configuredSocialProviders, twoFactorEnabled, orgEnabled } from "../providers.ts";
+import {
+	configuredSocialProviders,
+	twoFactorEnabled,
+	orgEnabled,
+	billingEnabled,
+	planPriceIds,
+} from "../providers.ts";
 import AccountView from "../ui/AccountView.tsx";
 
 const { path } = Astro.params;
@@ -29,9 +35,18 @@ const view = path && path !== "" ? path : "account";
 // so we must allow "organizations" through explicitly when org is on (same
 // pattern as the 2FA "two-factor" view in auth.astro).
 const isOrgEnabled = await orgEnabled();
+// Whether billing is enabled — adds the Billing tab AND the `/account/billing`
+// settings view. Same TYPE-level-only augmentation caveat as orgs, so allow
+// "billing" through explicitly when on.
+const isBillingEnabled = await billingEnabled();
+const resolvedPlanPriceIds = isBillingEnabled ? planPriceIds() : {};
 
 const knownViews = Object.values(viewPaths.settings) as string[];
-const allowedViews = isOrgEnabled ? [...knownViews, "organizations"] : knownViews;
+const allowedViews = [
+	...knownViews,
+	...(isOrgEnabled ? ["organizations"] : []),
+	...(isBillingEnabled ? ["billing"] : []),
+];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
@@ -85,6 +100,8 @@ const is2faEnabled = await twoFactorEnabled();
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
 			orgEnabled={isOrgEnabled}
+			billingEnabled={isBillingEnabled}
+			planPriceIds={resolvedPlanPriceIds}
 			client:load
 		/>
 	</body>

@@ -11,8 +11,11 @@ import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
 import { organization } from "better-auth/plugins";
+import { stripe as stripePlugin } from "@better-auth/stripe";
+import Stripe from "stripe";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
+import { PLAN_DEFINITIONS, toStripePlans, type PlanPriceIds } from "./billing-plans.js";
 
 /**
  * EmDash email pipeline interface, loosely typed to avoid importing emdash internals.
@@ -124,6 +127,24 @@ export interface BetterAuthOptions {
 	 * and the active-team session field.
 	 */
 	teamsEnabled?: boolean;
+	/**
+	 * Whether Stripe subscription billing is enabled. Default false. The
+	 * `stripe()` plugin is only registered when this is true AND a secret key is
+	 * present AND at least one plan resolves a monthly price id — otherwise it's
+	 * a no-op (no billing endpoints, no customer creation).
+	 */
+	billingEnabled?: boolean;
+	/** Stripe secret key (`sk_...`). Required for billing. */
+	stripeSecretKey?: string;
+	/** Stripe webhook signing secret (`whsec_...`). Required for billing. */
+	stripeWebhookSecret?: string;
+	/**
+	 * Per-plan Stripe price ids, keyed by plan id (see PLAN_DEFINITIONS), e.g.
+	 * `{ pro: { month: "price_...", year: "price_..." } }`. These are operator
+	 * config (per Stripe account, differ test/live), so they're injected at
+	 * runtime rather than hardcoded. A plan with no monthly price id is skipped.
+	 */
+	planPriceIds?: Record<string, PlanPriceIds | undefined>;
 }
 
 /**
@@ -134,6 +155,47 @@ export interface BetterAuthOptions {
  * @param storage Plugin storage collections (from `getAuthProviderStorage`).
  * @param options Per-site configuration (baseURL, secret, optional Google, email pipeline).
  */
+/**
+ * Build the Stripe plugin array for the current request, or `[]` when billing
+ * is off / unconfigured. Separated out so `createBetterAuth` stays readable and
+ * the "when do we actually enable billing" rule lives in one place.
+ *
+ * Enabled only when: the flag is on AND a secret key + webhook secret are set
+ * AND at least one plan resolves a monthly price id. Any missing piece → `[]`
+ * (no billing endpoints), so a half-configured site degrades cleanly instead
+ * of throwing at request time.
+ *
+ * The Stripe client uses the FETCH http client: workerd has no Node `http`
+ * module, so the SDK's default (Node) client would throw on Cloudflare. This is
+ * the one Workers-specific line and must not be removed.
+ */
+function buildStripePlugins(options: BetterAuthOptions): ReturnType<typeof stripePlugin>[] {
+	if (!options.billingEnabled) return [];
+	if (!options.stripeSecretKey || !options.stripeWebhookSecret) return [];
+
+	const plans = toStripePlans(PLAN_DEFINITIONS, options.planPriceIds ?? {});
+	if (plans.length === 0) return [];
+
+	const stripeClient = new Stripe(options.stripeSecretKey, {
+		// Workers runtime: use fetch, not Node http.
+		httpClient: Stripe.createFetchHttpClient(),
+	});
+
+	return [
+		stripePlugin({
+			stripeClient,
+			stripeWebhookSecret: options.stripeWebhookSecret,
+			// A Stripe customer is created on sign-up and linked via the user's
+			// stripeCustomerId (stored in users.data JSON by the adapter).
+			createCustomerOnSignUp: true,
+			subscription: {
+				enabled: true,
+				plans,
+			},
+		}),
+	];
+}
+
 export function createBetterAuth(
 	db: Kysely<{ users: Record<string, unknown> }>,
 	storage: BetterAuthStorage,
@@ -316,6 +378,7 @@ export function createBetterAuth(
 		// the user model (stored in users.data JSON). Only enabled when the
 		// admin feature flag is set.
 		plugins: [
+			...buildStripePlugins(options),
 			...(options.twoFactorEnabled ? [twoFactor()] : []),
 			// Admin plugin: user management (create/ban/impersonate/list, string
 			// role). It OWNS the user fields role/banned/banReason/banExpires

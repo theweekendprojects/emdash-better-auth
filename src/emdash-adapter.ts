@@ -127,6 +127,10 @@ const ADDITIONAL_DATA_FIELDS = new Set<string>([
 	"banned",
 	"banReason",
 	"banExpires",
+	// stripe plugin: the user's Stripe customer id (set on signup when
+	// createCustomerOnSignUp is on). A user field with no `users` column, so it
+	// rides users.data JSON like the others.
+	"stripeCustomerId",
 ]);
 
 /**
@@ -146,6 +150,8 @@ export interface BetterAuthStorage {
 	teams: StorageCollection<Record<string, unknown>>;
 	teamMembers: StorageCollection<Record<string, unknown>>;
 	organizationRoles: StorageCollection<Record<string, unknown>>;
+	// Stripe plugin (subscription billing).
+	subscriptions: StorageCollection<Record<string, unknown>>;
 }
 
 /** Shape of a stored username record (keyed by userId in the collection). */
@@ -194,6 +200,8 @@ function storageFor(
 			return storage.teamMembers;
 		case "organizationRole":
 			return storage.organizationRoles;
+		case "subscription":
+			return storage.subscriptions;
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
@@ -223,6 +231,7 @@ const COLLECTION_INDEXES: Record<string, ReadonlySet<string>> = {
 	team: new Set(["id", "organizationId"]),
 	teamMember: new Set(["id", "teamId", "userId"]),
 	organizationRole: new Set(["id", "organizationId"]),
+	subscription: new Set(["id", "referenceId", "stripeSubscriptionId", "stripeCustomerId"]),
 };
 
 /** Indexed field set for a storage model (empty = scan everything in JS). */

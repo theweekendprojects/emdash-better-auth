@@ -58,10 +58,12 @@ cat > "$OUT/tsconfig.json" <<EOF
     "$ROOT/src/where-pushdown.ts",
     "$ROOT/src/additional-data.ts",
     "$ROOT/src/unique-constraint.ts",
+    "$ROOT/src/billing-plans.ts",
     "$ROOT/src/settings.ts",
     "$ROOT/scripts/where-pushdown.selfcheck.ts",
     "$ROOT/scripts/additional-data.selfcheck.ts",
     "$ROOT/scripts/unique-constraint.selfcheck.ts",
+    "$ROOT/scripts/billing-plans.selfcheck.ts",
     "$ROOT/scripts/settings-resolve.selfcheck.ts"
   ]
 }
@@ -76,6 +78,7 @@ echo "==> Running self-checks"
 node "$OUT/js/scripts/where-pushdown.selfcheck.js"
 node "$OUT/js/scripts/additional-data.selfcheck.js"
 node "$OUT/js/scripts/unique-constraint.selfcheck.js"
+node "$OUT/js/scripts/billing-plans.selfcheck.js"
 node "$OUT/js/scripts/settings-resolve.selfcheck.js"
 
 echo "==> All self-checks passed"
