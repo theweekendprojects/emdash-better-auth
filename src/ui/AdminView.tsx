@@ -48,9 +48,15 @@ export interface AdminViewProps {
 	path?: string;
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/** Site logo URL; when set, shown in the header instead of the site name. */
+	logoUrl?: string | null;
 }
 
-export default function AdminView({ path = "users", siteName = "Admin" }: AdminViewProps) {
+export default function AdminView({
+	path = "users",
+	siteName = "Admin",
+	logoUrl = null,
+}: AdminViewProps) {
 	const queryClient = getQueryClient();
 
 	return (
@@ -77,7 +83,11 @@ export default function AdminView({ path = "users", siteName = "Admin" }: AdminV
 					<header className="sticky top-0 z-10 bg-background border-b">
 						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center">
 							<Link href="/" className="no-underline text-foreground">
-								<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								{logoUrl ? (
+									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
+								) : (
+									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								)}
 							</Link>
 							<UserButton size="icon" placement="bottom end" />
 						</div>

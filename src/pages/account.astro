@@ -20,6 +20,7 @@ import {
 	orgEnabled,
 	billingEnabled,
 	planPriceIds,
+	accentColor,
 } from "../providers.ts";
 import AccountView from "../ui/AccountView.tsx";
 
@@ -62,16 +63,20 @@ const redirectTo = "/account";
 // plugin is site-agnostic (no hardcoded site name). Falls back generically.
 const siteSettings = await getSiteSettings().catch(() => null);
 const siteName = siteSettings?.title || "Account";
+// Site logo for the header (same settings object; no extra read).
+const logoUrl = siteSettings?.logo?.url ?? null;
 // Show a social button only for providers whose credentials are actually set
 // (admin settings or env). Matches exactly what the auth route enables.
 const socialProviders = await configuredSocialProviders();
 // Whether 2FA is enabled site-wide — gates the Security tab's enrollment card
 // so it matches the backend (same setting the auth route reads).
 const is2faEnabled = await twoFactorEnabled();
+// Accent color (operator setting) injected as a CSS var for HeroUI theming.
+const accent = await accentColor();
 ---
 
 <!doctype html>
-<html lang="en" class="antialiased">
+<html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -97,6 +102,7 @@ const is2faEnabled = await twoFactorEnabled();
 			path={view}
 			redirectTo={redirectTo}
 			siteName={siteName}
+			logoUrl={logoUrl}
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
 			orgEnabled={isOrgEnabled}

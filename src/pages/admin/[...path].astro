@@ -12,7 +12,7 @@
  * before enabling each action. The header/layout live inside the island.
  */
 import { getSiteSettings } from "emdash";
-import { adminEnabled } from "../../providers.ts";
+import { adminEnabled, accentColor } from "../../providers.ts";
 import AdminView from "../../ui/AdminView.tsx";
 
 // EmDash's ADMIN role level. `users.role` is a numeric RBAC level
@@ -51,10 +51,12 @@ if ((user.role ?? 0) < ROLE_ADMIN) {
 
 const siteSettings = await getSiteSettings().catch(() => null);
 const siteName = siteSettings?.title || "Admin";
+const logoUrl = siteSettings?.logo?.url ?? null;
+const accent = await accentColor();
 ---
 
 <!doctype html>
-<html lang="en" class="antialiased">
+<html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -73,6 +75,6 @@ const siteName = siteSettings?.title || "Admin";
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<AdminView path={view} siteName={siteName} client:load />
+		<AdminView path={view} siteName={siteName} logoUrl={logoUrl} client:load />
 	</body>
 </html>

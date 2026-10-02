@@ -15,7 +15,7 @@
  * island.
  */
 import { getSiteSettings } from "emdash";
-import { orgEnabled, teamsEnabled as teamsEnabledFlag } from "../../providers.ts";
+import { orgEnabled, teamsEnabled as teamsEnabledFlag, accentColor } from "../../providers.ts";
 import OrganizationView from "../../ui/OrganizationView.tsx";
 
 // Gate the whole route behind the organization feature flag.
@@ -41,10 +41,12 @@ if (!Astro.locals.user) {
 
 const siteSettings = await getSiteSettings().catch(() => null);
 const siteName = siteSettings?.title || "Organization";
+const logoUrl = siteSettings?.logo?.url ?? null;
+const accent = await accentColor();
 ---
 
 <!doctype html>
-<html lang="en" class="antialiased">
+<html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -63,6 +65,6 @@ const siteName = siteSettings?.title || "Organization";
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<OrganizationView path={view} siteName={siteName} teamsEnabled={teams} client:load />
+		<OrganizationView path={view} siteName={siteName} logoUrl={logoUrl} teamsEnabled={teams} client:load />
 	</body>
 </html>

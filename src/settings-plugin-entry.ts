@@ -180,6 +180,15 @@ function buildSettingsPage(
 					initial_value: str(saved[SETTINGS_KEYS.baseUrl]),
 				},
 				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.accentColor,
+					label: "Accent color",
+					placeholder: "#0066cc",
+					description:
+						"Any CSS color (hex, rgb, oklch). Themes the login, account, admin, and organization pages to match your brand. Leave blank for the default blue.",
+					initial_value: str(saved[SETTINGS_KEYS.accentColor]),
+				},
+				{
 					type: "secret_input",
 					action_id: SETTINGS_KEYS.betterAuthSecret,
 					label: "Better Auth secret",

@@ -52,6 +52,8 @@ export interface OrganizationViewProps {
 	path?: string;
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/** Site logo URL; when set, shown in the header instead of the site name. */
+	logoUrl?: string | null;
 	/**
 	 * Whether organization teams are enabled site-wide (mirrors the backend
 	 * `teams` flag). When true, the Teams tab is added to the org shell. Must
@@ -63,6 +65,7 @@ export interface OrganizationViewProps {
 export default function OrganizationView({
 	path = "settings",
 	siteName = "Organization",
+	logoUrl = null,
 	teamsEnabled = false,
 }: OrganizationViewProps) {
 	const queryClient = getQueryClient();
@@ -91,7 +94,11 @@ export default function OrganizationView({
 					<header className="sticky top-0 z-10 bg-background border-b">
 						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center gap-3">
 							<Link href="/" className="no-underline text-foreground">
-								<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								{logoUrl ? (
+									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
+								) : (
+									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								)}
 							</Link>
 							<div className="flex items-center gap-3">
 								<OrganizationSwitcher placement="bottom end" />

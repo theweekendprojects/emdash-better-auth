@@ -88,4 +88,11 @@ import { resolveSettings } from "../src/settings.js";
 	equal(on.stripeWebhookSecret, "whsec_env");
 }
 
-console.log("settings-resolve self-check: all 7 cases passed");
+// 8. Accent color: undefined when unset (caller applies the default), and the
+//    saved value (trimmed) when present.
+{
+	equal(resolveSettings({}, {}).accentColor, undefined);
+	equal(resolveSettings({ accentColor: "  #0066cc  " }, {}).accentColor, "#0066cc");
+}
+
+console.log("settings-resolve self-check: all 8 cases passed");

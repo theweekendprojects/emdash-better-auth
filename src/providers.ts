@@ -12,7 +12,7 @@
  * never pulls in the Worker env binding.
  */
 
-import { getPluginSettings } from "emdash";
+import { getPluginSettings, getSiteSettings } from "emdash";
 import { env } from "cloudflare:workers";
 
 import {
@@ -136,6 +136,40 @@ export async function billingEnabled(): Promise<boolean> {
 		// Settings unavailable — default off.
 	}
 	return resolveSettings(saved, {}).billingEnabled;
+}
+
+/** Default accent when the operator hasn't set one — a neutral, legible blue. */
+export const DEFAULT_ACCENT_COLOR = "#0066cc";
+
+/**
+ * The accent color used to theme the HeroUI auth/account/admin/org pages.
+ * Operator-configurable (admin settings); falls back to {@link DEFAULT_ACCENT_COLOR}.
+ * EmDash exposes no site brand color, so this is the plugin's own setting.
+ * Never throws — a settings read failure degrades to the default.
+ */
+export async function accentColor(): Promise<string> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — use the default.
+	}
+	return resolveSettings(saved, {}).accentColor ?? DEFAULT_ACCENT_COLOR;
+}
+
+/**
+ * The site's logo URL for the auth-page header, or null when none is set.
+ * Reads EmDash's site settings (the one brand asset EmDash does expose). Never
+ * throws — a read failure just means no logo (the text site name is the
+ * fallback in the island).
+ */
+export async function siteLogoUrl(): Promise<string | null> {
+	try {
+		const settings = await getSiteSettings();
+		return settings?.logo?.url ?? null;
+	} catch {
+		return null;
+	}
 }
 
 /**

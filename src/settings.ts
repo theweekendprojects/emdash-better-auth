@@ -96,6 +96,7 @@ export const SETTINGS_KEYS = {
 	billingEnabled: "billingEnabled",
 	stripeSecretKey: "stripeSecretKey",
 	stripeWebhookSecret: "stripeWebhookSecret",
+	accentColor: "accentColor",
 } as const;
 
 /**
@@ -137,6 +138,7 @@ const SECRET_KEYS: readonly string[] = [
 /** Plain-text setting keys. */
 const TEXT_KEYS: readonly string[] = [
 	SETTINGS_KEYS.baseUrl,
+	SETTINGS_KEYS.accentColor,
 	...SOCIAL_PROVIDERS.map((p) => providerClientIdKey(p.id)),
 ];
 
@@ -219,6 +221,12 @@ export interface ResolvedAuthSettings {
 	stripeWebhookSecret?: string;
 	/** Canonical origin override, or undefined to let the route resolve it. */
 	baseUrl?: string;
+	/**
+	 * Accent color (any CSS color, e.g. "#0066cc") used to theme the HeroUI
+	 * auth/account/admin/org pages. Undefined when unset — callers apply the
+	 * built-in default.
+	 */
+	accentColor?: string;
 	/** Session signing secret, or undefined to fall back to env. */
 	secret?: string;
 	/**
@@ -323,6 +331,7 @@ export function resolveSettings(
 
 	const baseUrl =
 		trimOrUndefined(saved[SETTINGS_KEYS.baseUrl]) ?? trimOrUndefined(env.baseUrl);
+	const accentColor = trimOrUndefined(saved[SETTINGS_KEYS.accentColor]);
 
 	const secret =
 		trimOrUndefined(saved[SETTINGS_KEYS.betterAuthSecret]) ??
@@ -355,6 +364,7 @@ export function resolveSettings(
 		stripeSecretKey,
 		stripeWebhookSecret,
 		baseUrl,
+		accentColor,
 		secret,
 		socialProviders,
 	};

@@ -25,3 +25,20 @@ html,
 body {
 	@apply bg-background text-foreground;
 }
+
+/*
+ * Brand accent. The page shell injects the operator-configured accent as
+ * `--emdash-accent` (an inline style on <html>); here we bind HeroUI's primary
+ * semantic color to it, with a default blue when unset. HeroUI derives the
+ * hover / soft / focus-ring variants from `--accent` via color-mix, so a single
+ * value re-themes buttons, links, focus rings, and selected states across both
+ * light and dark (the `.dark` palette for surfaces is left untouched).
+ *
+ * `--accent` accepts any CSS color; the operator may enter hex, rgb, or oklch.
+ * `--accent-foreground` stays near-white so text on the accent keeps contrast
+ * for typical brand colors.
+ */
+:root {
+	--accent: var(--emdash-accent, #0066cc);
+	--accent-foreground: oklch(0.99 0 0);
+}

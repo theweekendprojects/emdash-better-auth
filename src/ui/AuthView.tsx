@@ -112,6 +112,8 @@ export interface AuthViewProps {
 	socialProviders?: string[];
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/** Site logo URL; when set, shown in the header instead of the site name. */
+	logoUrl?: string | null;
 	/**
 	 * Whether the server requires email verification before a session is
 	 * created (mirrors `emailAndPassword.requireEmailVerification` in auth.ts).
@@ -147,6 +149,7 @@ export default function AuthView({
 	redirectTo = "/",
 	socialProviders = [],
 	siteName = "Home",
+	logoUrl = null,
 	requireEmailVerification = true,
 	twoFactorEnabled = false,
 	orgEnabled = false,
@@ -199,7 +202,11 @@ export default function AuthView({
 					<header className="sticky top-0 z-10 bg-background border-b">
 						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center">
 							<Link href="/" className="no-underline text-foreground">
-								<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								{logoUrl ? (
+									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
+								) : (
+									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								)}
 							</Link>
 							<UserButton size="icon" placement="bottom end" />
 						</div>

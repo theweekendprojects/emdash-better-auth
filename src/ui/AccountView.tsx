@@ -63,6 +63,8 @@ export interface AccountViewProps {
 	socialProviders?: string[];
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/** Site logo URL; when set, shown in the header instead of the site name. */
+	logoUrl?: string | null;
 	/**
 	 * Whether two-factor authentication is enabled site-wide (mirrors the
 	 * `twoFactorEnabled` admin setting the auth route reads). When true, the
@@ -99,6 +101,7 @@ export default function AccountView({
 	redirectTo = "/account",
 	socialProviders = [],
 	siteName = "Account",
+	logoUrl = null,
 	twoFactorEnabled = false,
 	orgEnabled = false,
 	billingEnabled = false,
@@ -194,7 +197,11 @@ export default function AccountView({
 					<header className="sticky top-0 z-10 bg-background border-b">
 						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center">
 							<Link href="/" className="no-underline text-foreground">
-								<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								{logoUrl ? (
+									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
+								) : (
+									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								)}
 							</Link>
 							<UserButton size="icon" placement="bottom end" />
 						</div>

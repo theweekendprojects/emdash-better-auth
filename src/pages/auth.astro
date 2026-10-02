@@ -17,6 +17,8 @@ import {
 	configuredSocialProviders,
 	twoFactorEnabled,
 	orgEnabled,
+	accentColor,
+	siteLogoUrl,
 } from "../providers.ts";
 import AuthView from "../ui/AuthView.tsx";
 
@@ -61,10 +63,13 @@ const siteName = siteSettings?.title || "Account";
 // Show a social button only for providers whose credentials are actually set
 // (admin settings or env). Matches exactly what the auth route enables.
 const socialProviders = await configuredSocialProviders();
+// Brand theming: accent color (operator setting) + optional site logo.
+const accent = await accentColor();
+const logoUrl = await siteLogoUrl();
 ---
 
 <!doctype html>
-<html lang="en" class="antialiased">
+<html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -90,6 +95,7 @@ const socialProviders = await configuredSocialProviders();
 			path={view}
 			redirectTo={redirectTo}
 			siteName={siteName}
+			logoUrl={logoUrl}
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
 			orgEnabled={isOrgEnabled}
