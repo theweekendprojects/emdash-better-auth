@@ -86,6 +86,9 @@ export const SETTINGS_KEYS = {
 	baseUrl: "baseUrl",
 	betterAuthSecret: "betterAuthSecret",
 	twoFactorEnabled: "twoFactorEnabled",
+	adminEnabled: "adminEnabled",
+	orgEnabled: "orgEnabled",
+	teamsEnabled: "teamsEnabled",
 } as const;
 
 /**
@@ -98,6 +101,9 @@ export const SETTINGS_DEFAULTS = {
 	sendOnSignIn: true,
 	autoSignInAfterVerification: true,
 	twoFactorEnabled: false,
+	adminEnabled: false,
+	orgEnabled: false,
+	teamsEnabled: false,
 } as const;
 
 /** Boolean-typed setting keys (rendered as toggles, coerced on read). */
@@ -106,6 +112,9 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.sendOnSignIn,
 	SETTINGS_KEYS.autoSignInAfterVerification,
 	SETTINGS_KEYS.twoFactorEnabled,
+	SETTINGS_KEYS.adminEnabled,
+	SETTINGS_KEYS.orgEnabled,
+	SETTINGS_KEYS.teamsEnabled,
 ] as const;
 
 /** Secret-typed setting keys (masked in UI; preserved on save when blank). */
@@ -185,6 +194,12 @@ export interface ResolvedAuthSettings {
 	sendOnSignIn: boolean;
 	autoSignInAfterVerification: boolean;
 	twoFactorEnabled: boolean;
+	/** Admin plugin (user management) enabled. */
+	adminEnabled: boolean;
+	/** Organization plugin (multi-tenancy) enabled. */
+	orgEnabled: boolean;
+	/** Organization teams enabled (only meaningful when orgEnabled). */
+	teamsEnabled: boolean;
 	/** Canonical origin override, or undefined to let the route resolve it. */
 	baseUrl?: string;
 	/** Session signing secret, or undefined to fall back to env. */
@@ -262,6 +277,18 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.twoFactorEnabled],
 		SETTINGS_DEFAULTS.twoFactorEnabled,
 	);
+	const adminEnabled = coerceBool(
+		saved[SETTINGS_KEYS.adminEnabled],
+		SETTINGS_DEFAULTS.adminEnabled,
+	);
+	const orgEnabled = coerceBool(
+		saved[SETTINGS_KEYS.orgEnabled],
+		SETTINGS_DEFAULTS.orgEnabled,
+	);
+	// Teams only matter when organizations are on; force false otherwise so a
+	// stale saved toggle can't register team collections without the org plugin.
+	const teamsEnabled =
+		orgEnabled && coerceBool(saved[SETTINGS_KEYS.teamsEnabled], SETTINGS_DEFAULTS.teamsEnabled);
 
 	const baseUrl =
 		trimOrUndefined(saved[SETTINGS_KEYS.baseUrl]) ?? trimOrUndefined(env.baseUrl);
@@ -290,6 +317,9 @@ export function resolveSettings(
 		sendOnSignIn,
 		autoSignInAfterVerification,
 		twoFactorEnabled,
+		adminEnabled,
+		orgEnabled,
+		teamsEnabled,
 		baseUrl,
 		secret,
 		socialProviders,

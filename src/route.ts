@@ -202,6 +202,10 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				// Two-factor authentication is a feature flag; only enable when
 				// the admin has opted in via settings.
 				twoFactorEnabled: settings.twoFactorEnabled,
+				// Admin + organization (multi-tenancy) feature flags, same pattern.
+				adminEnabled: settings.adminEnabled,
+				orgEnabled: settings.orgEnabled,
+				teamsEnabled: settings.teamsEnabled,
 				// Pass the EmDash email pipeline to Better Auth for password reset
 				// and email verification emails. This plugin stays provider-agnostic
 				// — it depends only on EmDash's runtime.email, never on a specific

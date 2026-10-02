@@ -29,6 +29,9 @@
   "plugin": {
     "id": "better-auth"
   },
+  "scripts": {
+    "selfcheck": "bash scripts/selfcheck.sh"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

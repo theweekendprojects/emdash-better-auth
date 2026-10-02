@@ -10,9 +10,18 @@
 import { createAuthClient } from "better-auth/react";
 import { usernameClient } from "better-auth/client/plugins";
 import { twoFactorClient } from "better-auth/client/plugins";
+import { adminClient } from "better-auth/client/plugins";
+import { organizationClient } from "better-auth/client/plugins";
 
+// The client is a single static build and can't read the per-request feature
+// flags that gate the server plugins, so the admin + organization client
+// plugins are always registered. They only add method namespaces
+// (`authClient.admin.*`, `authClient.organization.*`); calls fail server-side
+// if the matching server plugin is disabled, so registering them unconditionally
+// is inert for sites that don't opt in. Teams use the organization namespace
+// too — no separate client flag is needed for basic team calls.
 export const authClient = createAuthClient({
-	plugins: [usernameClient(), twoFactorClient()],
+	plugins: [usernameClient(), twoFactorClient(), adminClient(), organizationClient()],
 });
 
 export type AuthClient = typeof authClient;

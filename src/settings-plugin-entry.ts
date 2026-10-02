@@ -116,6 +116,30 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.adminEnabled,
+					label: "Enable admin user management",
+					description:
+						"Registers the Better Auth admin plugin: create users, ban/unban, impersonate, and assign an auth role. Stored alongside each EmDash user; does not change EmDash's own role levels.",
+					initial_value: bool(saved[SETTINGS_KEYS.adminEnabled]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.orgEnabled,
+					label: "Enable organizations (multi-tenancy)",
+					description:
+						"Registers the Better Auth organization plugin: users can create organizations, invite members, and switch between them. No database migration required.",
+					initial_value: bool(saved[SETTINGS_KEYS.orgEnabled]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.teamsEnabled,
+					label: "Enable organization teams",
+					description:
+						"Adds teams within each organization. Only takes effect when 'Enable organizations' is on.",
+					initial_value: bool(saved[SETTINGS_KEYS.teamsEnabled]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.sendOnSignIn,
 					label: "Re-send verification on sign-in",
 					description: "Re-send the link when an unverified user tries to log in.",

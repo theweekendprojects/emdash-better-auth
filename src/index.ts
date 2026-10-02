@@ -88,6 +88,36 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	twoFactors: {
 		indexes: ["userId"] as const,
 	},
+	// Organization plugin (multi-tenancy). All models route to plugin storage
+	// via the adapter — no site tables, no migration. Indexes mirror the
+	// fields Better Auth queries by:
+	//   - organizations: by slug (checkSlug / lookup).
+	//   - members:       by organizationId (list members) and userId (a user's orgs).
+	//   - invitations:   by organizationId (list) and email (accept lookup).
+	//   - teams:         by organizationId (list a org's teams).
+	//   - teamMembers:   by teamId (list) and userId (a user's teams).
+	//   - organizationRoles: by organizationId (dynamic access control roles).
+	// Collections are declared unconditionally; they stay empty until the
+	// organization plugin is enabled (settings flag), so there's no cost.
+	organizations: {
+		indexes: ["slug"] as const,
+		uniqueIndexes: ["slug"] as const,
+	},
+	members: {
+		indexes: ["organizationId", "userId"] as const,
+	},
+	invitations: {
+		indexes: ["organizationId", "email"] as const,
+	},
+	teams: {
+		indexes: ["organizationId"] as const,
+	},
+	teamMembers: {
+		indexes: ["teamId", "userId"] as const,
+	},
+	organizationRoles: {
+		indexes: ["organizationId"] as const,
+	},
 } satisfies PluginStorageConfig;
 
 /**

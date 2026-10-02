@@ -66,6 +66,13 @@ import type { CleanedWhere, CustomAdapter } from "@better-auth/core/db/adapter";
 import { ulid } from "ulidx";
 import type { Kysely } from "kysely";
 import type { StorageCollection } from "emdash";
+import { splitWhere } from "./where-pushdown.js";
+import {
+	pickAdditionalData as pickAdditionalDataImpl,
+	parseAdditionalData,
+	mergeAdditionalData,
+} from "./additional-data.js";
+import { constraintToCheck, recordMatchesConstraint } from "./unique-constraint.js";
 
 /**
  * The subset of EmDash's `users` table this adapter reads and writes.
@@ -96,7 +103,10 @@ const USER_COLUMNS = new Set<string>([
 	"email",
 	"name",
 	"avatar_url",
-	"role",
+	// NOTE: EmDash's numeric `role` column is intentionally NOT listed here.
+	// Better-Auth's `role` is the admin plugin's STRING role, routed to the
+	// users.data JSON blob via ADDITIONAL_DATA_FIELDS, so a where/update on
+	// `role` must never hit this physical column.
 	"email_verified",
 	"disabled",
 	"data",
@@ -108,7 +118,16 @@ const USER_COLUMNS = new Set<string>([
 const USERNAME_FIELDS = new Set<string>(["username", "displayUsername"]);
 
 /** Additional user fields stored in users.data JSON column (not real DB columns). */
-const ADDITIONAL_DATA_FIELDS = new Set<string>(["bio", "twoFactorEnabled"]);
+const ADDITIONAL_DATA_FIELDS = new Set<string>([
+	"bio",
+	"twoFactorEnabled",
+	// admin plugin: Better-Auth's string `role` + ban fields. Stored in
+	// users.data JSON, NEVER mapped onto EmDash's numeric `users.role` column.
+	"role",
+	"banned",
+	"banReason",
+	"banExpires",
+]);
 
 /**
  * Storage collections the plugin declares (see index.ts `storage`).
@@ -120,6 +139,13 @@ export interface BetterAuthStorage {
 	verifications: StorageCollection<Record<string, unknown>>;
 	usernames: StorageCollection<Record<string, unknown>>;
 	twoFactors: StorageCollection<Record<string, unknown>>;
+	// Organization plugin (multi-tenancy) collections.
+	organizations: StorageCollection<Record<string, unknown>>;
+	members: StorageCollection<Record<string, unknown>>;
+	invitations: StorageCollection<Record<string, unknown>>;
+	teams: StorageCollection<Record<string, unknown>>;
+	teamMembers: StorageCollection<Record<string, unknown>>;
+	organizationRoles: StorageCollection<Record<string, unknown>>;
 }
 
 /** Shape of a stored username record (keyed by userId in the collection). */
@@ -156,19 +182,96 @@ function storageFor(
 			return storage.usernames;
 		case "twoFactor":
 			return storage.twoFactors;
+		case "organization":
+			return storage.organizations;
+		case "member":
+			return storage.members;
+		case "invitation":
+			return storage.invitations;
+		case "team":
+			return storage.teams;
+		case "teamMember":
+			return storage.teamMembers;
+		case "organizationRole":
+			return storage.organizationRoles;
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
 }
 
-/** Resolve a direct `id = eq` userId from a where clause, if present. */
-function directUserId(where: CleanedWhere[]): string | null {
-	for (const clause of where) {
-		if (clause.field === "id" && clause.operator === "eq") {
-			return clause.value as string;
+/**
+ * Indexed fields per storage model, keyed by Better-Auth model name. A where
+ * clause on one of these fields can be pushed into `collection.query()` (SQL,
+ * index-backed) instead of being matched in JS after a full scan.
+ *
+ * MUST stay a subset of each collection's `indexes` in
+ * `BETTER_AUTH_STORAGE_CONFIG` (index.ts) — EmDash's `validateWhereClause`
+ * throws if a where-field isn't actually indexed. Kept as a local map rather
+ * than imported from index.ts to avoid an import cycle (index.ts → adapter).
+ * `id` is always queryable (the storage primary key), so it's included for
+ * every model.
+ */
+const COLLECTION_INDEXES: Record<string, ReadonlySet<string>> = {
+	account: new Set(["id", "userId", "providerId", "accountId"]),
+	session: new Set(["id", "userId", "token", "expiresAt"]),
+	verification: new Set(["id", "identifier", "expiresAt"]),
+	username: new Set(["id", "username", "userId"]),
+	twoFactor: new Set(["id", "userId"]),
+	organization: new Set(["id", "slug"]),
+	member: new Set(["id", "organizationId", "userId"]),
+	invitation: new Set(["id", "organizationId", "email"]),
+	team: new Set(["id", "organizationId"]),
+	teamMember: new Set(["id", "teamId", "userId"]),
+	organizationRole: new Set(["id", "organizationId"]),
+};
+
+/** Indexed field set for a storage model (empty = scan everything in JS). */
+function indexedFor(model: string): ReadonlySet<string> {
+	return COLLECTION_INDEXES[model] ?? EMPTY_INDEX_SET;
+}
+
+const EMPTY_INDEX_SET: ReadonlySet<string> = new Set();
+
+/**
+ * Reject a create that would violate a model's uniqueness constraint
+ * (see {@link UNIQUE_CONSTRAINTS}). Queries by the first (indexed) constraint
+ * field and matches the rest in memory, throwing on a collision. No-op for
+ * models without a constraint, or when a constraint field is absent.
+ *
+ * EmDash 0.30 doesn't enforce `uniqueIndexes` as a DB constraint, so — exactly
+ * like usernames — this is check-then-write.
+ *
+ * ponytail: TOCTOU window under two truly concurrent same-slug / same-member
+ * creates. D1 serializes per isolate, which narrows it; acceptable for
+ * CMS-scale tenancy. If EmDash starts enforcing `uniqueIndexes`, this becomes
+ * atomic for free and the guard can be dropped.
+ */
+async function assertUnique(
+	storage: BetterAuthStorage,
+	model: string,
+	data: Record<string, unknown>,
+): Promise<void> {
+	const fields = constraintToCheck(model, data);
+	if (!fields) return;
+
+	const collection = storageFor(storage, model);
+	const first = fields[0]!;
+	let cursor: string | undefined;
+	do {
+		const page = await collection.query({
+			where: { [first]: data[first] as string | number },
+			limit: 100,
+			cursor,
+		});
+		for (const item of page.items) {
+			if (recordMatchesConstraint(fields, data, item.data as Record<string, unknown>)) {
+				throw new Error(
+					`[better-auth] ${model} with ${fields.map((f) => `${f}=${String(data[f])}`).join(", ")} already exists`,
+				);
+			}
 		}
-	}
-	return null;
+		cursor = page.hasMore ? page.cursor : undefined;
+	} while (cursor);
 }
 
 /**
@@ -222,7 +325,11 @@ async function userIdForUsername(
  * path, so we handle the common shapes and treat anything exotic as unmatched.
  *
  * Returns:
- *   - `{ clauses }`      — SQL-safe where clauses to run against `users`.
+ *   - `{ clauses, residual }` — `clauses` are SQL-safe where clauses to run
+ *                          against `users`; `residual` are clauses on
+ *                          JSON-backed additional fields (e.g. admin `role`,
+ *                          `banned`) that the caller must match in JS against
+ *                          the surfaced user object (see `matchesWhere`).
  *   - `{ unmatchable }`  — the query can't match any row (e.g. username not
  *                          claimed, or an unsupported operator on a virtual
  *                          field). Callers should short-circuit to empty.
@@ -230,8 +337,9 @@ async function userIdForUsername(
 async function resolveUserWhere(
 	storage: BetterAuthStorage,
 	where: CleanedWhere[],
-): Promise<{ clauses: CleanedWhere[] } | { unmatchable: true }> {
+): Promise<{ clauses: CleanedWhere[]; residual: CleanedWhere[] } | { unmatchable: true }> {
 	const clauses: CleanedWhere[] = [];
+	const residual: CleanedWhere[] = [];
 	for (const clause of where) {
 		if (!USERNAME_FIELDS.has(clause.field) && !ADDITIONAL_DATA_FIELDS.has(clause.field)) {
 			// Real column — pass through (guard against unexpected virtual keys).
@@ -243,20 +351,21 @@ async function resolveUserWhere(
 			continue;
 		}
 
+		if (ADDITIONAL_DATA_FIELDS.has(clause.field)) {
+			// JSON-backed field (bio, twoFactorEnabled, admin role/ban fields).
+			// The value lives in users.data, not a column, so it can't be a SQL
+			// where. Defer it to an in-JS match over the surfaced user object;
+			// this keeps admin's filtered listUsers (by role/banned) correct
+			// instead of silently returning every user.
+			residual.push(clause);
+			continue;
+		}
+
 		// Virtual username field. Only `username` is queryable/unique; a lookup
 		// by `displayUsername` isn't something Better-Auth does, but handle it
 		// defensively by scanning for a matching display value.
 		if (clause.operator !== "eq" || typeof clause.value !== "string") {
 			return { unmatchable: true };
-		}
-
-		if (ADDITIONAL_DATA_FIELDS.has(clause.field)) {
-			// Bio is stored in users.data JSON column. Better Auth doesn't query
-			// by bio, so we just pass this through as-is (the SQL engine will
-			// handle JSON extraction if needed). For now, we skip it since
-			// Better Auth doesn't need to filter users by bio.
-			// If needed in future, we could implement JSON_CONTAINS or similar.
-			continue;
 		}
 
 		// Handle a username-field lookup. `username` uses the unique index;
@@ -282,7 +391,7 @@ async function resolveUserWhere(
 		if (!userId) return { unmatchable: true };
 		clauses.push({ field: "id", operator: "eq", value: userId, connector: "AND" });
 	}
-	return { clauses };
+	return { clauses, residual };
 }
 
 /**
@@ -349,71 +458,32 @@ function pickUsernameFields(data: Record<string, unknown>): {
 	return out;
 }
 
-/** Extract bio from a create/update payload (or {}). */
-function pickBioField(data: Record<string, unknown>): string | null | undefined {
-	if ("bio" in data) return (data.bio as string) ?? null;
-	return undefined;
+/** {@link pickAdditionalDataImpl}, bound to this adapter's recognized fields. */
+function pickAdditionalData(data: Record<string, unknown>): Record<string, unknown> {
+	return pickAdditionalDataImpl(data, ADDITIONAL_DATA_FIELDS);
 }
 
-/** Extract twoFactorEnabled from a create/update payload (or {}). */
-function pickTwoFactorField(data: Record<string, unknown>): boolean | null | undefined {
-	if ("twoFactorEnabled" in data) return (data.twoFactorEnabled as boolean) ?? null;
-	return undefined;
-}
-
-/** Parse the users.data JSON column and extract additional fields. */
-function parseAdditionalData(dataJson: string | null): { bio?: string; twoFactorEnabled?: boolean } {
-	if (!dataJson) return {};
-	try {
-		return JSON.parse(dataJson) as { bio?: string; twoFactorEnabled?: boolean };
-	} catch {
-		return {};
-	}
-}
-
-/** Merge additional fields (like bio, twoFactorEnabled) into the users.data JSON. */
-function mergeAdditionalData(
-	currentDataJson: string | null,
-	next: { bio?: string | null; twoFactorEnabled?: boolean | null },
-): string | null {
-	const current = currentDataJson ? parseAdditionalData(currentDataJson) : {};
-	if (next.bio === undefined && next.twoFactorEnabled === undefined) return currentDataJson; // No change
-	
-	if (next.bio !== undefined) {
-		if (next.bio === null) {
-			// Remove bio from data
-			delete current.bio;
-		} else {
-			current.bio = next.bio;
-		}
-	}
-	if (next.twoFactorEnabled !== undefined) {
-		if (next.twoFactorEnabled === null) {
-			// Remove twoFactorEnabled from data
-			delete current.twoFactorEnabled;
-		} else {
-			current.twoFactorEnabled = next.twoFactorEnabled;
-		}
-	}
-	
-	return Object.keys(current).length > 0 ? JSON.stringify(current) : null;
-}
-
-/** Attach username/displayUsername/bio/twoFactorEnabled to a user row for return to Better-Auth. */
+/**
+ * Attach the virtual user fields Better-Auth expects onto a raw `users` row:
+ * `username`/`displayUsername` from the usernames collection, plus every
+ * `ADDITIONAL_DATA_FIELDS` entry from the users.data JSON (null when absent).
+ */
 function withUsername(
 	row: Record<string, unknown>,
 	rec: UsernameRecord | null,
 ): Record<string, unknown> {
 	const data = (row.data as string | null) ?? null;
-	const additional = data ? parseAdditionalData(data) : {};
+	const additional = parseAdditionalData(data);
 
-	return {
+	const out: Record<string, unknown> = {
 		...row,
 		username: rec?.username ?? null,
 		displayUsername: rec?.displayUsername ?? null,
-		bio: additional.bio ?? null,
-		twoFactorEnabled: additional.twoFactorEnabled ?? null,
 	};
+	for (const field of ADDITIONAL_DATA_FIELDS) {
+		out[field] = additional[field] ?? null;
+	}
+	return out;
 }
 
 /**
@@ -458,20 +528,49 @@ function matchesWhere(record: Record<string, unknown>, where: CleanedWhere[]): b
 }
 
 /**
- * Pull every row for a storage collection (paginated) and filter in memory.
- * Bounded by auth working-set sizes; not a general query engine.
+ * Pull rows for a storage collection and filter them.
+ *
+ * Fast path: clauses on INDEXED fields are pushed into `collection.query()` so
+ * the DB filters by index (O(matching rows)); only residual clauses are matched
+ * in JS. Pass `indexed` (the collection's index set) to enable it. Without it,
+ * or for residual clauses, this falls back to the bounded full scan.
+ *
+ * `opts.limit` is honored early ONLY when there are no residual clauses (the
+ * storage `where` fully expresses the filter), so we never under-return rows
+ * that an in-JS residual clause would have kept out of an earlier page.
  */
 async function queryStorage(
 	collection: StorageCollection<Record<string, unknown>>,
 	where: CleanedWhere[],
-	opts?: { limit?: number; sortBy?: { field: string; direction: "asc" | "desc" } },
+	opts?: {
+		limit?: number;
+		sortBy?: { field: string; direction: "asc" | "desc" };
+		indexed?: ReadonlySet<string>;
+	},
 ): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
+	const { storageWhere, residual } = opts?.indexed
+		? splitWhere(where, opts.indexed)
+		: { storageWhere: {}, residual: where };
+	const hasStorageWhere = Object.keys(storageWhere).length > 0;
+
+	// Safe to stop at the caller's limit only when the storage where is the
+	// whole filter and no sort reorders across pages.
+	const canLimitEarly =
+		opts?.limit !== undefined && residual.length === 0 && !opts.sortBy;
+
 	const results: Array<{ id: string; data: Record<string, unknown> }> = [];
 	let cursor: string | undefined;
 	do {
-		const page = await collection.query({ limit: 1000, cursor });
+		const page = await collection.query({
+			limit: 100,
+			cursor,
+			...(hasStorageWhere ? { where: storageWhere } : {}),
+		});
 		for (const item of page.items) {
-			if (matchesWhere(item.data, where)) results.push(item);
+			if (matchesWhere(item.data, residual)) results.push(item);
+		}
+		if (canLimitEarly && results.length >= (opts.limit as number)) {
+			return results.slice(0, opts.limit);
 		}
 		cursor = page.hasMore ? page.cursor : undefined;
 	} while (cursor);
@@ -511,13 +610,64 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 		return query;
 	}
 
+	/**
+	 * Run a resolved user where (SQL clauses) against the `users` table, augment
+	 * each row with its virtual fields (username + JSON-backed additional
+	 * fields), then apply any `residual` clauses (filters on JSON-backed fields
+	 * like admin `role`/`banned`) in JS. Optional ordering/paging is applied to
+	 * the SQL query BEFORE the residual filter, so pass a residual-free resolve
+	 * when exact limit semantics matter.
+	 */
+	async function findUsersMatching(
+		resolved: { clauses: CleanedWhere[]; residual: CleanedWhere[] },
+		opts?: { sortBy?: { field: string; direction: "asc" | "desc" }; limit?: number; offset?: number },
+	): Promise<Record<string, unknown>[]> {
+		let query = userWhere(resolved.clauses).selectAll();
+		// ponytail: only real columns are sortable (SQL ORDER BY). A sort on a
+		// JSON-backed field (e.g. admin's string `role`) is ignored rather than
+		// scanned+sorted in JS; admin listUsers defaults to createdAt, a column.
+		// Upgrade path: sort the augmented rows in JS when the field is virtual.
+		if (opts?.sortBy && USER_COLUMNS.has(opts.sortBy.field)) {
+			query = query.orderBy(
+				opts.sortBy.field as keyof UsersTable & string,
+				opts.sortBy.direction,
+			);
+		}
+		// Only push limit/offset into SQL when there's no residual filter; a
+		// residual match could drop rows and under-fill the requested page.
+		if (resolved.residual.length === 0) {
+			if (opts?.limit !== undefined) query = query.limit(opts.limit);
+			if (opts?.offset !== undefined) query = query.offset(opts.offset);
+		}
+		const rows = await query.execute();
+
+		const augmented = await Promise.all(
+			rows.map(async (row) => {
+				const rec = await getUsernameRecord(storage, (row as UsersTable).id);
+				return withUsername(row as unknown as Record<string, unknown>, rec);
+			}),
+		);
+
+		const filtered =
+			resolved.residual.length > 0
+				? augmented.filter((u) => matchesWhere(u, resolved.residual))
+				: augmented;
+
+		// Residual filtering ran in JS, so apply offset/limit here instead.
+		if (resolved.residual.length > 0) {
+			const sliced = opts?.offset ? filtered.slice(opts.offset) : filtered;
+			return opts?.limit !== undefined ? sliced.slice(0, opts.limit) : sliced;
+		}
+		return filtered;
+	}
+
 	/** Resolve all userIds matched by a user-model where clause (for bulk
-	 * username sync/cleanup). Resolves virtual username fields first. */
+	 * username sync/cleanup). Resolves virtual username + JSON-backed fields. */
 	async function matchedUserIds(where: CleanedWhere[]): Promise<string[]> {
 		const resolved = await resolveUserWhere(storage, where);
 		if ("unmatchable" in resolved) return [];
-		const rows = await userWhere(resolved.clauses).select("id").execute();
-		return rows.map((r) => r.id);
+		const users = await findUsersMatching(resolved);
+		return users.map((u) => u.id as string);
 	}
 
 	const createCustomAdapter = (): CustomAdapter => ({
@@ -532,7 +682,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					email: String(data.email).toLowerCase(),
 					name: (data.name as string | null) ?? null,
 					avatar_url: (data.avatar_url as string | null) ?? null,
-					role: (data.role as number | undefined) ?? 10, // 10 = subscriber
+					// EmDash's numeric RBAC level. Only honored when a number was
+					// supplied; the admin plugin's STRING `role` is an additional
+					// field (handled below), so a string here must not land in this
+					// column — new sign-ups stay at 10 (subscriber).
+					role: typeof data.role === "number" ? data.role : 10,
 					email_verified: (data.email_verified as number | undefined) ?? 0,
 					disabled: (data.disabled as number | undefined) ?? 0,
 					data: (data.data as string | null) ?? null,
@@ -547,19 +701,10 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					await syncUsername(storage, row.id, uf);
 				}
 
-				// Merge bio into the users.data JSON column. Bio is not a real column
-				// but stored inside the data JSON. We merge it in carefully to avoid
-				// clobbering other keys already in data.
-				const bio = pickBioField(data);
-				if (bio !== undefined) {
-					row.data = mergeAdditionalData(row.data, { bio });
-				}
-
-				// Merge twoFactorEnabled into the users.data JSON column.
-				const twoFactorEnabled = pickTwoFactorField(data);
-				if (twoFactorEnabled !== undefined) {
-					row.data = mergeAdditionalData(row.data, { twoFactorEnabled });
-				}
+				// Merge every JSON-backed additional field (bio, twoFactorEnabled,
+				// admin role/ban fields) into users.data without clobbering existing
+				// keys. These are not real `users` columns.
+				row.data = mergeAdditionalData(row.data, pickAdditionalData(data));
 
 				try {
 					await db.insertInto("users").values(row).execute();
@@ -574,6 +719,10 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				return withUsername(row as unknown as Record<string, unknown>, rec) as unknown as typeof data;
 			}
 
+			// Enforce app-level uniqueness (org slug, membership) before writing,
+			// since EmDash doesn't enforce uniqueIndexes as a DB constraint.
+			await assertUnique(storage, model, data as Record<string, unknown>);
+
 			const collection = storageFor(storage, model);
 			const id = (data.id as string) ?? ulid();
 			const record = { ...data, id };
@@ -585,10 +734,8 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			if (isUserModel(model)) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return null;
-				const row = await userWhere(resolved.clauses).selectAll().executeTakeFirst();
-				if (!row) return null;
-				const rec = await getUsernameRecord(storage, (row as UsersTable).id);
-				return withUsername(row as unknown as Record<string, unknown>, rec) as unknown as Record<string, unknown>;
+				const users = await findUsersMatching(resolved, { limit: 1 });
+				return users.length > 0 ? users[0]! : null;
 			}
 
 			const collection = storageFor(storage, model);
@@ -598,7 +745,10 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const found = await collection.get(idClause.value as string);
 				return (found as Record<string, unknown> | null) ?? null;
 			}
-			const matches = await queryStorage(collection, where, { limit: 1 });
+			const matches = await queryStorage(collection, where, {
+				limit: 1,
+				indexed: indexedFor(model),
+			});
 			return matches.length > 0 ? matches[0].data : null;
 		},
 
@@ -606,31 +756,14 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			if (isUserModel(model)) {
 				const resolved = await resolveUserWhere(storage, where ?? []);
 				if ("unmatchable" in resolved) return [];
-				let query = userWhere(resolved.clauses).selectAll();
-				if (sortBy) {
-					query = query.orderBy(
-						sortBy.field as keyof UsersTable & string,
-						sortBy.direction,
-					);
-				}
-				if (limit !== undefined) query = query.limit(limit);
-				if (offset !== undefined) query = query.offset(offset);
-				const rows = await query.execute();
-
-				// Augment user records with username fields from plugin storage.
-				return Promise.all(
-					rows.map(async (row) => {
-						const rec = await getUsernameRecord(storage, (row as UsersTable).id);
-						return withUsername(
-							row as unknown as Record<string, unknown>,
-							rec,
-						) as unknown as Record<string, unknown>;
-					}),
-				);
+				return findUsersMatching(resolved, { sortBy, limit, offset });
 			}
 
 			const collection = storageFor(storage, model);
-			const matches = await queryStorage(collection, where ?? [], { sortBy });
+			const matches = await queryStorage(collection, where ?? [], {
+				sortBy,
+				indexed: indexedFor(model),
+			});
 			const sliced = offset ? matches.slice(offset) : matches;
 			const limited = limit !== undefined ? sliced.slice(0, limit) : sliced;
 			return limited.map((m) => m.data);
@@ -641,11 +774,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return null;
 
-				// Separate username fields, bio, twoFactorEnabled, and real column updates.
+				// Split the update into username fields, JSON-backed additional
+				// fields (bio, twoFactorEnabled, admin role/ban), and real columns.
 				const upd = update as Record<string, unknown>;
 				const uf = pickUsernameFields(upd);
-				const bio = pickBioField(upd);
-				const tf = pickTwoFactorField(upd);
+				const additional = pickAdditionalData(upd);
 				const columnUpdate: Record<string, unknown> = {};
 				for (const [k, v] of Object.entries(upd)) {
 					if (!USERNAME_FIELDS.has(k) && !ADDITIONAL_DATA_FIELDS.has(k)) {
@@ -653,51 +786,48 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					}
 				}
 
-				// Resolve the target user id (username/bio/twoFactorEnabled updates need it for sync).
-				const targetId =
-					directUserId(resolved.clauses) ??
-					(await userWhere(resolved.clauses).select("id").executeTakeFirst())?.id ??
-					null;
+				// Resolve the target row through the full filter (incl. residual
+				// JSON-backed clauses) so an update guarded by e.g. role matches
+				// correctly. update() targets a single row.
+				const target = (await findUsersMatching(resolved, { limit: 1 }))[0];
+				if (!target) return null;
+				const targetId = target.id as string;
 
 				// Sync username first so a taken-handle rejection aborts before the
 				// column write (keeps the record and the row consistent).
-				if ((uf.username !== undefined || uf.displayUsername !== undefined) && targetId) {
+				if (uf.username !== undefined || uf.displayUsername !== undefined) {
 					await syncUsername(storage, targetId, uf);
 				}
 
-				// Merge bio and twoFactorEnabled into users.data if present (separate from column updates).
-				if ((bio !== undefined || tf !== undefined) && targetId) {
-					const row = await userWhere(resolved.clauses).selectAll().executeTakeFirst();
-					if (row) {
-						const currentData = (row as UsersTable).data as string | null;
-						const newData = mergeAdditionalData(currentData, { bio, twoFactorEnabled: tf });
-						if (newData !== currentData) {
-							await db
-								.updateTable("users")
-								.set({ data: newData })
-								.where("id", "=", targetId)
-								.execute();
-						}
+				// Merge any additional (JSON) fields into users.data.
+				if (Object.keys(additional).length > 0) {
+					const currentData = (target.data as string | null) ?? null;
+					const newData = mergeAdditionalData(currentData, additional);
+					if (newData !== currentData) {
+						await db
+							.updateTable("users")
+							.set({ data: newData })
+							.where("id", "=", targetId)
+							.execute();
 					}
 				}
 
 				if (Object.keys(columnUpdate).length > 0) {
-					let query = db.updateTable("users").set(columnUpdate as Record<string, never>);
-					for (const clause of resolved.clauses) {
-						query = query.where(
-							clause.field as keyof UsersTable & string,
-							"=",
-							clause.value as never,
-						);
-					}
-					await query.execute();
+					await db
+						.updateTable("users")
+						.set(columnUpdate as Record<string, never>)
+						.where("id", "=", targetId)
+						.execute();
 				}
 
-				return this.findOne({ model, where: resolved.clauses });
+				return this.findOne({ model, where: [{ field: "id", operator: "eq", value: targetId, connector: "AND" }] });
 			}
 
 			const collection = storageFor(storage, model);
-			const matches = await queryStorage(collection, where, { limit: 1 });
+			const matches = await queryStorage(collection, where, {
+				limit: 1,
+				indexed: indexedFor(model),
+			});
 			if (matches.length === 0) return null;
 			const merged = { ...matches[0].data, ...(update as Record<string, unknown>) };
 			await collection.put(matches[0].id, merged);
@@ -709,11 +839,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return 0;
 
-				// Separate username fields, bio, twoFactorEnabled, and real column updates.
+				// Split the update into username fields, JSON-backed additional
+				// fields, and real column updates.
 				const upd = update as Record<string, unknown>;
 				const uf = pickUsernameFields(upd);
-				const bio = pickBioField(upd);
-				const tf = pickTwoFactorField(upd);
+				const additional = pickAdditionalData(upd);
 				const columnUpdate: Record<string, unknown> = {};
 				for (const [k, v] of Object.entries(upd)) {
 					if (!USERNAME_FIELDS.has(k) && !ADDITIONAL_DATA_FIELDS.has(k)) {
@@ -721,52 +851,51 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 					}
 				}
 
+				// Resolve every matched row ONCE (respects residual JSON filters).
+				const matched = await findUsersMatching(resolved);
+				if (matched.length === 0) return 0;
+
 				// Sync username for every matched user. A bulk username set to the
 				// same value across multiple users would violate uniqueness — the
 				// second syncUsername throws, which is the correct behaviour.
 				if (uf.username !== undefined || uf.displayUsername !== undefined) {
-					const ids = await matchedUserIds(where);
-					for (const id of ids) {
-						await syncUsername(storage, id, uf);
+					for (const u of matched) {
+						await syncUsername(storage, u.id as string, uf);
 					}
 				}
 
-				// Merge bio and twoFactorEnabled into users.data for every matched user.
-				if (bio !== undefined || tf !== undefined) {
-					const ids = await matchedUserIds(where);
-					for (const id of ids) {
-						const row = await db.selectFrom("users").selectAll().where("id", "=", id).executeTakeFirst();
-						if (row) {
-							const currentData = (row as UsersTable).data as string | null;
-							const newData = mergeAdditionalData(currentData, { bio, twoFactorEnabled: tf });
-							if (newData !== currentData) {
-								await db.updateTable("users").set({ data: newData }).where("id", "=", id).execute();
-							}
+				// Merge additional (JSON) fields into users.data for each matched user.
+				if (Object.keys(additional).length > 0) {
+					for (const u of matched) {
+						const currentData = (u.data as string | null) ?? null;
+						const newData = mergeAdditionalData(currentData, additional);
+						if (newData !== currentData) {
+							await db
+								.updateTable("users")
+								.set({ data: newData })
+								.where("id", "=", u.id as string)
+								.execute();
 						}
 					}
 				}
 
-				let updated = 0;
 				if (Object.keys(columnUpdate).length > 0) {
-					let query = db.updateTable("users").set(columnUpdate as Record<string, never>);
-					for (const clause of resolved.clauses) {
-						query = query.where(
-							clause.field as keyof UsersTable & string,
-							"=",
-							clause.value as never,
-						);
-					}
-					const res = await query.executeTakeFirst();
-					updated = Number(res.numUpdatedRows ?? 0);
-				} else {
-					// username/bio-only bulk update: report the count we synced.
-					updated = (await matchedUserIds(where)).length;
+					await db
+						.updateTable("users")
+						.set(columnUpdate as Record<string, never>)
+						.where(
+							"id",
+							"in",
+							matched.map((u) => u.id as string),
+						)
+						.execute();
 				}
-				return updated;
+
+				return matched.length;
 			}
 
 			const collection = storageFor(storage, model);
-			const matches = await queryStorage(collection, where);
+			const matches = await queryStorage(collection, where, { indexed: indexedFor(model) });
 			for (const m of matches) {
 				await collection.put(m.id, { ...m.data, ...(update as Record<string, unknown>) });
 			}
@@ -777,17 +906,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			if (isUserModel(model)) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return;
-				// Resolve affected ids up front so we can free their handles.
+				// Resolve affected ids (residual-aware) so we delete exactly the
+				// matched rows and can free their handles.
 				const ids = await matchedUserIds(where);
-				let query = db.deleteFrom("users");
-				for (const clause of resolved.clauses) {
-					query = query.where(
-						clause.field as keyof UsersTable & string,
-						"=",
-						clause.value as never,
-					);
-				}
-				await query.execute();
+				if (ids.length === 0) return;
+				await db.deleteFrom("users").where("id", "in", ids).execute();
 				// Free every deleted user's username so the handle can be reclaimed.
 				for (const id of ids) {
 					await storage.usernames.delete(id).catch(() => {});
@@ -801,7 +924,7 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 				await collection.delete(idClause.value as string);
 				return;
 			}
-			const matches = await queryStorage(collection, where);
+			const matches = await queryStorage(collection, where, { indexed: indexedFor(model) });
 			await collection.deleteMany(matches.map((m) => m.id));
 		},
 
@@ -809,17 +932,13 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			if (isUserModel(model)) {
 				const resolved = await resolveUserWhere(storage, where);
 				if ("unmatchable" in resolved) return 0;
-				// Free handles for all matched users before deleting the rows.
+				// Resolve matched ids (residual-aware); free handles, then delete.
 				const ids = await matchedUserIds(where);
-				let query = db.deleteFrom("users");
-				for (const clause of resolved.clauses) {
-					query = query.where(
-						clause.field as keyof UsersTable & string,
-						"=",
-						clause.value as never,
-					);
-				}
-				const res = await query.executeTakeFirst();
+				if (ids.length === 0) return 0;
+				const res = await db
+					.deleteFrom("users")
+					.where("id", "in", ids)
+					.executeTakeFirst();
 				for (const id of ids) {
 					await storage.usernames.delete(id).catch(() => {});
 				}
@@ -827,7 +946,7 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			}
 
 			const collection = storageFor(storage, model);
-			const matches = await queryStorage(collection, where);
+			const matches = await queryStorage(collection, where, { indexed: indexedFor(model) });
 			return collection.deleteMany(matches.map((m) => m.id));
 		},
 
@@ -835,6 +954,11 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			if (isUserModel(model)) {
 				const resolved = await resolveUserWhere(storage, where ?? []);
 				if ("unmatchable" in resolved) return 0;
+				// With a residual (JSON-backed) filter, counting needs the matched
+				// set; otherwise a direct SQL COUNT(*) over the column clauses.
+				if (resolved.residual.length > 0) {
+					return (await findUsersMatching(resolved)).length;
+				}
 				let query = db
 					.selectFrom("users")
 					.select((eb) => eb.fn.countAll<number>().as("count"));
@@ -850,7 +974,9 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			}
 
 			const collection = storageFor(storage, model);
-			const matches = await queryStorage(collection, where ?? []);
+			const matches = await queryStorage(collection, where ?? [], {
+				indexed: indexedFor(model),
+			});
 			return matches.length;
 		},
 

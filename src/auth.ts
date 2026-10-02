@@ -9,6 +9,8 @@
 import { betterAuth } from "better-auth";
 import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
+import { admin } from "better-auth/plugins";
+import { organization } from "better-auth/plugins";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 
@@ -96,6 +98,27 @@ export interface BetterAuthOptions {
 	 * is registered and users can enroll in TOTP 2FA.
 	 */
 	twoFactorEnabled?: boolean;
+	/**
+	 * Whether the admin plugin is enabled. Default false. When true, the
+	 * `admin()` plugin is registered, adding user-management APIs (create user,
+	 * ban/unban, impersonate, list/filter users, set string role). The admin
+	 * `role`/ban fields are stored in the EmDash users.data JSON blob by the
+	 * adapter — they do NOT touch EmDash's numeric `users.role` RBAC column.
+	 */
+	adminEnabled?: boolean;
+	/**
+	 * Whether the organization plugin (multi-tenancy) is enabled. Default false.
+	 * When true, `organization()` is registered, adding organizations, members,
+	 * invitations, and (optionally) teams. All of it persists to plugin storage
+	 * via the adapter — no site tables, no migration.
+	 */
+	orgEnabled?: boolean;
+	/**
+	 * Whether organization teams are enabled. Only meaningful when
+	 * `orgEnabled` is true. Default false. Adds team / teamMember collections
+	 * and the active-team session field.
+	 */
+	teamsEnabled?: boolean;
 }
 
 /**
@@ -289,6 +312,17 @@ export function createBetterAuth(
 		// admin feature flag is set.
 		plugins: [
 			...(options.twoFactorEnabled ? [twoFactor()] : []),
+			// Admin plugin: user management (create/ban/impersonate/list, string
+			// role). It OWNS the user fields role/banned/banReason/banExpires
+			// (we don't declare them as additionalFields); the adapter routes
+			// them to the users.data JSON blob, never the numeric users.role.
+			...(options.adminEnabled ? [admin()] : []),
+			// Organization plugin: multi-tenancy. Teams are opt-in and must match
+			// the client plugin's teams flag. All models persist to plugin
+			// storage via the adapter (no migration).
+			...(options.orgEnabled
+				? [organization(options.teamsEnabled ? { teams: { enabled: true } } : {})]
+				: []),
 			username(),
 		],
 		advanced: {
