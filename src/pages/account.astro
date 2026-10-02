@@ -14,7 +14,7 @@
  */
 import { viewPaths } from "@better-auth-ui/core";
 import { getSiteSettings } from "emdash";
-import { configuredSocialProviders, twoFactorEnabled } from "../providers.ts";
+import { configuredSocialProviders, twoFactorEnabled, orgEnabled } from "../providers.ts";
 import AccountView from "../ui/AccountView.tsx";
 
 const { path } = Astro.params;
@@ -23,8 +23,16 @@ const { path } = Astro.params;
 // view, so an empty/root path resolves to `account`.
 const view = path && path !== "" ? path : "account";
 
+// Whether organizations are enabled — adds the Organizations tab to Settings
+// AND the `/account/organizations` settings view. Read before the allow-list
+// because the org plugin only augments viewPaths.settings at the TYPE level,
+// so we must allow "organizations" through explicitly when org is on (same
+// pattern as the 2FA "two-factor" view in auth.astro).
+const isOrgEnabled = await orgEnabled();
+
 const knownViews = Object.values(viewPaths.settings) as string[];
-if (!knownViews.includes(view)) {
+const allowedViews = isOrgEnabled ? [...knownViews, "organizations"] : knownViews;
+if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
 
@@ -76,6 +84,7 @@ const is2faEnabled = await twoFactorEnabled();
 			siteName={siteName}
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
+			orgEnabled={isOrgEnabled}
 			client:load
 		/>
 	</body>

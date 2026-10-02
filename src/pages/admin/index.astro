@@ -1,0 +1,10 @@
+---
+/**
+ * Friendly `/admin` alias → the admin users view served by the
+ * `/admin/[...path]` catch-all (`/admin/users`). Mirrors how `/account`
+ * forwards into `/account/account`. The catch-all does all the real work
+ * (flag-gating, login-gating, rendering); this alias only forwards.
+ */
+const qs = Astro.url.search;
+return Astro.redirect(`/admin/users${qs}`);
+---

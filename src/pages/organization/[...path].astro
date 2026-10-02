@@ -1,0 +1,68 @@
+---
+/**
+ * Plugin-shipped Better Auth UI (HeroUI) organization management catch-all.
+ *
+ * Injected at `/organization/[...path]` via the plugin's
+ * AuthProviderDescriptor.routes. Serves Better Auth UI's <Organization> shell:
+ * `/organization/settings` (profile + danger zone), `/organization/people`
+ * (members + invitations), and `/organization/teams` when teams are enabled.
+ * Only mounted/rendered when the organization plugin is enabled in settings;
+ * otherwise 404.
+ *
+ * Login-gated here; per-organization authorization (who may manage members,
+ * roles, etc.) is enforced by Better Auth's organization permission checks that
+ * the UI calls. The header (with the org switcher) and layout live inside the
+ * island.
+ */
+import { getSiteSettings } from "emdash";
+import { orgEnabled, teamsEnabled as teamsEnabledFlag } from "../../providers.ts";
+import OrganizationView from "../../ui/OrganizationView.tsx";
+
+// Gate the whole route behind the organization feature flag.
+if (!(await orgEnabled())) {
+	return new Response("Not found", { status: 404 });
+}
+
+const teams = await teamsEnabledFlag();
+
+const { path } = Astro.params;
+// <Organization> tabs: settings | people (+ teams when enabled). Root → settings.
+const view = path && path !== "" ? path : "settings";
+const allowed = teams ? ["settings", "people", "teams"] : ["settings", "people"];
+if (!allowed.includes(view)) {
+	return new Response("Not found", { status: 404 });
+}
+
+// Login-gated: anonymous visitors go to sign-in and return here afterward.
+if (!Astro.locals.user) {
+	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
+	return Astro.redirect(redirectUrl);
+}
+
+const siteSettings = await getSiteSettings().catch(() => null);
+const siteName = siteSettings?.title || "Organization";
+---
+
+<!doctype html>
+<html lang="en" class="antialiased">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Organization</title>
+		<script is:inline>
+			(() => {
+				try {
+					const stored = localStorage.getItem("theme") || "system";
+					const dark =
+						stored === "dark" ||
+						(stored === "system" &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches);
+					document.documentElement.classList.toggle("dark", dark);
+				} catch {}
+			})();
+		</script>
+	</head>
+	<body class="min-h-svh flex flex-col">
+		<OrganizationView path={view} siteName={siteName} teamsEnabled={teams} client:load />
+	</body>
+</html>

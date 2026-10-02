@@ -74,3 +74,35 @@ export async function twoFactorEnabled(): Promise<boolean> {
 	}
 	return resolveSettings(saved, {}).twoFactorEnabled;
 }
+
+/**
+ * Whether the admin user-management plugin is enabled site-wide. Same source of
+ * truth and precedence as the auth route, so the admin UI pages only render
+ * (and only register the UI `adminPlugin`) when the backend `admin()` plugin is
+ * actually registered. Never throws — degrades to the default (off).
+ */
+export async function adminEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).adminEnabled;
+}
+
+/**
+ * Whether the organization (multi-tenancy) plugin is enabled site-wide. Same
+ * source of truth/precedence as the auth route, so the org UI pages and
+ * switcher only render when the backend `organization()` plugin is registered.
+ * Never throws — degrades to the default (off).
+ */
+export async function orgEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).orgEnabled;
+}

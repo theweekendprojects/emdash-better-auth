@@ -171,6 +171,33 @@ export function betterAuthProvider(): AuthProviderDescriptor {
 				pattern: "/account",
 				entrypoint: `${PACKAGE_NAME}/pages/account/index`,
 			},
+			// Admin user management (Better Auth UI <Admin> view). Catch-all at
+			// /admin/[...path] (/admin/users) + a friendly /admin alias. Both the
+			// page and the alias are inert unless the admin feature flag is on —
+			// the catch-all 404s when disabled, so mounting the route always is
+			// safe. Authorization is enforced by Better Auth's admin permission
+			// API that the UI calls, not by the route itself.
+			{
+				pattern: "/admin/[...path]",
+				entrypoint: `${PACKAGE_NAME}/pages/admin`,
+			},
+			{
+				pattern: "/admin",
+				entrypoint: `${PACKAGE_NAME}/pages/admin/index`,
+			},
+			// Organization (multi-tenancy) management (Better Auth UI
+			// <Organization> shell: settings/people/teams tabs). Catch-all at
+			// /organization/[...path] + a friendly /organization alias. Inert
+			// unless the organization feature flag is on (catch-all 404s when
+			// disabled). Per-org authorization is enforced by Better Auth.
+			{
+				pattern: "/organization/[...path]",
+				entrypoint: `${PACKAGE_NAME}/pages/organization`,
+			},
+			{
+				pattern: "/organization",
+				entrypoint: `${PACKAGE_NAME}/pages/organization/index`,
+			},
 		],
 		storage: BETTER_AUTH_STORAGE_CONFIG,
 	};

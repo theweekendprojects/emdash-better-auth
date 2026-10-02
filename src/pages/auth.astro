@@ -13,7 +13,11 @@
  */
 import { viewPaths } from "@better-auth-ui/core";
 import { getSiteSettings } from "emdash";
-import { configuredSocialProviders, twoFactorEnabled } from "../providers.ts";
+import {
+	configuredSocialProviders,
+	twoFactorEnabled,
+	orgEnabled,
+} from "../providers.ts";
 import AuthView from "../ui/AuthView.tsx";
 
 const { path } = Astro.params;
@@ -22,20 +26,30 @@ const view = path ?? "sign-in";
 // Whether 2FA is enabled site-wide — gates both the two-factor plugin on the
 // island and the challenge view path below (same setting the auth route reads).
 const is2faEnabled = await twoFactorEnabled();
+// Whether organizations are enabled — gates the org UI plugin on the island
+// and the invitation-acceptance view path below.
+const isOrgEnabled = await orgEnabled();
 
-// The base `viewPaths.auth` from @better-auth-ui/core does NOT include the
-// two-factor challenge segment — the twoFactorPlugin only augments it at the
-// TYPE level, not the runtime object. So when 2FA is on we must explicitly
-// allow the plugin's challenge path ("two-factor", its default) through this
-// guard; otherwise `/auth/two-factor` would 404 before the island renders and
-// a 2FA-enabled user could never complete sign-in.
+// The base `viewPaths.auth` from @better-auth-ui/core does NOT include plugin
+// view segments (they're augmented at the TYPE level only, not the runtime
+// object). So when a plugin is on we must explicitly allow its extra auth path
+// through this guard, or the view would 404 before the island renders:
+//   - 2FA on  → "two-factor" (the TOTP challenge view).
+//   - org on  → "accept-invitation" (invite links: /auth/accept-invitation).
 const knownViews = Object.values(viewPaths.auth) as string[];
-const allowedViews = is2faEnabled ? [...knownViews, "two-factor"] : knownViews;
+const allowedViews = [
+	...knownViews,
+	...(is2faEnabled ? ["two-factor"] : []),
+	...(isOrgEnabled ? ["accept-invitation"] : []),
+];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
 
-if (Astro.locals.user && view !== "sign-out") {
+// A logged-in user is bounced off auth views (they're already signed in),
+// EXCEPT sign-out and accept-invitation — a signed-in user clicking an invite
+// link must reach the acceptance view, not get redirected home.
+if (Astro.locals.user && view !== "sign-out" && view !== "accept-invitation") {
 	return Astro.redirect("/");
 }
 
@@ -78,6 +92,7 @@ const socialProviders = await configuredSocialProviders();
 			siteName={siteName}
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
+			orgEnabled={isOrgEnabled}
 			client:load
 		/>
 	</body>

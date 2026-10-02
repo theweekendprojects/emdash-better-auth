@@ -1,0 +1,63 @@
+---
+/**
+ * Plugin-shipped Better Auth UI (HeroUI) admin user-management catch-all page.
+ *
+ * Injected at `/admin/[...path]` via the plugin's AuthProviderDescriptor.routes.
+ * Serves Better Auth UI's admin view: `/admin/users` (user list + detail
+ * drawer). Only mounted/rendered when the admin plugin is enabled in settings;
+ * otherwise 404 (so the route is inert on sites that haven't opted in).
+ *
+ * Login-gated here; actual admin authorization is enforced by Better Auth's
+ * admin permission API, which the <Admin> UI calls before listing users and
+ * before enabling each action. The header/layout live inside the island.
+ */
+import { getSiteSettings } from "emdash";
+import { adminEnabled } from "../../providers.ts";
+import AdminView from "../../ui/AdminView.tsx";
+
+// Gate the whole route behind the admin feature flag.
+if (!(await adminEnabled())) {
+	return new Response("Not found", { status: 404 });
+}
+
+const { path } = Astro.params;
+// Better Auth UI's admin plugin currently exposes a single "users" view; the
+// root path resolves to it. Anything else is unknown → 404.
+const view = path && path !== "" ? path : "users";
+if (view !== "users") {
+	return new Response("Not found", { status: 404 });
+}
+
+// Login-gated: anonymous visitors go to sign-in and return here afterward.
+if (!Astro.locals.user) {
+	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
+	return Astro.redirect(redirectUrl);
+}
+
+const siteSettings = await getSiteSettings().catch(() => null);
+const siteName = siteSettings?.title || "Admin";
+---
+
+<!doctype html>
+<html lang="en" class="antialiased">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Admin</title>
+		<script is:inline>
+			(() => {
+				try {
+					const stored = localStorage.getItem("theme") || "system";
+					const dark =
+						stored === "dark" ||
+						(stored === "system" &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches);
+					document.documentElement.classList.toggle("dark", dark);
+				} catch {}
+			})();
+		</script>
+	</head>
+	<body class="min-h-svh flex flex-col">
+		<AdminView path={view} siteName={siteName} client:load />
+	</body>
+</html>

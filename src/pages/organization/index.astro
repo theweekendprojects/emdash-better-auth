@@ -1,0 +1,10 @@
+---
+/**
+ * Friendly `/organization` alias → the org settings view served by the
+ * `/organization/[...path]` catch-all (`/organization/settings`). Mirrors how
+ * `/account` forwards into `/account/account`. The catch-all does all the real
+ * work (flag-gating, login-gating, rendering); this alias only forwards.
+ */
+const qs = Astro.url.search;
+return Astro.redirect(`/organization/settings${qs}`);
+---

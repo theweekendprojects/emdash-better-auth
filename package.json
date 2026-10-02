@@ -86,6 +86,22 @@
     "./pages/account/index": {
       "import": "./src/pages/account/index.astro",
       "default": "./src/pages/account/index.astro"
+    },
+    "./pages/admin": {
+      "import": "./src/pages/admin/[...path].astro",
+      "default": "./src/pages/admin/[...path].astro"
+    },
+    "./pages/admin/index": {
+      "import": "./src/pages/admin/index.astro",
+      "default": "./src/pages/admin/index.astro"
+    },
+    "./pages/organization": {
+      "import": "./src/pages/organization/[...path].astro",
+      "default": "./src/pages/organization/[...path].astro"
+    },
+    "./pages/organization/index": {
+      "import": "./src/pages/organization/index.astro",
+      "default": "./src/pages/organization/index.astro"
     }
   },
   "files": [

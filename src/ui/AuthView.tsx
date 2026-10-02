@@ -28,6 +28,7 @@ import { Auth, AuthProvider, UserButton } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
+import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
 import { Button, Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -132,6 +133,13 @@ export interface AuthViewProps {
 	 * when its `twoFactor` plugin is registered (same flag). Defaults to false.
 	 */
 	twoFactorEnabled?: boolean;
+	/**
+	 * Whether organizations are enabled site-wide (mirrors the `orgEnabled`
+	 * admin setting). When true, the Better Auth UI organization plugin is
+	 * registered so the invitation-acceptance view (`/auth/accept-invitation`)
+	 * renders. Must match the backend. Defaults to false.
+	 */
+	orgEnabled?: boolean;
 }
 
 export default function AuthView({
@@ -141,6 +149,7 @@ export default function AuthView({
 	siteName = "Home",
 	requireEmailVerification = true,
 	twoFactorEnabled = false,
+	orgEnabled = false,
 }: AuthViewProps) {
 	const queryClient = getQueryClient();
 
@@ -178,6 +187,9 @@ export default function AuthView({
 						...(twoFactorEnabled
 							? [twoFactorPlugin({ enrollmentMethods: ["totp"] })]
 							: []),
+						// Registers the invitation-acceptance view so an invite link
+						// (/auth/accept-invitation) renders. Only when org is on.
+						...(orgEnabled ? [organizationPlugin()] : []),
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);
