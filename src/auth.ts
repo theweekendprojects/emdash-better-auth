@@ -45,7 +45,12 @@ export const ROLE_SUBSCRIBER = 10;
  * union, the `SOCIAL_PROVIDERS` list in settings.ts, and the mapping in
  * `createBetterAuth` below.
  */
-export type SocialProviderId = "google" | "github";
+export type SocialProviderId =
+	| "google"
+	| "github"
+	| "facebook"
+	| "twitter"
+	| "cloudflare";
 
 /**
  * Two-factor authentication methods. Currently only TOTP is supported.

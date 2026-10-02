@@ -91,9 +91,10 @@ titles.
 ## Settings storage & the single source of truth
 
 - `settings.ts` `SOCIAL_PROVIDERS` (`{id,label,envPrefix}`) is **data-driven**.
-  To add a provider (Apple, Discord, Facebook, …): extend `SocialProviderId` in
+  To add a provider (Apple, Discord, …): extend `SocialProviderId` in
   `auth.ts` + add one entry here. The kv keys, env fallback names, admin card,
-  and callback URL are all derived. (Facebook was deliberately deferred.)
+  and callback URL are all derived. Currently wired: Google, GitHub, Facebook,
+  X/Twitter (Better Auth id `twitter`), Cloudflare.
 - **kv key layout:** each field is `settings:<field>` written via `ctx.kv`,
   which persists to the options table as `plugin:better-auth-settings:settings:<field>`
   — exactly the prefix `getPluginSettings("better-auth-settings")` reads. That's
@@ -175,4 +176,5 @@ settings resolution, since the admin is passkey-gated and hard to script.
 Extracted from the `theweekendprojects-landing-page` monorepo
 (`packages/better-auth/`, internal name `@theweekendprojects/better-auth`) and
 renamed to `emdash-better-auth` for standalone publish. Comments feature was
-intentionally dropped. Facebook social login deferred. First release: 0.1.0.
+intentionally dropped. First release: 0.1.0. Social providers extended to
+Facebook, X/Twitter, and Cloudflare in the admin+organization branch.

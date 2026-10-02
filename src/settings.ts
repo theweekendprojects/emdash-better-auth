@@ -62,6 +62,10 @@ export const SETTINGS_ADMIN_PAGE_PATH = "/settings";
 export const SOCIAL_PROVIDERS = [
 	{ id: "google", label: "Google", envPrefix: "GOOGLE" },
 	{ id: "github", label: "GitHub", envPrefix: "GITHUB" },
+	{ id: "facebook", label: "Facebook", envPrefix: "FACEBOOK" },
+	// X's Better Auth provider id is `twitter` (callback /api/auth/callback/twitter).
+	{ id: "twitter", label: "X (Twitter)", envPrefix: "TWITTER" },
+	{ id: "cloudflare", label: "Cloudflare", envPrefix: "CLOUDFLARE" },
 ] as const;
 
 export type SocialProviderId = (typeof SOCIAL_PROVIDERS)[number]["id"];

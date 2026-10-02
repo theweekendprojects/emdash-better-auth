@@ -44,4 +44,29 @@ import { resolveSettings } from "../src/settings.js";
 	equal(r.teamsEnabled, true);
 }
 
-console.log("settings-resolve self-check: all 5 cases passed");
+// 6. The data-driven social provider list resolves the newer providers
+//    (facebook / twitter / cloudflare), not just google/github. A provider is
+//    included only when BOTH id + secret are present, keyed by its Better Auth
+//    id (which is also the callback path segment).
+{
+	const r = resolveSettings(
+		{
+			facebookClientId: "fb-id",
+			facebookClientSecret: "fb-secret",
+			twitterClientId: "x-id",
+			twitterClientSecret: "x-secret",
+			cloudflareClientId: "cf-id",
+			cloudflareClientSecret: "cf-secret",
+			// Only an id, no secret → must be excluded.
+			googleClientId: "g-id",
+		},
+		{},
+	);
+	equal(r.socialProviders.facebook?.clientId, "fb-id");
+	equal(r.socialProviders.twitter?.clientSecret, "x-secret");
+	equal(r.socialProviders.cloudflare?.clientId, "cf-id");
+	// google has no secret → not configured.
+	equal(r.socialProviders.google, undefined);
+}
+
+console.log("settings-resolve self-check: all 6 cases passed");
