@@ -24,6 +24,8 @@ import { AuthProvider, UserButton } from "@better-auth-ui/heroui";
 import {
 	Organization,
 	OrganizationSwitcher,
+	OrganizationMembers,
+	OrganizationInvitations,
 	organizationPlugin,
 } from "@better-auth-ui/heroui/plugins/organization";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
@@ -109,7 +111,22 @@ export default function OrganizationView({
 
 					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
 						<div style={{ width: "100%", maxWidth: "48rem" }}>
-							<Organization view={path} />
+							{path === "people" ? (
+								// Compose the People tab from the sub-components instead of
+								// <Organization view="people">. The default client-side
+								// members/invitations tables have an upstream HeroUI
+								// cell/column mismatch ("Cell count must match column
+								// count") that crashes the tab. Rendering OrganizationMembers
+								// with `pageSize` switches it to the server-paged render path
+								// (different, consistent column set), which avoids the bug.
+								// Everything else still comes from the library.
+								<div className="flex flex-col gap-8">
+									<OrganizationMembers pageSize={20} />
+									<OrganizationInvitations />
+								</div>
+							) : (
+								<Organization view={path} />
+							)}
 						</div>
 					</main>
 
