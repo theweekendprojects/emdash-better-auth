@@ -6,6 +6,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-03
+
+### Added
+
+- **Organization (multi-tenancy) plugin.** Opt-in `organization` support via the
+  Better Auth organization plugin: organizations, members, invitations, and
+  optional teams. All models persist to plugin storage through the EmDash
+  adapter — **no core database columns or migrations required**. Gated behind an
+  `orgEnabled` setting (off by default); teams behind `teamsEnabled` (only
+  meaningful when organizations are on). Adds an "Organizations" tab to the
+  account settings and prebuilt `/organization` management pages
+  (settings / people / teams) with an organization switcher.
+- **Stripe subscription billing.** Opt-in per-user subscription billing via the
+  Better Auth Stripe plugin, gated behind a `billingEnabled` setting (off by
+  default). A Stripe customer is created on sign-up; the "Billing" tab (pricing,
+  checkout, portal, cancel) appears in account settings when billing is enabled
+  and at least one plan resolves a monthly price id. Plans are defined once in
+  `billing-plans.ts`; price ids are operator config injected at runtime from env
+  (`STRIPE_PRICE_<PLAN>_MONTH` / `_YEAR`). Subscriptions persist to a
+  `subscriptions` plugin-storage collection — **no migration**. The user's
+  `stripeCustomerId` rides `users.data` JSON.
+- **Admin plugin.** Opt-in user management (create / ban / impersonate / list,
+  string role) via the Better Auth admin plugin, gated behind an `adminEnabled`
+  setting. Role / ban fields route to `users.data` JSON, never EmDash's numeric
+  `users.role`. The `/admin` page is gated server-side to EmDash admins
+  (role ≥ 50).
+- **API key and passkey plugins.** Opt-in programmatic API keys
+  (`apiKeyEnabled`) and passwordless WebAuthn passkeys (`passkeyEnabled`), each
+  behind its own setting. Credentials persist to `apikey` / `passkey`
+  plugin-storage collections — no migration. Passkey relying-party id/origin are
+  derived from the canonical base URL.
+- **Additional social providers.** Facebook, X/Twitter (`twitter`), and
+  Cloudflare sign-in, data-driven from `SOCIAL_PROVIDERS` (Google and GitHub
+  already supported). A provider is enabled only when both client id and secret
+  resolve.
+- **Configurable auth-page theming.** Accent color and site logo on the sign-in
+  / sign-up pages.
+- **Anti-flash login hint cookie.** Avoids a logged-out flash on authenticated
+  navigations; the EmDash session is now bridged on all sign-in paths.
+
 ## [0.4.0] - 2026-09-14
 
 ### Added
