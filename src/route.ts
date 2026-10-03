@@ -41,6 +41,12 @@ export const prerender = false;
 /** Endpoints whose success should establish an EmDash session. */
 const SESSION_ESTABLISHING = [
 	"/api/auth/sign-in/email",
+	// Username sign-in. With the `username` plugin enabled, the Better Auth UI
+	// posts the login form to `/sign-in/username` (not `/sign-in/email`), so
+	// this path MUST be here or a username login's session never bridges into
+	// EmDash and SSR treats the user as logged out. (The response-cookie
+	// fallback below also catches this, but listing it keeps intent explicit.)
+	"/api/auth/sign-in/username",
 	"/api/auth/sign-up/email",
 	"/api/auth/callback/",
 	// Two-factor challenge completion. For a 2FA-enabled user, `sign-in/email`
@@ -265,10 +271,21 @@ const handler: APIRoute = async ({ request, session, site }) => {
 			const auth = createBetterAuth(runtime.db, storage, authOptions);
 			const response = await auth.handler(request);
 
+			// A session was just created iff Better Auth set its session-token
+			// cookie on this response. This is the path-INDEPENDENT signal: it
+			// catches every sign-in / sign-up / verify path (email, username,
+			// passkey, social callback, 2FA, and any future one) without having
+			// to enumerate them. The `SESSION_ESTABLISHING` allowlist is kept as
+			// a belt-and-suspenders hint, but this cookie check is what makes the
+			// bridge robust — a new auth path can't silently skip it. The cookie
+			// name is `better-auth.session_token`, optionally `__Secure-`-prefixed.
+			const setCookie = response.headers.get("set-cookie");
+			const responseSetSessionCookie =
+				!!setCookie && /better-auth\.session_token=/.test(setCookie);
+
 			// Bridge a successful auth into EmDash's own Astro session.
-			if (session && isSessionEstablishing && response.ok) {
+			if (session && (isSessionEstablishing || responseSetSessionCookie) && response.ok) {
 				try {
-					const setCookie = response.headers.get("set-cookie");
 					const headers = new Headers();
 					if (setCookie) headers.set("cookie", setCookie);
 					const result = await auth.api.getSession({ headers });
