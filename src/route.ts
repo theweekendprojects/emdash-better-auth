@@ -306,6 +306,45 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				}
 			}
 
+			// Login-state HINT cookie (anti-flash). The real session cookies are
+			// HttpOnly, so a cached public page's inline <head> script can't read
+			// them to pick the right header before paint — the page renders the
+			// anonymous header, then JS swaps it after an async /get-session call,
+			// which flashes "Sign up" for a moment on every load. To avoid that we
+			// set a NON-HttpOnly, non-sensitive hint cookie (`ba_logged_in=1`)
+			// whenever a session is established, and expire it on sign-out. The
+			// site's inline script reads this synchronously before paint and shows
+			// the correct header immediately; the async get-session call remains
+			// the source of truth and corrects a stale hint. The hint carries NO
+			// identity or token — just "someone is logged in on this browser" — so
+			// exposing it to JS is safe. SameSite=Lax/Secure, 7-day Max-Age to
+			// match the session; path=/ so every page sees it.
+			// `cleared` wins over `established`: a sign-out response ALSO carries a
+			// `better-auth.session_token=` cookie (empty, Max-Age=0, to delete it),
+			// which `responseSetSessionCookie` matches — so without excluding the
+			// clearing path here, sign-out would wrongly re-set the hint to "1".
+			const cleared = session && isSessionClearing && response.ok;
+			const established =
+				!cleared &&
+				session &&
+				(isSessionEstablishing || responseSetSessionCookie) &&
+				response.ok;
+			if (established || cleared) {
+				const hint = established
+					? "ba_logged_in=1; Path=/; Max-Age=604800; Secure; SameSite=Lax"
+					: "ba_logged_in=; Path=/; Max-Age=0; Secure; SameSite=Lax";
+				// Response headers from the Better Auth handler are immutable, so
+				// rebuild the response to append our Set-Cookie without clobbering
+				// Better Auth's own (append, never set).
+				const headers = new Headers(response.headers);
+				headers.append("set-cookie", hint);
+				return new Response(response.body, {
+					status: response.status,
+					statusText: response.statusText,
+					headers,
+				});
+			}
+
 			return response;
 		});
 	} catch (err) {
