@@ -56,11 +56,12 @@ function getQueryClient(): QueryClient {
  * cells and 4 columns." and the whole page goes blank. Which request wins is
  * network timing, so it is intermittent in the wild (deterministic for us).
  *
- * Workaround: catch exactly that error and remount the subtree after a short
- * delay. The QueryClient lives outside the boundary, so data that already
- * arrived is cached; the remount renders real rows (cells match columns) as
- * soon as the slower request lands. Any OTHER error is surfaced, not retried.
- * Delete this once upstream fixes the skeleton row.
+ * Primary fix: client.ts orders the permission response after its sibling
+ * requests so the race cannot happen. This boundary is only a safety net: it
+ * catches exactly that error, remounts a few times, then shows a Reload button.
+ * (Retrying alone is NOT enough - unmounting the table makes react-query abort
+ * the in-flight member requests, so the data never lands.) Any OTHER error is
+ * surfaced, not retried. Delete this once upstream fixes the skeleton row.
  */
 const TRANSIENT_TABLE_ERROR = /Cell count must match column count/;
 
@@ -88,7 +89,10 @@ class TableRaceBoundary extends React.Component<RetryBoundaryProps, RetryBoundar
 
 	componentDidCatch(error: Error) {
 		clearTimeout(this.stableTimer);
-		const { maxRetries = 20, delayMs = 400 } = this.props;
+		// Safety net only: the request-ordering fix in client.ts prevents the race.
+		// If it ever slips through, retry a few times then offer a Reload button
+		// (a long retry loop would just keep aborting the in-flight requests).
+		const { maxRetries = 3, delayMs = 600 } = this.props;
 		const transient = TRANSIENT_TABLE_ERROR.test(error?.message ?? "");
 		if (!transient || this.state.attempt >= maxRetries) {
 			this.setState({ gaveUp: true });
