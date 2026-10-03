@@ -52,6 +52,11 @@ const SESSION_ESTABLISHING = [
 	// prefix-less exact paths mirror how the sign-in entries are matched.
 	"/api/auth/two-factor/verify-totp",
 	"/api/auth/two-factor/verify-backup-code",
+	// Passkey sign-in: the session is created when the WebAuthn authentication
+	// assertion is verified here (not at generate-options). Without this, a
+	// passkey login's Better Auth session is valid but the EmDash session never
+	// bridges, so SSR still sees the user as logged out.
+	"/api/auth/passkey/verify-authentication",
 	// NOTE: the Stripe webhook (`/api/auth/stripe/webhook`) is deliberately NOT
 	// listed — it's a server-to-server POST from Stripe with no user session and
 	// its own signature verification (handled inside the stripe plugin). It must
@@ -236,6 +241,9 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				// Two-factor authentication is a feature flag; only enable when
 				// the admin has opted in via settings.
 				twoFactorEnabled: settings.twoFactorEnabled,
+				// API key + passkey feature flags, same opt-in pattern as 2FA.
+				apiKeyEnabled: settings.apiKeyEnabled,
+				passkeyEnabled: settings.passkeyEnabled,
 				// Admin + organization (multi-tenancy) feature flags, same pattern.
 				adminEnabled: settings.adminEnabled,
 				orgEnabled: settings.orgEnabled,

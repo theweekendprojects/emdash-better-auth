@@ -16,6 +16,16 @@ import { resolveSettings } from "../src/settings.js";
 	equal(r.adminEnabled, false);
 	equal(r.orgEnabled, false);
 	equal(r.teamsEnabled, false);
+	equal(r.apiKeyEnabled, false);
+	equal(r.passkeyEnabled, false);
+}
+
+// 1b. apiKeyEnabled / passkeyEnabled turn on from saved booleans and coerce
+//     the string shape EmDash form persistence produces.
+{
+	const r = resolveSettings({ apiKeyEnabled: true, passkeyEnabled: "1" }, {});
+	equal(r.apiKeyEnabled, true);
+	equal(r.passkeyEnabled, true);
 }
 
 // 2. adminEnabled / orgEnabled turn on from saved booleans.
@@ -95,4 +105,4 @@ import { resolveSettings } from "../src/settings.js";
 	equal(resolveSettings({ accentColor: "  #0066cc  " }, {}).accentColor, "#0066cc");
 }
 
-console.log("settings-resolve self-check: all 8 cases passed");
+console.log("settings-resolve self-check: all cases passed");

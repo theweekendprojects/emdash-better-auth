@@ -116,6 +116,22 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.passkeyEnabled,
+					label: "Enable passkey sign-in (WebAuthn)",
+					description:
+						"Allow passwordless sign-in with device biometrics or security keys (Touch ID, Face ID, Windows Hello). Users register and manage passkeys from their account settings; the login page shows a 'Sign in with a passkey' button.",
+					initial_value: bool(saved[SETTINGS_KEYS.passkeyEnabled]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.apiKeyEnabled,
+					label: "Enable API keys",
+					description:
+						"Let users create, copy, and revoke programmatic API keys from an account security card. Keys are stored hashed; the raw key is shown only once at creation.",
+					initial_value: bool(saved[SETTINGS_KEYS.apiKeyEnabled]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.adminEnabled,
 					label: "Enable admin user management",
 					description:

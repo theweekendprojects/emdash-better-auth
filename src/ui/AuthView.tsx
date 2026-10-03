@@ -29,6 +29,7 @@ import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
+import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { Button, Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -142,6 +143,15 @@ export interface AuthViewProps {
 	 * renders. Must match the backend. Defaults to false.
 	 */
 	orgEnabled?: boolean;
+	/**
+	 * Whether passkey (WebAuthn) sign-in is enabled site-wide (mirrors the
+	 * `passkeyEnabled` admin setting). When true, the Better Auth UI passkey
+	 * plugin is registered so the sign-in view shows a "Sign in with a passkey"
+	 * button. Must match the backend — the server only accepts a passkey
+	 * assertion when its `passkey` plugin is registered (same flag). Defaults to
+	 * false.
+	 */
+	passkeyEnabled?: boolean;
 }
 
 export default function AuthView({
@@ -153,6 +163,7 @@ export default function AuthView({
 	requireEmailVerification = true,
 	twoFactorEnabled = false,
 	orgEnabled = false,
+	passkeyEnabled = false,
 }: AuthViewProps) {
 	const queryClient = getQueryClient();
 
@@ -190,6 +201,11 @@ export default function AuthView({
 						...(twoFactorEnabled
 							? [twoFactorPlugin({ enrollmentMethods: ["totp"] })]
 							: []),
+						// Adds the "Sign in with a passkey" button to the sign-in view.
+						// Only when the site flag is on, matching the backend (which
+						// only accepts a passkey assertion when its `passkey` plugin is
+						// registered).
+						...(passkeyEnabled ? [passkeyPlugin()] : []),
 						// Registers the invitation-acceptance view so an invite link
 						// (/auth/accept-invitation) renders. Only when org is on.
 						...(orgEnabled ? [organizationPlugin()] : []),

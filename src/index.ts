@@ -88,6 +88,24 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	twoFactors: {
 		indexes: ["userId"] as const,
 	},
+	// API key plugin (programmatic keys). The `apikey` model routes here via the
+	// adapter — no site table, no migration. Indexes mirror the fields the
+	// plugin queries by:
+	//   - referenceId: list a user's keys (reference = userId by default).
+	//   - key:         verify an incoming key (lookup by its hashed value).
+	// Empty until the apiKey flag is enabled, so declaring it always is free.
+	apikeys: {
+		indexes: ["referenceId", "key"] as const,
+	},
+	// Passkey plugin (WebAuthn). The `passkey` model routes here via the
+	// adapter — no site table, no migration. Indexes mirror the fields the
+	// plugin queries by:
+	//   - userId:       list / delete a user's passkeys.
+	//   - credentialID: resolve a credential during an authentication assertion.
+	// Empty until the passkey flag is enabled, so declaring it always is free.
+	passkeys: {
+		indexes: ["userId", "credentialID"] as const,
+	},
 	// Organization plugin (multi-tenancy). All models route to plugin storage
 	// via the adapter — no site tables, no migration. Indexes mirror the
 	// fields Better Auth queries by:

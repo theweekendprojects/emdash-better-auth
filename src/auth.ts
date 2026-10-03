@@ -11,6 +11,8 @@ import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
 import { organization } from "better-auth/plugins";
+import { apiKey } from "@better-auth/api-key";
+import { passkey } from "@better-auth/passkey";
 import { stripe as stripePlugin } from "@better-auth/stripe";
 import Stripe from "stripe";
 import type { Kysely } from "kysely";
@@ -114,6 +116,21 @@ export interface BetterAuthOptions {
 	 * adapter — they do NOT touch EmDash's numeric `users.role` RBAC column.
 	 */
 	adminEnabled?: boolean;
+	/**
+	 * Whether the API key plugin is enabled. Default false. When true, the
+	 * `apiKey()` plugin is registered, adding create/list/verify/revoke API-key
+	 * endpoints and an account "API Keys" card. Keys are stored (hashed) in the
+	 * `apikey` plugin-storage collection via the adapter — no site table, no
+	 * migration.
+	 */
+	apiKeyEnabled?: boolean;
+	/**
+	 * Whether the passkey (WebAuthn) plugin is enabled. Default false. When
+	 * true, the `passkey()` plugin is registered, adding passwordless
+	 * registration/sign-in and a "Passkeys" account card. Credentials persist to
+	 * the `passkey` plugin-storage collection via the adapter — no migration.
+	 */
+	passkeyEnabled?: boolean;
 	/**
 	 * Whether the organization plugin (multi-tenancy) is enabled. Default false.
 	 * When true, `organization()` is registered, adding organizations, members,
@@ -231,6 +248,22 @@ export function createBetterAuth(
 			return new URL(options.baseURL).hostname;
 		} catch {
 			return "EmDash";
+		}
+	})();
+
+	// WebAuthn relying-party config for the passkey plugin, derived from the
+	// canonical base URL. `rpID` is the registrable domain (hostname, no port) —
+	// a passkey is bound to it, so it MUST match the host the user authenticates
+	// on; `origin` is the full scheme+host+port with no trailing slash. We pass
+	// the hostname as rpID (valid for localhost and real domains alike) and the
+	// baseURL's origin as origin, so passkeys work on the same host the rest of
+	// auth uses. Only consumed when the passkey plugin is enabled.
+	const passkeyRp = (() => {
+		try {
+			const url = new URL(options.baseURL);
+			return { rpID: url.hostname, origin: url.origin, rpName: issuer };
+		} catch {
+			return { rpID: "localhost", origin: options.baseURL, rpName: issuer };
 		}
 	})();
 
@@ -385,6 +418,24 @@ export function createBetterAuth(
 			// (we don't declare them as additionalFields); the adapter routes
 			// them to the users.data JSON blob, never the numeric users.role.
 			...(options.adminEnabled ? [admin()] : []),
+			// API key plugin: programmatic API keys (create/list/verify/revoke).
+			// Keys are stored hashed in the `apikey` plugin-storage collection via
+			// the adapter. Only enabled when the admin feature flag is set.
+			...(options.apiKeyEnabled ? [apiKey()] : []),
+			// Passkey plugin: passwordless WebAuthn sign-in + registration. The
+			// relying-party id/origin are derived from the canonical base URL (see
+			// passkeyRp above) so credentials bind to the host users authenticate
+			// on. Credentials persist to the `passkey` plugin-storage collection
+			// via the adapter. Only enabled when the feature flag is set.
+			...(options.passkeyEnabled
+				? [
+						passkey({
+							rpID: passkeyRp.rpID,
+							rpName: passkeyRp.rpName,
+							origin: passkeyRp.origin,
+						}),
+					]
+				: []),
 			// Organization plugin: multi-tenancy. Teams are opt-in and must match
 			// the client plugin's teams flag. All models persist to plugin
 			// storage via the adapter (no migration).

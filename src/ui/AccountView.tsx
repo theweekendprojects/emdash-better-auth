@@ -32,6 +32,8 @@ import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
+import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
+import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { billingPlugin } from "@better-auth-ui/heroui/plugins/billing";
 import { createStripeBillingAdapter } from "@better-auth-ui/core/plugins/billing";
 import { PLAN_DEFINITIONS, toBillingPlans, type PlanPriceIds } from "../billing-plans.js";
@@ -81,6 +83,18 @@ export interface AccountViewProps {
 	 */
 	orgEnabled?: boolean;
 	/**
+	 * Whether the API key plugin is enabled (mirrors `apiKeyEnabled`). When true,
+	 * the API key UI plugin adds an "API Keys" card to the Security tab (create,
+	 * copy, revoke). Defaults to false.
+	 */
+	apiKeyEnabled?: boolean;
+	/**
+	 * Whether passkeys are enabled (mirrors `passkeyEnabled`). When true, the
+	 * passkey UI plugin adds a "Passkeys" card to the Security tab (register,
+	 * rename, delete device passkeys). Defaults to false.
+	 */
+	passkeyEnabled?: boolean;
+	/**
 	 * Whether Stripe subscription billing is enabled (mirrors `billingEnabled`).
 	 * When true AND at least one plan has a monthly price id, the billing UI
 	 * plugin adds a "Billing" tab (pricing, checkout, portal, cancel). Defaults
@@ -104,6 +118,8 @@ export default function AccountView({
 	logoUrl = null,
 	twoFactorEnabled = false,
 	orgEnabled = false,
+	apiKeyEnabled = false,
+	passkeyEnabled = false,
 	billingEnabled = false,
 	planPriceIds = {},
 }: AccountViewProps) {
@@ -161,6 +177,14 @@ export default function AccountView({
 						// Adds the "Organizations" tab to Settings (list orgs + pending
 						// invitations + create). Only when org is on.
 						...(orgEnabled ? [organizationPlugin()] : []),
+						// Adds the "Passkeys" card to the Security tab (register /
+						// rename / delete device passkeys). Only when the flag is on,
+						// matching the backend `passkey()` plugin.
+						...(passkeyEnabled ? [passkeyPlugin()] : []),
+						// Adds the "API Keys" card to the Security tab (create / copy /
+						// revoke). Only when the flag is on, matching the backend
+						// `apiKey()` plugin.
+						...(apiKeyEnabled ? [apiKeyPlugin()] : []),
 						// Adds the "Billing" tab (pricing, checkout, portal, cancel).
 						// Personal (user) billing only — org billing is intentionally
 						// off. Only when billing is on and plans resolved.

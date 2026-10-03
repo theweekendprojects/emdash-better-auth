@@ -12,6 +12,8 @@ import { usernameClient } from "better-auth/client/plugins";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { adminClient } from "better-auth/client/plugins";
 import { organizationClient } from "better-auth/client/plugins";
+import { apiKeyClient } from "@better-auth/api-key/client";
+import { passkeyClient } from "@better-auth/passkey/client";
 import { stripeClient } from "@better-auth/stripe/client";
 
 // The client is a single static build and can't read the per-request feature
@@ -27,6 +29,13 @@ export const authClient = createAuthClient({
 		twoFactorClient(),
 		adminClient(),
 		organizationClient(),
+		// API key + passkey method namespaces (authClient.apiKey.*,
+		// authClient.passkey.* / signIn.passkey). Always registered — the client
+		// is a single static build and can't read per-request flags; calls fail
+		// server-side when the matching server plugin is disabled, so this is
+		// inert for sites that don't opt in (same rationale as admin/org above).
+		apiKeyClient(),
+		passkeyClient(),
 		// Adds authClient.subscription.* (upgrade/list/cancel/restore/portal).
 		// Always registered; the server only honors it when the Stripe plugin is
 		// enabled, so it's inert on sites without billing.

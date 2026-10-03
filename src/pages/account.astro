@@ -18,6 +18,8 @@ import {
 	configuredSocialProviders,
 	twoFactorEnabled,
 	orgEnabled,
+	apiKeyEnabled,
+	passkeyEnabled,
 	billingEnabled,
 	planPriceIds,
 	accentColor,
@@ -71,6 +73,10 @@ const socialProviders = await configuredSocialProviders();
 // Whether 2FA is enabled site-wide — gates the Security tab's enrollment card
 // so it matches the backend (same setting the auth route reads).
 const is2faEnabled = await twoFactorEnabled();
+// Whether API keys / passkeys are enabled — gate their Security-tab cards so
+// they match the backend (same settings the auth route reads).
+const isApiKeyEnabled = await apiKeyEnabled();
+const isPasskeyEnabled = await passkeyEnabled();
 // Accent color (operator setting) injected as a CSS var for HeroUI theming.
 const accent = await accentColor();
 ---
@@ -106,6 +112,8 @@ const accent = await accentColor();
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
 			orgEnabled={isOrgEnabled}
+			apiKeyEnabled={isApiKeyEnabled}
+			passkeyEnabled={isPasskeyEnabled}
 			billingEnabled={isBillingEnabled}
 			planPriceIds={resolvedPlanPriceIds}
 			client:load

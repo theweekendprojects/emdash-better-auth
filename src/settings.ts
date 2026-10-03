@@ -90,6 +90,8 @@ export const SETTINGS_KEYS = {
 	baseUrl: "baseUrl",
 	betterAuthSecret: "betterAuthSecret",
 	twoFactorEnabled: "twoFactorEnabled",
+	apiKeyEnabled: "apiKeyEnabled",
+	passkeyEnabled: "passkeyEnabled",
 	adminEnabled: "adminEnabled",
 	orgEnabled: "orgEnabled",
 	teamsEnabled: "teamsEnabled",
@@ -109,6 +111,8 @@ export const SETTINGS_DEFAULTS = {
 	sendOnSignIn: true,
 	autoSignInAfterVerification: true,
 	twoFactorEnabled: false,
+	apiKeyEnabled: false,
+	passkeyEnabled: false,
 	adminEnabled: false,
 	orgEnabled: false,
 	teamsEnabled: false,
@@ -121,6 +125,8 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.sendOnSignIn,
 	SETTINGS_KEYS.autoSignInAfterVerification,
 	SETTINGS_KEYS.twoFactorEnabled,
+	SETTINGS_KEYS.apiKeyEnabled,
+	SETTINGS_KEYS.passkeyEnabled,
 	SETTINGS_KEYS.adminEnabled,
 	SETTINGS_KEYS.orgEnabled,
 	SETTINGS_KEYS.teamsEnabled,
@@ -207,6 +213,10 @@ export interface ResolvedAuthSettings {
 	sendOnSignIn: boolean;
 	autoSignInAfterVerification: boolean;
 	twoFactorEnabled: boolean;
+	/** API key plugin enabled. */
+	apiKeyEnabled: boolean;
+	/** Passkey (WebAuthn) plugin enabled. */
+	passkeyEnabled: boolean;
 	/** Admin plugin (user management) enabled. */
 	adminEnabled: boolean;
 	/** Organization plugin (multi-tenancy) enabled. */
@@ -305,6 +315,14 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.twoFactorEnabled],
 		SETTINGS_DEFAULTS.twoFactorEnabled,
 	);
+	const apiKeyEnabled = coerceBool(
+		saved[SETTINGS_KEYS.apiKeyEnabled],
+		SETTINGS_DEFAULTS.apiKeyEnabled,
+	);
+	const passkeyEnabled = coerceBool(
+		saved[SETTINGS_KEYS.passkeyEnabled],
+		SETTINGS_DEFAULTS.passkeyEnabled,
+	);
 	const adminEnabled = coerceBool(
 		saved[SETTINGS_KEYS.adminEnabled],
 		SETTINGS_DEFAULTS.adminEnabled,
@@ -357,6 +375,8 @@ export function resolveSettings(
 		sendOnSignIn,
 		autoSignInAfterVerification,
 		twoFactorEnabled,
+		apiKeyEnabled,
+		passkeyEnabled,
 		adminEnabled,
 		orgEnabled,
 		teamsEnabled,

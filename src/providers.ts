@@ -77,6 +77,39 @@ export async function twoFactorEnabled(): Promise<boolean> {
 }
 
 /**
+ * Whether the API key plugin is enabled site-wide, for the account UI's
+ * `apiKeyPlugin` gating. Same source of truth and precedence as the auth route,
+ * so the account "API Keys" card only renders when the backend `apiKey()`
+ * plugin is actually registered. Never throws — degrades to the default (off).
+ */
+export async function apiKeyEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).apiKeyEnabled;
+}
+
+/**
+ * Whether the passkey (WebAuthn) plugin is enabled site-wide, for the auth +
+ * account UI's `passkeyPlugin` gating. Same source of truth and precedence as
+ * the auth route, so the login page's "Sign in with a passkey" button and the
+ * account "Passkeys" card only render when the backend `passkey()` plugin is
+ * registered. Never throws — degrades to the default (off).
+ */
+export async function passkeyEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).passkeyEnabled;
+}
+
+/**
  * Whether the admin user-management plugin is enabled site-wide. Same source of
  * truth and precedence as the auth route, so the admin UI pages only render
  * (and only register the UI `adminPlugin`) when the backend `admin()` plugin is

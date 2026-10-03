@@ -17,6 +17,7 @@ import {
 	configuredSocialProviders,
 	twoFactorEnabled,
 	orgEnabled,
+	passkeyEnabled,
 	accentColor,
 	siteLogoUrl,
 } from "../providers.ts";
@@ -31,6 +32,9 @@ const is2faEnabled = await twoFactorEnabled();
 // Whether organizations are enabled — gates the org UI plugin on the island
 // and the invitation-acceptance view path below.
 const isOrgEnabled = await orgEnabled();
+// Whether passkeys are enabled — gates the "Sign in with a passkey" button on
+// the island (same setting the auth route reads).
+const isPasskeyEnabled = await passkeyEnabled();
 
 // The base `viewPaths.auth` from @better-auth-ui/core does NOT include plugin
 // view segments (they're augmented at the TYPE level only, not the runtime
@@ -99,6 +103,7 @@ const logoUrl = await siteLogoUrl();
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
 			orgEnabled={isOrgEnabled}
+			passkeyEnabled={isPasskeyEnabled}
 			client:load
 		/>
 	</body>

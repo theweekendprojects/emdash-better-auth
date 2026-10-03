@@ -143,6 +143,9 @@ export interface BetterAuthStorage {
 	verifications: StorageCollection<Record<string, unknown>>;
 	usernames: StorageCollection<Record<string, unknown>>;
 	twoFactors: StorageCollection<Record<string, unknown>>;
+	// API key plugin (`apikey` model) + passkey plugin (`passkey` model).
+	apikeys: StorageCollection<Record<string, unknown>>;
+	passkeys: StorageCollection<Record<string, unknown>>;
 	// Organization plugin (multi-tenancy) collections.
 	organizations: StorageCollection<Record<string, unknown>>;
 	members: StorageCollection<Record<string, unknown>>;
@@ -188,6 +191,10 @@ function storageFor(
 			return storage.usernames;
 		case "twoFactor":
 			return storage.twoFactors;
+		case "apikey":
+			return storage.apikeys;
+		case "passkey":
+			return storage.passkeys;
 		case "organization":
 			return storage.organizations;
 		case "member":
@@ -225,6 +232,8 @@ const COLLECTION_INDEXES: Record<string, ReadonlySet<string>> = {
 	verification: new Set(["id", "identifier", "expiresAt"]),
 	username: new Set(["id", "username", "userId"]),
 	twoFactor: new Set(["id", "userId"]),
+	apikey: new Set(["id", "referenceId", "key"]),
+	passkey: new Set(["id", "userId", "credentialID"]),
 	organization: new Set(["id", "slug"]),
 	member: new Set(["id", "organizationId", "userId"]),
 	invitation: new Set(["id", "organizationId", "email"]),
@@ -833,6 +842,21 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			}
 
 			const collection = storageFor(storage, model);
+			// Fast path: a lone `id = x` clause reads by storage key, so it works
+			// even when `id` isn't a declared index (EmDash's query() validates
+			// where-fields against the declared indexes and would reject `id`).
+			// Mirrors the findOne / delete direct-id paths. Needed by the apiKey +
+			// passkey plugins, which update rows by their primary id.
+			const updById = where.find((w) => w.field === "id" && w.operator === "eq");
+			if (updById && where.length === 1) {
+				const current = (await collection.get(updById.value as string)) as
+					| Record<string, unknown>
+					| null;
+				if (!current) return null;
+				const merged = { ...current, ...(update as Record<string, unknown>) };
+				await collection.put(updById.value as string, merged);
+				return merged;
+			}
 			const matches = await queryStorage(collection, where, {
 				limit: 1,
 				indexed: indexedFor(model),
@@ -904,6 +928,20 @@ export function emdashAdapter(db: Kysely<UsersDB>, storage: BetterAuthStorage) {
 			}
 
 			const collection = storageFor(storage, model);
+			// Direct-id fast path (see update() above) so an `id`-targeted bulk
+			// update works without `id` being a declared index.
+			const updManyById = where.find((w) => w.field === "id" && w.operator === "eq");
+			if (updManyById && where.length === 1) {
+				const current = (await collection.get(updManyById.value as string)) as
+					| Record<string, unknown>
+					| null;
+				if (!current) return 0;
+				await collection.put(updManyById.value as string, {
+					...current,
+					...(update as Record<string, unknown>),
+				});
+				return 1;
+			}
 			const matches = await queryStorage(collection, where, { indexed: indexedFor(model) });
 			for (const m of matches) {
 				await collection.put(m.id, { ...m.data, ...(update as Record<string, unknown>) });
