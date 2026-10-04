@@ -105,4 +105,73 @@ import { resolveSettings } from "../src/settings.js";
 	equal(resolveSettings({ accentColor: "  #0066cc  " }, {}).accentColor, "#0066cc");
 }
 
+// 9. OIDC / OAuth 2.1 provider flag defaults off and turns on from the saved
+//    boolean (and its string shape). It's independent of every other flag.
+{
+	equal(resolveSettings({}, {}).oidcProviderEnabled, false);
+	equal(resolveSettings({ oidcProviderEnabled: true }, {}).oidcProviderEnabled, true);
+	equal(resolveSettings({ oidcProviderEnabled: "1" }, {}).oidcProviderEnabled, true);
+}
+
+// 10. The passwordless / session / security flags default off and turn on from
+//     saved booleans (and the "1"/"true" string shapes).
+{
+	const off = resolveSettings({}, {});
+	equal(off.magicLinkEnabled, false);
+	equal(off.emailOtpEnabled, false);
+	equal(off.anonymousEnabled, false);
+	equal(off.multiSessionEnabled, false);
+	equal(off.hibpEnabled, false);
+
+	const on = resolveSettings(
+		{
+			magicLinkEnabled: true,
+			emailOtpEnabled: "1",
+			anonymousEnabled: "true",
+			multiSessionEnabled: true,
+			hibpEnabled: "on",
+		},
+		{},
+	);
+	equal(on.magicLinkEnabled, true);
+	equal(on.emailOtpEnabled, true);
+	equal(on.anonymousEnabled, true);
+	equal(on.multiSessionEnabled, true);
+	equal(on.hibpEnabled, true);
+}
+
+// 11. Generic OAuth: the flag is forced FALSE when no provider config resolves,
+//     even if saved true — so an enabled-but-unconfigured toggle doesn't claim
+//     to be active. It's honored only when the env config has a usable provider
+//     (both providerId + clientId). Entries missing either are dropped.
+{
+	// Flag on, but no config → inert (false), empty config list.
+	const noConfig = resolveSettings({ genericOAuthEnabled: true }, {});
+	equal(noConfig.genericOAuthEnabled, false);
+	equal(noConfig.genericOAuthConfig.length, 0);
+
+	// Flag on + a valid provider → enabled, config passed through.
+	const withConfig = resolveSettings(
+		{ genericOAuthEnabled: true },
+		{
+			genericOAuthConfig: [
+				{ providerId: "keycloak", clientId: "kc-id", clientSecret: "kc-secret" },
+				// invalid (no clientId) → filtered out.
+				{ providerId: "broken", clientId: "" },
+			],
+		},
+	);
+	equal(withConfig.genericOAuthEnabled, true);
+	equal(withConfig.genericOAuthConfig.length, 1);
+	equal(withConfig.genericOAuthConfig[0]?.providerId, "keycloak");
+
+	// Config present but flag off → disabled, but the (filtered) list still
+	// resolves (the flag, not the list, gates registration).
+	const flagOff = resolveSettings(
+		{ genericOAuthEnabled: false },
+		{ genericOAuthConfig: [{ providerId: "okta", clientId: "ok-id" }] },
+	);
+	equal(flagOff.genericOAuthEnabled, false);
+}
+
 console.log("settings-resolve self-check: all cases passed");

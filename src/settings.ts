@@ -95,6 +95,13 @@ export const SETTINGS_KEYS = {
 	adminEnabled: "adminEnabled",
 	orgEnabled: "orgEnabled",
 	teamsEnabled: "teamsEnabled",
+	oidcProviderEnabled: "oidcProviderEnabled",
+	magicLinkEnabled: "magicLinkEnabled",
+	emailOtpEnabled: "emailOtpEnabled",
+	anonymousEnabled: "anonymousEnabled",
+	multiSessionEnabled: "multiSessionEnabled",
+	genericOAuthEnabled: "genericOAuthEnabled",
+	hibpEnabled: "hibpEnabled",
 	billingEnabled: "billingEnabled",
 	stripeSecretKey: "stripeSecretKey",
 	stripeWebhookSecret: "stripeWebhookSecret",
@@ -116,6 +123,13 @@ export const SETTINGS_DEFAULTS = {
 	adminEnabled: false,
 	orgEnabled: false,
 	teamsEnabled: false,
+	oidcProviderEnabled: false,
+	magicLinkEnabled: false,
+	emailOtpEnabled: false,
+	anonymousEnabled: false,
+	multiSessionEnabled: false,
+	genericOAuthEnabled: false,
+	hibpEnabled: false,
 	billingEnabled: false,
 } as const;
 
@@ -130,6 +144,13 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.adminEnabled,
 	SETTINGS_KEYS.orgEnabled,
 	SETTINGS_KEYS.teamsEnabled,
+	SETTINGS_KEYS.oidcProviderEnabled,
+	SETTINGS_KEYS.magicLinkEnabled,
+	SETTINGS_KEYS.emailOtpEnabled,
+	SETTINGS_KEYS.anonymousEnabled,
+	SETTINGS_KEYS.multiSessionEnabled,
+	SETTINGS_KEYS.genericOAuthEnabled,
+	SETTINGS_KEYS.hibpEnabled,
 	SETTINGS_KEYS.billingEnabled,
 ] as const;
 
@@ -207,6 +228,26 @@ export interface ResolvedProviderCreds {
 	clientSecret: string;
 }
 
+/**
+ * One Generic OAuth provider config. A minimal, Workers-safe subset of Better
+ * Auth's `GenericOAuthConfig` — enough to wire a standard OIDC-discovery or
+ * explicit-endpoint provider from env, without the function-valued options
+ * (getToken/getUserInfo/mapProfileToUser) that can't come from a JSON string.
+ * `providerId` doubles as the social button id and the callback path segment
+ * (`/api/auth/callback/<providerId>`).
+ */
+export interface GenericOAuthProviderConfig {
+	providerId: string;
+	clientId: string;
+	clientSecret?: string;
+	discoveryUrl?: string;
+	authorizationUrl?: string;
+	tokenUrl?: string;
+	userInfoUrl?: string;
+	scopes?: string[];
+	pkce?: boolean;
+}
+
 /** Resolved, typed Better Auth configuration after merging all sources. */
 export interface ResolvedAuthSettings {
 	requireEmailVerification: boolean;
@@ -223,6 +264,38 @@ export interface ResolvedAuthSettings {
 	orgEnabled: boolean;
 	/** Organization teams enabled (only meaningful when orgEnabled). */
 	teamsEnabled: boolean;
+	/**
+	 * OIDC / OAuth 2.1 provider enabled — turns this site into an identity
+	 * provider other apps can authenticate against (authorization-code flow,
+	 * UserInfo, consent). Registers the `jwt` + `oauthProvider` Better Auth
+	 * plugins.
+	 */
+	oidcProviderEnabled: boolean;
+	/** Magic-link (passwordless email link) sign-in enabled. */
+	magicLinkEnabled: boolean;
+	/** Email-OTP (passwordless emailed code) sign-in / verification enabled. */
+	emailOtpEnabled: boolean;
+	/** Anonymous (guest) sessions enabled. */
+	anonymousEnabled: boolean;
+	/** Multi-session (multiple concurrent accounts per browser) enabled. */
+	multiSessionEnabled: boolean;
+	/**
+	 * Generic OAuth enabled — registers the extra OAuth/OIDC providers supplied
+	 * via {@link AuthEnvFallback.genericOAuthConfig}. The flag alone is inert:
+	 * with no configured providers the plugin registers an empty list.
+	 */
+	genericOAuthEnabled: boolean;
+	/**
+	 * Have I Been Pwned password check enabled — rejects passwords found in
+	 * known breaches at sign-up / password change.
+	 */
+	hibpEnabled: boolean;
+	/**
+	 * Generic OAuth provider configs (from env JSON). Only populated when
+	 * genericOAuthEnabled and the env var parses to a non-empty array. These are
+	 * operator config, not a toggle, so they ride the env fallback, not kv.
+	 */
+	genericOAuthConfig: GenericOAuthProviderConfig[];
 	/** Stripe subscription billing enabled. */
 	billingEnabled: boolean;
 	/** Stripe secret key, or undefined to fall back to env. */
@@ -259,6 +332,12 @@ export interface AuthEnvFallback {
 	/** Stripe env fallbacks (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET). */
 	stripeSecretKey?: string;
 	stripeWebhookSecret?: string;
+	/**
+	 * Generic OAuth provider configs, parsed by the caller from the
+	 * GENERIC_OAUTH_CONFIG env var (a JSON array). Operator config rather than a
+	 * toggle, so it arrives via env, not kv. Empty/undefined when unset.
+	 */
+	genericOAuthConfig?: GenericOAuthProviderConfig[];
 }
 
 /** Placeholder secret value from the template — treated as "not set". */
@@ -335,6 +414,40 @@ export function resolveSettings(
 	// stale saved toggle can't register team collections without the org plugin.
 	const teamsEnabled =
 		orgEnabled && coerceBool(saved[SETTINGS_KEYS.teamsEnabled], SETTINGS_DEFAULTS.teamsEnabled);
+	const oidcProviderEnabled = coerceBool(
+		saved[SETTINGS_KEYS.oidcProviderEnabled],
+		SETTINGS_DEFAULTS.oidcProviderEnabled,
+	);
+	const magicLinkEnabled = coerceBool(
+		saved[SETTINGS_KEYS.magicLinkEnabled],
+		SETTINGS_DEFAULTS.magicLinkEnabled,
+	);
+	const emailOtpEnabled = coerceBool(
+		saved[SETTINGS_KEYS.emailOtpEnabled],
+		SETTINGS_DEFAULTS.emailOtpEnabled,
+	);
+	const anonymousEnabled = coerceBool(
+		saved[SETTINGS_KEYS.anonymousEnabled],
+		SETTINGS_DEFAULTS.anonymousEnabled,
+	);
+	const multiSessionEnabled = coerceBool(
+		saved[SETTINGS_KEYS.multiSessionEnabled],
+		SETTINGS_DEFAULTS.multiSessionEnabled,
+	);
+	const hibpEnabled = coerceBool(
+		saved[SETTINGS_KEYS.hibpEnabled],
+		SETTINGS_DEFAULTS.hibpEnabled,
+	);
+	// Generic OAuth: the toggle enables the plugin, but it does nothing without
+	// provider configs (operator config from env). Force the flag false when no
+	// provider resolves, so the UI status + the registered plugin agree ("on but
+	// inert" is surfaced as off here rather than a dead toggle).
+	const genericOAuthConfig = (env.genericOAuthConfig ?? []).filter(
+		(c) => c && c.providerId && c.clientId,
+	);
+	const genericOAuthEnabled =
+		coerceBool(saved[SETTINGS_KEYS.genericOAuthEnabled], SETTINGS_DEFAULTS.genericOAuthEnabled) &&
+		genericOAuthConfig.length > 0;
 	const billingEnabled = coerceBool(
 		saved[SETTINGS_KEYS.billingEnabled],
 		SETTINGS_DEFAULTS.billingEnabled,
@@ -380,6 +493,14 @@ export function resolveSettings(
 		adminEnabled,
 		orgEnabled,
 		teamsEnabled,
+		oidcProviderEnabled,
+		magicLinkEnabled,
+		emailOtpEnabled,
+		anonymousEnabled,
+		multiSessionEnabled,
+		genericOAuthEnabled,
+		genericOAuthConfig,
+		hibpEnabled,
 		billingEnabled,
 		stripeSecretKey,
 		stripeWebhookSecret,

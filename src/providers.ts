@@ -41,6 +41,24 @@ function readSocialEnv(): AuthEnvFallback["social"] {
 }
 
 /**
+ * Parse the GENERIC_OAUTH_CONFIG env var — a JSON array of provider configs —
+ * into a typed list. Operator config (not a toggle), supplied as a single env
+ * var so multiple providers can be added without code changes. Malformed JSON
+ * or a non-array degrades to an empty list (the plugin then stays inert) rather
+ * than throwing. Shared by this module and route.ts via the same env name.
+ */
+function readGenericOAuthEnv(): import("./settings.js").GenericOAuthProviderConfig[] {
+	const raw = (env as Record<string, string | undefined>).GENERIC_OAUTH_CONFIG;
+	if (!raw) return [];
+	try {
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+}
+
+/**
  * Returns the ids of social providers with valid credentials configured
  * (admin settings or env), for the auth UI's `socialProviders` prop.
  *
@@ -154,6 +172,99 @@ export async function teamsEnabled(): Promise<boolean> {
 		// Settings unavailable — default off.
 	}
 	return resolveSettings(saved, {}).teamsEnabled;
+}
+
+/**
+ * Whether the OIDC / OAuth 2.1 provider is enabled site-wide. Same source of
+ * truth/precedence as the auth route, so the OAuth UI (consent / sign-up views
+ * and the "Connected applications" + client-management cards) only renders when
+ * the backend `oauthProvider()` plugin is registered. Never throws — default off.
+ */
+export async function oidcProviderEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).oidcProviderEnabled;
+}
+
+/**
+ * Whether magic-link sign-in is enabled site-wide. Gates the Better Auth UI
+ * magic-link plugin on the auth island so the "email me a link" view matches
+ * the backend. Never throws — default off.
+ */
+export async function magicLinkEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).magicLinkEnabled;
+}
+
+/**
+ * Whether email-OTP (passwordless emailed code) is enabled site-wide. Gates the
+ * Better Auth UI email-otp plugin on the auth island. Never throws — default off.
+ */
+export async function emailOtpEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).emailOtpEnabled;
+}
+
+/**
+ * Whether anonymous (guest) sign-in is enabled site-wide. Gates the "Continue
+ * as guest" button on the auth island. Never throws — default off.
+ */
+export async function anonymousEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).anonymousEnabled;
+}
+
+/**
+ * Whether multi-session (multiple concurrent accounts per browser) is enabled
+ * site-wide. Gates the Better Auth UI multi-session plugin on both islands (the
+ * account switcher in the UserButton). Never throws — default off.
+ */
+export async function multiSessionEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).multiSessionEnabled;
+}
+
+/**
+ * Generic OAuth provider ids that are enabled (flag on AND the provider config
+ * resolves). Fed into the auth UI's `socialProviders` list alongside the
+ * built-in social ids, so each extra provider renders a sign-in button. Never
+ * throws — degrades to an empty list.
+ */
+export async function genericOAuthProviderIds(): Promise<string[]> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — env-only resolution still works.
+	}
+	const settings = resolveSettings(saved, { genericOAuthConfig: readGenericOAuthEnv() });
+	return settings.genericOAuthEnabled
+		? settings.genericOAuthConfig.map((c) => c.providerId)
+		: [];
 }
 
 /**

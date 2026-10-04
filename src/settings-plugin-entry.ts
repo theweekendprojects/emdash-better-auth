@@ -51,8 +51,9 @@ import {
 	writeKvSettings,
 } from "./settings.js";
 
-// Keep in sync with the version reported by the descriptor factory.
-export const SETTINGS_PLUGIN_VERSION = "0.1.0";
+// Keep in sync with the version reported by the descriptor factory
+// (betterAuthSettingsPlugin in index.ts) and the package version.
+export const SETTINGS_PLUGIN_VERSION = "0.7.0";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -97,7 +98,14 @@ function buildSettingsPage(
 		{
 			type: "form",
 			block_id: "better-auth-settings",
+			// Fields are grouped by concern for readability: email verification
+			// first, then feature-plugin toggles, then billing (toggle + keys),
+			// then the identity-provider toggle, then branding, then the signing
+			// secret last. This is a single form (one Save) — Block Kit forms hold
+			// only inputs, so the grouping is by order; the identity + username
+			// status cues live in the context blocks after the form.
 			fields: [
+				// --- Email verification -------------------------------------------
 				{
 					type: "toggle",
 					action_id: SETTINGS_KEYS.requireEmailVerification,
@@ -106,6 +114,21 @@ function buildSettingsPage(
 						"Block unverified accounts from signing in. Needs a working email provider (Settings → Email).",
 					initial_value: bool(saved[SETTINGS_KEYS.requireEmailVerification]),
 				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.sendOnSignIn,
+					label: "Re-send verification on sign-in",
+					description: "Re-send the link when an unverified user tries to log in.",
+					initial_value: bool(saved[SETTINGS_KEYS.sendOnSignIn]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.autoSignInAfterVerification,
+					label: "Auto sign-in after verification",
+					description: "Log the user in immediately when they click the verification link.",
+					initial_value: bool(saved[SETTINGS_KEYS.autoSignInAfterVerification]),
+				},
+				// --- Feature plugins ----------------------------------------------
 				{
 					type: "toggle",
 					action_id: SETTINGS_KEYS.twoFactorEnabled,
@@ -151,9 +174,72 @@ function buildSettingsPage(
 					action_id: SETTINGS_KEYS.teamsEnabled,
 					label: "Enable organization teams",
 					description:
-						"Adds teams within each organization. Only takes effect when 'Enable organizations' is on.",
+						"Adds teams within each organization. Only takes effect when 'Enable organizations' is on — it has no effect otherwise.",
 					initial_value: bool(saved[SETTINGS_KEYS.teamsEnabled]),
 				},
+				// --- Identity provider (OIDC / OAuth 2.1) -------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.oidcProviderEnabled,
+					label: "Enable OIDC / OAuth 2.1 identity provider",
+					description:
+						"Turn this site into an OpenID Connect provider so other applications can let users 'Sign in with " +
+						"this site'. Registers the JWT + OAuth provider plugins; discovery is served at /api/auth/.well-known/openid-configuration. " +
+						"Users manage authorized apps from their account; OAuth clients are created from the account 'OAuth clients' tab.",
+					initial_value: bool(saved[SETTINGS_KEYS.oidcProviderEnabled]),
+				},
+				// --- Passwordless sign-in -----------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.magicLinkEnabled,
+					label: "Enable magic-link sign-in",
+					description:
+						"Passwordless sign-in: the user enters their email and receives a one-click sign-in link. Needs a working email provider (Settings → Email).",
+					initial_value: bool(saved[SETTINGS_KEYS.magicLinkEnabled]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.emailOtpEnabled,
+					label: "Enable email one-time codes (OTP)",
+					description:
+						"Passwordless sign-in, email verification, and password reset via a short code emailed to the user. Needs a working email provider (Settings → Email).",
+					initial_value: bool(saved[SETTINGS_KEYS.emailOtpEnabled]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.anonymousEnabled,
+					label: "Enable guest (anonymous) sessions",
+					description:
+						"Show a 'Continue as guest' button so visitors can get an authenticated session without signing up, then link a real account later. Guest users have no username until they claim one.",
+					initial_value: bool(saved[SETTINGS_KEYS.anonymousEnabled]),
+				},
+				// --- Sessions -----------------------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.multiSessionEnabled,
+					label: "Enable multiple accounts per browser",
+					description:
+						"Let a browser stay signed in to several accounts at once and switch between them from the user menu. The admin session always follows the active account.",
+					initial_value: bool(saved[SETTINGS_KEYS.multiSessionEnabled]),
+				},
+				// --- Security -----------------------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.hibpEnabled,
+					label: "Reject breached passwords (Have I Been Pwned)",
+					description:
+						"Block passwords found in known data breaches at sign-up and password change. Only the first 5 characters of the password's SHA-1 hash are sent to the HIBP range API — the password itself never leaves the server.",
+					initial_value: bool(saved[SETTINGS_KEYS.hibpEnabled]),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.genericOAuthEnabled,
+					label: "Enable extra OAuth / OIDC providers",
+					description:
+						"Register additional sign-in providers (Keycloak, Okta, Auth0, Microsoft Entra, …) defined in the GENERIC_OAUTH_CONFIG Worker env var (a JSON array). Has no effect until at least one provider is configured there.",
+					initial_value: bool(saved[SETTINGS_KEYS.genericOAuthEnabled]),
+				},
+				// --- Subscription billing (Stripe) --------------------------------
 				{
 					type: "toggle",
 					action_id: SETTINGS_KEYS.billingEnabled,
@@ -173,20 +259,6 @@ function buildSettingsPage(
 					action_id: SETTINGS_KEYS.stripeWebhookSecret,
 					label: "Stripe webhook signing secret",
 					has_value: hasVal(saved[SETTINGS_KEYS.stripeWebhookSecret]),
-				},
-				{
-					type: "toggle",
-					action_id: SETTINGS_KEYS.sendOnSignIn,
-					label: "Re-send verification on sign-in",
-					description: "Re-send the link when an unverified user tries to log in.",
-					initial_value: bool(saved[SETTINGS_KEYS.sendOnSignIn]),
-				},
-				{
-					type: "toggle",
-					action_id: SETTINGS_KEYS.autoSignInAfterVerification,
-					label: "Auto sign-in after verification",
-					description: "Log the user in immediately when they click the verification link.",
-					initial_value: bool(saved[SETTINGS_KEYS.autoSignInAfterVerification]),
 				},
 				{
 					type: "text_input",
@@ -219,9 +291,43 @@ function buildSettingsPage(
 		},
 		{
 			type: "context",
+			// Username is always on (no toggle) — recorded here so it's visible.
+			text: "Always on: every account has a required username (public identity used for bylines and username sign-in). Email stays required for recovery and is never shown publicly.",
+		},
+		{
+			type: "context",
 			text: `Billing (Stripe): after enabling, register a webhook in your Stripe dashboard pointing at ${str(saved[SETTINGS_KEYS.baseUrl]).replace(/\/+$/, "") || "https://<your-site>"}/api/auth/stripe/webhook for the events checkout.session.completed, customer.subscription.created, .updated, and .deleted — then paste its signing secret above. Plans (price IDs) are set in the site's auth config.`,
 		},
+		{
+			type: "context",
+			text: `Identity provider (OIDC): when enabled, discovery is at ${str(saved[SETTINGS_KEYS.baseUrl]).replace(/\/+$/, "") || "https://<your-site>"}/api/auth/.well-known/openid-configuration and the OAuth endpoints under /api/auth/oauth2/*. Register client redirect URIs from the account 'OAuth clients' tab. Leaving the "Better Auth secret" blank (Worker secret) is strongly recommended here — it signs the ID tokens.`,
+		},
 	];
+
+	// --- Status hints: flag a toggle that's ON but inert (missing deps) -------
+	// A feature can be enabled yet do nothing because a prerequisite is missing
+	// (billing needs Stripe keys + plan price ids; teams need orgs). The toggle
+	// shows ON but the feature stays off, which is confusing. Surface the gap.
+	const statusWarnings: string[] = [];
+	if (bool(saved[SETTINGS_KEYS.billingEnabled]) && !hasVal(saved[SETTINGS_KEYS.stripeSecretKey])) {
+		statusWarnings.push(
+			"Billing is enabled but no Stripe secret key is set (here or via STRIPE_SECRET_KEY) — billing stays inactive until it is, plus a webhook secret and at least one plan price id.",
+		);
+	}
+	if (bool(saved[SETTINGS_KEYS.teamsEnabled]) && !bool(saved[SETTINGS_KEYS.orgEnabled])) {
+		statusWarnings.push(
+			"Organization teams is enabled but organizations is off — teams has no effect until you also enable organizations.",
+		);
+	}
+	if (bool(saved[SETTINGS_KEYS.genericOAuthEnabled])) {
+		statusWarnings.push(
+			"Extra OAuth / OIDC providers is enabled — it does nothing until the GENERIC_OAUTH_CONFIG Worker env var contains at least one provider (a JSON array with providerId + clientId).",
+		);
+	}
+
+	for (const text of statusWarnings) {
+		blocks.push({ type: "banner", title: "Heads up", description: text, variant: "warning" });
+	}
 
 	// --- Social sign-in providers (one stacked section each) ------------------
 	// Callback/redirect URLs are built from the canonical base URL. If none is

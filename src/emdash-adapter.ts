@@ -131,6 +131,10 @@ const ADDITIONAL_DATA_FIELDS = new Set<string>([
 	// createCustomerOnSignUp is on). A user field with no `users` column, so it
 	// rides users.data JSON like the others.
 	"stripeCustomerId",
+	// anonymous plugin: marks a guest user. A user field with no `users` column,
+	// so it rides users.data JSON. Routed here so a guest create/read round-trips
+	// and the username create hook can detect it.
+	"isAnonymous",
 ]);
 
 /**
@@ -155,6 +159,14 @@ export interface BetterAuthStorage {
 	organizationRoles: StorageCollection<Record<string, unknown>>;
 	// Stripe plugin (subscription billing).
 	subscriptions: StorageCollection<Record<string, unknown>>;
+	// OIDC / OAuth 2.1 provider plugin collections.
+	oauthClients: StorageCollection<Record<string, unknown>>;
+	oauthAccessTokens: StorageCollection<Record<string, unknown>>;
+	oauthRefreshTokens: StorageCollection<Record<string, unknown>>;
+	oauthConsents: StorageCollection<Record<string, unknown>>;
+	oauthClientAssertions: StorageCollection<Record<string, unknown>>;
+	oauthClientResources: StorageCollection<Record<string, unknown>>;
+	oauthResources: StorageCollection<Record<string, unknown>>;
 }
 
 /** Shape of a stored username record (keyed by userId in the collection). */
@@ -209,6 +221,21 @@ function storageFor(
 			return storage.organizationRoles;
 		case "subscription":
 			return storage.subscriptions;
+		// OIDC / OAuth 2.1 provider models (Better Auth model name -> collection).
+		case "oauthClient":
+			return storage.oauthClients;
+		case "oauthAccessToken":
+			return storage.oauthAccessTokens;
+		case "oauthRefreshToken":
+			return storage.oauthRefreshTokens;
+		case "oauthConsent":
+			return storage.oauthConsents;
+		case "oauthClientAssertion":
+			return storage.oauthClientAssertions;
+		case "oauthClientResource":
+			return storage.oauthClientResources;
+		case "oauthResource":
+			return storage.oauthResources;
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
@@ -241,6 +268,16 @@ const COLLECTION_INDEXES: Record<string, ReadonlySet<string>> = {
 	teamMember: new Set(["id", "teamId", "userId"]),
 	organizationRole: new Set(["id", "organizationId"]),
 	subscription: new Set(["id", "referenceId", "stripeSubscriptionId", "stripeCustomerId"]),
+	// OIDC / OAuth 2.1 provider models. MUST stay a subset of each collection's
+	// `indexes` in BETTER_AUTH_STORAGE_CONFIG (index.ts) or EmDash's
+	// validateWhereClause throws. `id` is always queryable.
+	oauthClient: new Set(["id", "clientId", "userId"]),
+	oauthAccessToken: new Set(["id", "token", "refreshId", "userId", "clientId"]),
+	oauthRefreshToken: new Set(["id", "token", "userId", "clientId"]),
+	oauthConsent: new Set(["id", "userId", "clientId"]),
+	oauthClientAssertion: new Set(["id", "expiresAt"]),
+	oauthClientResource: new Set(["id", "clientId", "resourceId"]),
+	oauthResource: new Set(["id", "identifier"]),
 };
 
 /** Indexed field set for a storage model (empty = scan everything in JS). */

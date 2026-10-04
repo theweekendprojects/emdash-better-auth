@@ -34,6 +34,9 @@ import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
 import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
+import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
+import { emailOtpPlugin } from "@better-auth-ui/heroui/plugins/email-otp";
+import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { billingPlugin } from "@better-auth-ui/heroui/plugins/billing";
 import { createStripeBillingAdapter } from "@better-auth-ui/core/plugins/billing";
 import { PLAN_DEFINITIONS, toBillingPlans, type PlanPriceIds } from "../billing-plans.js";
@@ -102,6 +105,27 @@ export interface AccountViewProps {
 	 */
 	billingEnabled?: boolean;
 	/**
+	 * Whether the OIDC / OAuth 2.1 identity provider is enabled (mirrors
+	 * `oidcProviderEnabled`). When true, the oauth-provider UI plugin adds a
+	 * "Connected applications" card to the Security tab (apps the user has
+	 * authorized, with a remove action) and an "OAuth clients" tab for managing
+	 * the user's own OAuth clients (create / edit / delete / rotate secret).
+	 * Defaults to false.
+	 */
+	oidcProviderEnabled?: boolean;
+	/**
+	 * Whether email-OTP is enabled (mirrors `emailOtpEnabled`). When true, the
+	 * email-otp UI plugin wires OTP-based email change / verification into the
+	 * account settings. Defaults to false.
+	 */
+	emailOtpEnabled?: boolean;
+	/**
+	 * Whether multi-session is enabled (mirrors `multiSessionEnabled`). When
+	 * true, the multi-session UI plugin adds the account switcher to the
+	 * UserButton and account management. Defaults to false.
+	 */
+	multiSessionEnabled?: boolean;
+	/**
 	 * Per-plan Stripe price ids keyed by plan id, e.g.
 	 * `{ pro: { month: "price_...", year: "price_..." } }`. NOT secret (price
 	 * ids are safe to expose client-side), so passed into the island. Plans
@@ -121,6 +145,9 @@ export default function AccountView({
 	apiKeyEnabled = false,
 	passkeyEnabled = false,
 	billingEnabled = false,
+	oidcProviderEnabled = false,
+	emailOtpEnabled = false,
+	multiSessionEnabled = false,
 	planPriceIds = {},
 }: AccountViewProps) {
 	const queryClient = getQueryClient();
@@ -185,6 +212,22 @@ export default function AccountView({
 						// revoke). Only when the flag is on, matching the backend
 						// `apiKey()` plugin.
 						...(apiKeyEnabled ? [apiKeyPlugin()] : []),
+						// Adds the "Connected applications" security card (apps the
+						// user authorized via OIDC, with a remove action) and the
+						// "OAuth clients" tab for the user to manage their own OAuth
+						// clients (create / edit / delete / rotate secret) through
+						// Better Auth's signed-in client endpoints. Only when the
+						// identity-provider flag is on, matching the backend
+						// `oauthProvider` plugin. `clientManagement: true` enables the
+						// personal client tab.
+						...(oidcProviderEnabled
+							? [oauthProviderPlugin({ clientManagement: true })]
+							: []),
+						// Email-OTP: OTP-based email change / verification in account
+						// settings. Multi-session: account switcher in the UserButton.
+						// Each only when its site flag is on, matching the backend.
+						...(emailOtpEnabled ? [emailOtpPlugin()] : []),
+						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 						// Adds the "Billing" tab (pricing, checkout, portal, cancel).
 						// Personal (user) billing only — org billing is intentionally
 						// off. Only when billing is on and plans resolved.

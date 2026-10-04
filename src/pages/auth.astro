@@ -18,6 +18,12 @@ import {
 	twoFactorEnabled,
 	orgEnabled,
 	passkeyEnabled,
+	oidcProviderEnabled,
+	magicLinkEnabled,
+	emailOtpEnabled,
+	anonymousEnabled,
+	multiSessionEnabled,
+	genericOAuthProviderIds,
 	accentColor,
 	siteLogoUrl,
 } from "../providers.ts";
@@ -35,6 +41,15 @@ const isOrgEnabled = await orgEnabled();
 // Whether passkeys are enabled — gates the "Sign in with a passkey" button on
 // the island (same setting the auth route reads).
 const isPasskeyEnabled = await passkeyEnabled();
+// Whether the OIDC provider is enabled — gates the oauth-provider UI plugin on
+// the island and the oauth redirect-view paths (consent / sign-up) below.
+const isOidcEnabled = await oidcProviderEnabled();
+// Passwordless + session feature flags — gate the matching UI plugins / button
+// on the island, each matching its backend plugin.
+const isMagicLinkEnabled = await magicLinkEnabled();
+const isEmailOtpEnabled = await emailOtpEnabled();
+const isAnonymousEnabled = await anonymousEnabled();
+const isMultiSessionEnabled = await multiSessionEnabled();
 
 // The base `viewPaths.auth` from @better-auth-ui/core does NOT include plugin
 // view segments (they're augmented at the TYPE level only, not the runtime
@@ -43,19 +58,41 @@ const isPasskeyEnabled = await passkeyEnabled();
 //   - 2FA on  → "two-factor" (the TOTP challenge view).
 //   - org on  → "accept-invitation" (invite links: /auth/accept-invitation).
 const knownViews = Object.values(viewPaths.auth) as string[];
+//   - oidc on → "oauth-consent" + "oauth-sign-up" (the OAuth authorization
+//     flow's consent and prompt=create sign-up redirect screens). With
+//     multi-session also on, "select-account" (the account chooser).
+//   - magic-link on → "magic-link" (the email-link request view).
+//   - email-otp on  → "email-otp" (the code request/verify view).
+const oauthViews = [
+	"oauth-consent",
+	"oauth-sign-up",
+	...(isMultiSessionEnabled ? ["select-account"] : []),
+];
 const allowedViews = [
 	...knownViews,
 	...(is2faEnabled ? ["two-factor"] : []),
 	...(isOrgEnabled ? ["accept-invitation"] : []),
+	...(isOidcEnabled ? oauthViews : []),
+	...(isMagicLinkEnabled ? ["magic-link"] : []),
+	...(isEmailOtpEnabled ? ["email-otp"] : []),
 ];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
 
 // A logged-in user is bounced off auth views (they're already signed in),
-// EXCEPT sign-out and accept-invitation — a signed-in user clicking an invite
-// link must reach the acceptance view, not get redirected home.
-if (Astro.locals.user && view !== "sign-out" && view !== "accept-invitation") {
+// EXCEPT sign-out, accept-invitation, and the OAuth consent/sign-up screens —
+// those are reached mid-authorization-flow BY a signed-in user and must render,
+// not redirect home. (oauth-sign-up falls back to plain sign-up when not in a
+// prompt=create flow; a signed-in user won't normally land there.)
+const signedInAllowed = new Set([
+	"sign-out",
+	"accept-invitation",
+	...oauthViews,
+]);
+// select-account is in oauthViews only when multi-session is on; it's reached
+// mid-authorization-flow by a signed-in user, so it must not redirect home.
+if (Astro.locals.user && !signedInAllowed.has(view)) {
 	return Astro.redirect("/");
 }
 
@@ -66,7 +103,11 @@ const siteSettings = await getSiteSettings().catch(() => null);
 const siteName = siteSettings?.title || "Account";
 // Show a social button only for providers whose credentials are actually set
 // (admin settings or env). Matches exactly what the auth route enables.
-const socialProviders = await configuredSocialProviders();
+// Generic OAuth providers (env-configured) are first-class social providers in
+// Better Auth, so they ride the same socialProviders list and render a button.
+const builtinSocial = await configuredSocialProviders();
+const genericSocial = await genericOAuthProviderIds();
+const socialProviders = [...builtinSocial, ...genericSocial];
 // Brand theming: accent color (operator setting) + optional site logo.
 const accent = await accentColor();
 const logoUrl = await siteLogoUrl();
@@ -104,6 +145,11 @@ const logoUrl = await siteLogoUrl();
 			twoFactorEnabled={is2faEnabled}
 			orgEnabled={isOrgEnabled}
 			passkeyEnabled={isPasskeyEnabled}
+			oidcProviderEnabled={isOidcEnabled}
+			magicLinkEnabled={isMagicLinkEnabled}
+			emailOtpEnabled={isEmailOtpEnabled}
+			anonymousEnabled={isAnonymousEnabled}
+			multiSessionEnabled={isMultiSessionEnabled}
 			client:load
 		/>
 	</body>

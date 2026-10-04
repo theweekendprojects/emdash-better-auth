@@ -15,6 +15,11 @@ import { organizationClient } from "better-auth/client/plugins";
 import { apiKeyClient } from "@better-auth/api-key/client";
 import { passkeyClient } from "@better-auth/passkey/client";
 import { stripeClient } from "@better-auth/stripe/client";
+import { oauthProviderClient } from "@better-auth/oauth-provider/client";
+import { magicLinkClient } from "better-auth/client/plugins";
+import { emailOTPClient } from "better-auth/client/plugins";
+import { anonymousClient } from "better-auth/client/plugins";
+import { multiSessionClient } from "better-auth/client/plugins";
 
 // The client is a single static build and can't read the per-request feature
 // flags that gate the server plugins, so the admin + organization client
@@ -93,6 +98,31 @@ export const authClient = createAuthClient({
 		// Always registered; the server only honors it when the Stripe plugin is
 		// enabled, so it's inert on sites without billing.
 		stripeClient({ subscription: true }),
+		// OIDC / OAuth 2.1 provider: adds authClient.oauth2.* (consent, continue,
+		// register, client CRUD) and preserves the signed authorization query
+		// across the consent/sign-up redirect screens. Always registered; calls
+		// fail server-side when the oauthProvider plugin is disabled, so it's
+		// inert on sites that don't enable the identity-provider feature (same
+		// rationale as the admin/org/stripe client plugins above).
+		oauthProviderClient(),
+		// Passwordless + session method namespaces. All always registered (the
+		// client is a single static build and can't read per-request flags);
+		// calls fail server-side when the matching server plugin is disabled, so
+		// they're inert on sites that don't opt in — same rationale as the
+		// admin/org/stripe/oauth client plugins above.
+		//   - magicLinkClient:   authClient.signIn.magicLink(...)
+		//   - emailOTPClient:     authClient.emailOtp.* / signIn.emailOtp(...)
+		//   - anonymousClient:    authClient.signIn.anonymous()
+		//   - multiSessionClient: authClient.multiSession.* (list / setActive /
+		//                         revoke) — powers the account switcher and the
+		//                         OAuth select-account screen.
+		// NOTE: Generic OAuth has NO client plugin — env-configured providers are
+		// used through the standard signIn.social({ provider }) flow, so nothing
+		// extra is registered here for them.
+		magicLinkClient(),
+		emailOTPClient(),
+		anonymousClient(),
+		multiSessionClient(),
 	],
 });
 

@@ -11,13 +11,22 @@ import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
 import { organization } from "better-auth/plugins";
+import { jwt } from "better-auth/plugins";
+import { magicLink } from "better-auth/plugins";
+import { emailOTP } from "better-auth/plugins";
+import { anonymous } from "better-auth/plugins";
+import { multiSession } from "better-auth/plugins";
+import { genericOAuth } from "better-auth/plugins";
+import { haveIBeenPwned } from "better-auth/plugins";
 import { apiKey } from "@better-auth/api-key";
 import { passkey } from "@better-auth/passkey";
 import { stripe as stripePlugin } from "@better-auth/stripe";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import Stripe from "stripe";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 import { PLAN_DEFINITIONS, toStripePlans, type PlanPriceIds } from "./billing-plans.js";
+import type { GenericOAuthProviderConfig } from "./settings.js";
 
 /**
  * EmDash email pipeline interface, loosely typed to avoid importing emdash internals.
@@ -144,6 +153,67 @@ export interface BetterAuthOptions {
 	 * and the active-team session field.
 	 */
 	teamsEnabled?: boolean;
+	/**
+	 * Whether the OIDC / OAuth 2.1 provider is enabled. Default false. When
+	 * true, the `jwt()` and `oauthProvider()` plugins are registered, turning
+	 * this site into an OpenID Connect identity provider: other applications can
+	 * authenticate users through it (authorization-code + PKCE flow), fetch
+	 * UserInfo, and manage their own OAuth clients. The authorization-server
+	 * metadata is served at `/api/auth/.well-known/openid-configuration` and the
+	 * endpoints under `/api/auth/oauth2/*`. All client / token / consent records
+	 * persist to plugin storage via the adapter — no migration. The redirect
+	 * screens (login / consent / sign-up) reuse the plugin's own auth pages.
+	 */
+	oidcProviderEnabled?: boolean;
+	/**
+	 * Whether magic-link (passwordless email link) sign-in is enabled. Default
+	 * false. When true, the `magicLink()` plugin is registered: a user enters
+	 * their email, receives a sign-in link via the EmDash email pipeline, and is
+	 * authenticated on click. Links are single-use. No migration (uses the
+	 * `verification` storage collection).
+	 */
+	magicLinkEnabled?: boolean;
+	/**
+	 * Whether email-OTP (passwordless emailed code) is enabled. Default false.
+	 * When true, the `emailOTP()` plugin is registered, adding code-based
+	 * sign-in, email verification, and password reset. Codes are sent via the
+	 * EmDash email pipeline. No migration (uses the `verification` collection).
+	 */
+	emailOtpEnabled?: boolean;
+	/**
+	 * Whether anonymous (guest) sessions are enabled. Default false. When true,
+	 * the `anonymous()` plugin is registered: `signIn.anonymous()` creates a
+	 * throwaway guest user that can later be linked to a real account. The
+	 * `isAnonymous` user field rides users.data JSON (no migration). Anonymous
+	 * users are created WITHOUT a username (the create hook skips the username
+	 * requirement for them).
+	 */
+	anonymousEnabled?: boolean;
+	/**
+	 * Whether multi-session (multiple concurrent accounts per browser) is
+	 * enabled. Default false. When true, the `multiSession()` plugin is
+	 * registered, letting a browser hold several signed-in accounts and switch
+	 * the active one. Sessions live in the existing `session` collection (no
+	 * migration). The EmDash session bridge re-runs on `set-active` (see
+	 * route.ts) so the Astro session follows the switch.
+	 */
+	multiSessionEnabled?: boolean;
+	/**
+	 * Extra Generic OAuth / OIDC providers to register (beyond the built-in
+	 * social list). Each becomes a first-class social provider usable through
+	 * the normal sign-in flow and callback at `/api/auth/callback/<providerId>`.
+	 * Empty/omitted → the `genericOAuth()` plugin is not registered. Operator
+	 * config, supplied from the GENERIC_OAUTH_CONFIG env var (see route.ts).
+	 */
+	genericOAuthConfig?: GenericOAuthProviderConfig[];
+	/**
+	 * Whether the Have I Been Pwned password check is enabled. Default false.
+	 * When true, the `haveIBeenPwned()` plugin is registered: sign-up and
+	 * password-change reject passwords found in known breaches (only the first 5
+	 * chars of the SHA-1 hash are sent to the HIBP range API; the password never
+	 * leaves the Worker). No storage, no UI.
+	 */
+	hibpEnabled?: boolean;
 	/**
 	 * Whether Stripe subscription billing is enabled. Default false. The
 	 * `stripe()` plugin is only registered when this is true AND a secret key is
@@ -287,9 +357,39 @@ export function createBetterAuth(
 			user: {
 				create: {
 					before: async (user: Record<string, unknown>) => {
+						// Username enforcement. For the email+password sign-up path
+						// (and username sign-up) the Better Auth UI collects a
+						// required username, and we enforce its presence here so the
+						// server can't be bypassed by a direct API call.
+						//
+						// BUT several passwordless paths create a user with NO
+						// username and must NOT be rejected:
+						//   - anonymous(): guest users have no username by design;
+						//   - magicLink() / emailOTP(): a first-time passwordless
+						//     sign-in auto-creates the account from just an email.
+						// For those, we allow a null username; the user can claim one
+						// later from account settings (username is unique when set).
+						//
+						// We detect them by: the anonymous flag, or the absence of a
+						// password credential on the created user. A classic
+						// email+password signup carries a password; passwordless does
+						// not. So: require a username only when this is a
+						// password-based, non-anonymous create.
+						// ponytail: this keys off `isAnonymous` + the absence of a
+						// `password`/`passwordHash` field on the create payload. If a
+						// future Better Auth version stops surfacing those on the
+						// create hook, a password signup could slip through without a
+						// username — the UI still requires it, so the ceiling is "API
+						// callers could create a username-less password account",
+						// which account settings can repair. Upgrade path: gate on the
+						// request path (/sign-up/email) if the hook gains access to it.
+						const isAnonymous = user.isAnonymous === true || user.isAnonymous === 1;
+						const hasPassword =
+							typeof user.password === "string" ||
+							typeof user.passwordHash === "string";
 						const username =
 							typeof user.username === "string" ? user.username.trim() : "";
-						if (!username) {
+						if (!username && !isAnonymous && hasPassword) {
 							throw new Error("Username is required");
 						}
 						return { data: user };
@@ -442,6 +542,112 @@ export function createBetterAuth(
 			...(options.orgEnabled
 				? [organization(options.teamsEnabled ? { teams: { enabled: true } } : {})]
 				: []),
+			// OIDC / OAuth 2.1 provider. Registers `jwt()` (JWKS + verifiable JWT
+			// access tokens; also exposes /api/auth/jwks) and `oauthProvider()`,
+			// which turns this site into an OpenID Connect identity provider. The
+			// redirect screens are the plugin's own prebuilt pages:
+			//   - loginPage   `/login`  (existing Better Auth UI sign-in alias)
+			//   - consentPage `/auth/oauth-consent`  (Better Auth UI oauth view)
+			//   - signUp.page `/auth/oauth-sign-up`  (OIDC prompt=create)
+			// Clients/tokens/consents persist to plugin storage via the adapter.
+			// Only registered when the feature flag is on (same opt-in pattern as
+			// the other plugins), so it's fully inert for sites that don't enable
+			// it. jwt() MUST be registered alongside oauthProvider() — the
+			// provider signs ID/JWT access tokens with it.
+			...(options.oidcProviderEnabled
+				? [
+						jwt(),
+						oauthProvider({
+							loginPage: "/login",
+							consentPage: "/auth/oauth-consent",
+							signUp: { page: "/auth/oauth-sign-up" },
+							// Standard OIDC scopes. `openid` is what makes this an OIDC
+							// (not plain OAuth 2.1) server; profile/email expose the
+							// matching UserInfo claims; offline_access yields refresh
+							// tokens. Extend here for custom resource scopes.
+							scopes: ["openid", "profile", "email", "offline_access"],
+						}),
+					]
+				: []),
+			// Magic-link (passwordless email link) sign-in. Sends the link via the
+			// EmDash email pipeline, mirroring the verification/reset emails above.
+			// When no pipeline is configured we log and no-op (the UI still shows a
+			// generic "check your email"), so the site never throws. Only when the
+			// flag is on.
+			...(options.magicLinkEnabled
+				? [
+						magicLink({
+							sendMagicLink: async ({ email, url }) => {
+								if (!emailPipeline) {
+									console.warn(
+										`[better-auth] Magic link requested for ${email}, but no email provider is configured.`,
+									);
+									return;
+								}
+								const subject = "Your sign-in link";
+								const text = `Click the link below to sign in.\n\n${url}\n\nIf you didn't request this, you can safely ignore this email.`;
+								const html = `<p>Click the link below to sign in.</p><p><a href="${url}">${url}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`;
+								try {
+									await emailPipeline.send({ to: email, subject, text, html }, "system");
+								} catch (err) {
+									console.error(
+										`[better-auth] Failed to send magic link to ${email}:`,
+										err instanceof Error ? err.message : String(err),
+									);
+								}
+							},
+						}),
+					]
+				: []),
+			// Email-OTP (passwordless emailed code) for sign-in, verification, and
+			// password reset. Same email-pipeline + graceful-degradation pattern.
+			...(options.emailOtpEnabled
+				? [
+						emailOTP({
+							sendVerificationOTP: async ({ email, otp, type }) => {
+								if (!emailPipeline) {
+									console.warn(
+										`[better-auth] Email OTP (${type}) requested for ${email}, but no email provider is configured.`,
+									);
+									return;
+								}
+								const subject =
+									type === "sign-in"
+										? "Your sign-in code"
+										: type === "forget-password"
+											? "Your password reset code"
+											: "Your verification code";
+								const text = `Your code is ${otp}. It expires shortly. If you didn't request this, you can safely ignore this email.`;
+								const html = `<p>Your code is <strong>${otp}</strong>.</p><p>It expires shortly. If you didn't request this, you can safely ignore this email.</p>`;
+								try {
+									await emailPipeline.send({ to: email, subject, text, html }, "system");
+								} catch (err) {
+									console.error(
+										`[better-auth] Failed to send email OTP to ${email}:`,
+										err instanceof Error ? err.message : String(err),
+									);
+								}
+							},
+						}),
+					]
+				: []),
+			// Anonymous (guest) sessions. `signIn.anonymous()` creates a throwaway
+			// user; the create hook above skips the username requirement for it.
+			// Only when the flag is on.
+			...(options.anonymousEnabled ? [anonymous()] : []),
+			// Multi-session: multiple concurrent accounts per browser + switch
+			// active. Sessions live in the existing `session` collection. The
+			// EmDash session bridge re-runs on set-active (route.ts). Only when on.
+			...(options.multiSessionEnabled ? [multiSession()] : []),
+			// Generic OAuth: extra OIDC/OAuth providers from operator config.
+			// Registered only when at least one provider config is present (empty
+			// config is a no-op, so we skip it entirely to avoid a dead plugin).
+			...(options.genericOAuthConfig && options.genericOAuthConfig.length > 0
+				? [genericOAuth({ config: options.genericOAuthConfig })]
+				: []),
+			// Have I Been Pwned: reject breached passwords at sign-up / change.
+			// Pure server, no storage, no UI. Only when the flag is on.
+			...(options.hibpEnabled ? [haveIBeenPwned()] : []),
 			username(),
 		],
 		advanced: {

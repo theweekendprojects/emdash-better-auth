@@ -30,6 +30,10 @@ import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
+import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
+import { magicLinkPlugin } from "@better-auth-ui/heroui/plugins/magic-link";
+import { emailOtpPlugin } from "@better-auth-ui/heroui/plugins/email-otp";
+import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { Button, Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -104,6 +108,39 @@ function EmDashLoginButton({ redirectTo }: { redirectTo: string }) {
 	);
 }
 
+/**
+ * "Continue as guest" button (anonymous plugin). Styled like the social /
+ * EmDash buttons. Calls `signIn.anonymous()` then sends the user to
+ * `redirectTo`. Shown only on the sign-in view when the anonymous flag is on.
+ * There's no Better Auth UI plugin for this — it's a single client call.
+ */
+function GuestButton({ redirectTo }: { redirectTo: string }) {
+	const [busy, setBusy] = React.useState(false);
+	const go = async () => {
+		if (busy) return;
+		setBusy(true);
+		try {
+			const res = await authClient.signIn.anonymous();
+			// signIn.anonymous() errors if the current session is already an
+			// anonymous user; surface nothing and just navigate on success.
+			if (!(res as { error?: unknown })?.error) {
+				window.location.href = redirectTo;
+				return;
+			}
+		} catch {
+			// Swallow — leave the user on the sign-in page to try another method.
+		}
+		setBusy(false);
+	};
+	return (
+		<div className="w-full max-w-sm mt-2">
+			<Button variant="tertiary" fullWidth isDisabled={busy} onPress={go} onClick={go}>
+				<span>{busy ? "Starting guest session…" : "Continue as guest"}</span>
+			</Button>
+		</div>
+	);
+}
+
 export interface AuthViewProps {
 	/** Better Auth UI view path, e.g. "sign-in" | "sign-up". */
 	path: string;
@@ -152,6 +189,43 @@ export interface AuthViewProps {
 	 * false.
 	 */
 	passkeyEnabled?: boolean;
+	/**
+	 * Whether the OIDC / OAuth 2.1 identity provider is enabled site-wide
+	 * (mirrors the `oidcProviderEnabled` admin setting). When true, the Better
+	 * Auth UI oauth-provider plugin is registered so the authorization-flow
+	 * redirect screens render: the consent view (`/auth/oauth-consent`) and the
+	 * OAuth sign-up view (`/auth/oauth-sign-up`, used for `prompt=create`). Must
+	 * match the backend — the server only drives these redirects when its
+	 * `oauthProvider` plugin is registered (same flag). Defaults to false.
+	 */
+	oidcProviderEnabled?: boolean;
+	/**
+	 * Whether magic-link sign-in is enabled (mirrors `magicLinkEnabled`). When
+	 * true, the Better Auth UI magic-link plugin is registered so the sign-in
+	 * view shows a "Sign in with email link" option. Defaults to false.
+	 */
+	magicLinkEnabled?: boolean;
+	/**
+	 * Whether email-OTP sign-in is enabled (mirrors `emailOtpEnabled`). When
+	 * true, the Better Auth UI email-otp plugin is registered so the sign-in
+	 * view shows a code-based email sign-in option and the verification /
+	 * password-reset flows use OTP codes. Defaults to false.
+	 */
+	emailOtpEnabled?: boolean;
+	/**
+	 * Whether anonymous (guest) sign-in is enabled (mirrors `anonymousEnabled`).
+	 * When true, a "Continue as guest" button is shown on the sign-in view.
+	 * There is no dedicated Better Auth UI plugin for anonymous — it's a single
+	 * `signIn.anonymous()` call. Defaults to false.
+	 */
+	anonymousEnabled?: boolean;
+	/**
+	 * Whether multi-session is enabled (mirrors `multiSessionEnabled`). When
+	 * true, the Better Auth UI multi-session plugin is registered so the
+	 * UserButton dropdown shows an account switcher. Also enables the
+	 * select-account view for the OIDC flow. Defaults to false.
+	 */
+	multiSessionEnabled?: boolean;
 }
 
 export default function AuthView({
@@ -164,6 +238,11 @@ export default function AuthView({
 	twoFactorEnabled = false,
 	orgEnabled = false,
 	passkeyEnabled = false,
+	oidcProviderEnabled = false,
+	magicLinkEnabled = false,
+	emailOtpEnabled = false,
+	anonymousEnabled = false,
+	multiSessionEnabled = false,
 }: AuthViewProps) {
 	const queryClient = getQueryClient();
 
@@ -209,6 +288,22 @@ export default function AuthView({
 						// Registers the invitation-acceptance view so an invite link
 						// (/auth/accept-invitation) renders. Only when org is on.
 						...(orgEnabled ? [organizationPlugin()] : []),
+						// Registers the OAuth authorization-flow redirect screens:
+						// the consent view (/auth/oauth-consent) and the OAuth
+						// sign-up view (/auth/oauth-sign-up, for prompt=create). Only
+						// when the identity-provider flag is on, matching the backend
+						// `oauthProvider` plugin. The signed authorization query is
+						// forwarded by oauthProviderClient() (see client.ts).
+						...(oidcProviderEnabled ? [oauthProviderPlugin()] : []),
+						// Passwordless sign-in options on the auth views. Each only
+						// when its site flag is on, matching the backend plugin.
+						//   - magic-link: "email me a sign-in link"
+						//   - email-otp:  code-based email sign-in + OTP verify/reset
+						//   - multi-session: account switcher in the UserButton (also
+						//     drives the OIDC select-account screen)
+						...(magicLinkEnabled ? [magicLinkPlugin()] : []),
+						...(emailOtpEnabled ? [emailOtpPlugin()] : []),
+						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);
@@ -231,6 +326,9 @@ export default function AuthView({
 					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
 						<Auth path={path} />
 						{path === "sign-in" && <EmDashLoginButton redirectTo={redirectTo} />}
+						{path === "sign-in" && anonymousEnabled && (
+							<GuestButton redirectTo={redirectTo} />
+						)}
 					</main>
 
 					<Toast.Provider />

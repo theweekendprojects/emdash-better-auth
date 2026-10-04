@@ -21,6 +21,9 @@ import {
 	apiKeyEnabled,
 	passkeyEnabled,
 	billingEnabled,
+	oidcProviderEnabled,
+	emailOtpEnabled,
+	multiSessionEnabled,
 	planPriceIds,
 	accentColor,
 } from "../providers.ts";
@@ -43,12 +46,23 @@ const isOrgEnabled = await orgEnabled();
 // "billing" through explicitly when on.
 const isBillingEnabled = await billingEnabled();
 const resolvedPlanPriceIds = isBillingEnabled ? planPriceIds() : {};
+// Whether the OIDC provider is enabled — adds the "OAuth clients" settings tab
+// AND the `/account/oauth-clients` view (manage the user's own OAuth clients),
+// plus the "Connected applications" security card. Same TYPE-level-only
+// viewPaths augmentation caveat as orgs/billing, so allow "oauth-clients"
+// through explicitly when on.
+const isOidcEnabled = await oidcProviderEnabled();
+// Email-OTP + multi-session gate their account-settings surfaces (OTP email
+// change; account switcher), matching the backend plugins.
+const isEmailOtpEnabled = await emailOtpEnabled();
+const isMultiSessionEnabled = await multiSessionEnabled();
 
 const knownViews = Object.values(viewPaths.settings) as string[];
 const allowedViews = [
 	...knownViews,
 	...(isOrgEnabled ? ["organizations"] : []),
 	...(isBillingEnabled ? ["billing"] : []),
+	...(isOidcEnabled ? ["oauth-clients"] : []),
 ];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
@@ -115,6 +129,9 @@ const accent = await accentColor();
 			apiKeyEnabled={isApiKeyEnabled}
 			passkeyEnabled={isPasskeyEnabled}
 			billingEnabled={isBillingEnabled}
+			oidcProviderEnabled={isOidcEnabled}
+			emailOtpEnabled={isEmailOtpEnabled}
+			multiSessionEnabled={isMultiSessionEnabled}
 			planPriceIds={resolvedPlanPriceIds}
 			client:load
 		/>

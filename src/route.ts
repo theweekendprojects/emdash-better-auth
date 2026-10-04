@@ -63,6 +63,17 @@ const SESSION_ESTABLISHING = [
 	// passkey login's Better Auth session is valid but the EmDash session never
 	// bridges, so SSR still sees the user as logged out.
 	"/api/auth/passkey/verify-authentication",
+	// Magic-link verify + email-OTP sign-in + anonymous sign-in: each creates
+	// the session on success and must bridge into EmDash. The response-cookie
+	// check below also catches these, but listing them keeps intent explicit.
+	"/api/auth/magic-link/verify",
+	"/api/auth/sign-in/email-otp",
+	"/api/auth/sign-in/anonymous",
+	// Multi-session: switching the active account sets a NEW session-token
+	// cookie, so the EmDash session must re-bridge to the switched-to user —
+	// otherwise SSR keeps showing the previous account. The cookie check below
+	// is what actually catches it; this entry documents the dependency.
+	"/api/auth/multi-session/set-active",
 	// NOTE: the Stripe webhook (`/api/auth/stripe/webhook`) is deliberately NOT
 	// listed — it's a server-to-server POST from Stripe with no user session and
 	// its own signature verification (handled inside the stripe plugin). It must
@@ -182,6 +193,24 @@ function readPlanPriceIds(): Record<string, { month: string; year?: string } | u
 	return out;
 }
 
+/**
+ * Parse GENERIC_OAUTH_CONFIG (a JSON array of provider configs) from env.
+ * Operator config supplied as one env var so extra OIDC/OAuth providers can be
+ * added without code. Malformed JSON or a non-array degrades to an empty list
+ * (the plugin then stays inert) rather than throwing. Mirrors the same reader
+ * in providers.ts (same env name) so the auth route and the button list agree.
+ */
+function readGenericOAuthConfig(): import("./settings.js").GenericOAuthProviderConfig[] {
+	const raw = (env as Record<string, string | undefined>).GENERIC_OAUTH_CONFIG;
+	if (!raw) return [];
+	try {
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+}
+
 /** Endpoints whose success should tear down the EmDash session. */
 const SESSION_CLEARING = ["/api/auth/sign-out"];
 
@@ -225,6 +254,7 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				social: envConfig.social,
 				stripeSecretKey: envConfig.stripeSecretKey,
 				stripeWebhookSecret: envConfig.stripeWebhookSecret,
+				genericOAuthConfig: readGenericOAuthConfig(),
 			});
 
 			// A saved canonical URL overrides the env/request-resolved origin.
@@ -254,6 +284,18 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				adminEnabled: settings.adminEnabled,
 				orgEnabled: settings.orgEnabled,
 				teamsEnabled: settings.teamsEnabled,
+				// OIDC / OAuth 2.1 identity provider.
+				oidcProviderEnabled: settings.oidcProviderEnabled,
+				// Passwordless + session + security + extra-provider feature flags,
+				// same opt-in pattern. genericOAuthConfig is operator env config
+				// (resolveSettings already filtered to valid entries + gated the
+				// flag on a non-empty list).
+				magicLinkEnabled: settings.magicLinkEnabled,
+				emailOtpEnabled: settings.emailOtpEnabled,
+				anonymousEnabled: settings.anonymousEnabled,
+				multiSessionEnabled: settings.multiSessionEnabled,
+				genericOAuthConfig: settings.genericOAuthEnabled ? settings.genericOAuthConfig : [],
+				hibpEnabled: settings.hibpEnabled,
 				// Stripe subscription billing. Enabled only when the flag is on and
 				// the keys + at least one plan price id resolve (buildStripePlugins
 				// enforces that); price ids come from env, keyed by plan id.

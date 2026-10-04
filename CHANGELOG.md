@@ -6,6 +6,96 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-04
+
+### Added
+
+- **Magic-link sign-in.** Opt-in passwordless email-link sign-in
+  (`magicLinkEnabled`, off by default) via the Better Auth `magicLink` plugin.
+  Links are sent through the EmDash email pipeline and are single-use. UI wired
+  on the auth island. No migration (uses the `verification` storage collection).
+- **Email one-time codes (OTP).** Opt-in passwordless code-based sign-in, email
+  verification, and password reset (`emailOtpEnabled`, off by default) via the
+  Better Auth `emailOTP` plugin. Codes sent through the EmDash email pipeline;
+  OTP change-email / verification wired into account settings. No migration.
+- **Guest (anonymous) sessions.** Opt-in (`anonymousEnabled`, off by default)
+  via the Better Auth `anonymous` plugin: a "Continue as guest" button creates
+  an authenticated throwaway user that can be linked to a real account later.
+  The `isAnonymous` flag rides `users.data` JSON — no migration. Guest users are
+  created without a username (the username requirement is relaxed for them).
+- **Multiple accounts per browser.** Opt-in (`multiSessionEnabled`, off by
+  default) via the Better Auth `multiSession` plugin: a browser can hold several
+  signed-in accounts and switch the active one from the user menu. The EmDash
+  session bridge re-runs on account switch so server-rendered pages follow the
+  active account. Also enables the OIDC `select-account` screen. Sessions use
+  the existing `session` collection — no migration.
+- **Extra OAuth / OIDC providers (Generic OAuth).** Opt-in
+  (`genericOAuthEnabled`, off by default) via the Better Auth `genericOAuth`
+  plugin. Providers (Keycloak, Okta, Auth0, Microsoft Entra, …) are configured
+  from the `GENERIC_OAUTH_CONFIG` Worker env var (a JSON array) and render as
+  normal social sign-in buttons; the toggle is inert until at least one provider
+  is configured. Accounts use the existing `accounts` collection — no migration.
+- **Breached-password rejection (Have I Been Pwned).** Opt-in (`hibpEnabled`,
+  off by default) via the Better Auth `haveIBeenPwned` plugin: sign-up and
+  password change reject passwords found in known breaches (k-anonymity range
+  query — only the first 5 chars of the SHA-1 hash leave the Worker). No storage,
+  no UI.
+
+### Fixed
+
+- **OIDC provider flag was never passed to the auth route.** `oidcProviderEnabled`
+  resolved from settings but wasn't forwarded into the Better Auth options in
+  `route.ts`, so the identity-provider plugin never actually registered at
+  runtime. It is now wired through.
+
+### Changed
+
+- **Username is no longer hard-required for passwordless / guest sign-ups.** The
+  create-time username guard now only applies to password-based, non-anonymous
+  sign-ups (where the UI collects a username). Magic-link, email-OTP, and
+  anonymous users are created without one and can claim a username later from
+  account settings. (Email/password sign-up still requires a username.)
+- Settings page gained grouped toggles for the new plugins plus a status banner
+  when "Extra OAuth / OIDC providers" is on without any `GENERIC_OAUTH_CONFIG`
+  entries.
+
+## [0.6.0] - 2026-10-04
+
+### Added
+
+- **OIDC / OAuth 2.1 identity provider.** Opt-in support (via the
+  `@better-auth/oauth-provider` plugin, with the core `jwt` plugin) that turns
+  the site into an OpenID Connect provider: other applications can let users
+  "Sign in with this site" through the authorization-code + PKCE flow, fetch
+  UserInfo, and manage their own OAuth clients. Gated behind an
+  `oidcProviderEnabled` setting (off by default). OpenID discovery is served at
+  `/api/auth/.well-known/openid-configuration` and the endpoints under
+  `/api/auth/oauth2/*`; JWKS at `/api/auth/jwks`. All client / token / consent /
+  resource records persist to plugin storage through the EmDash adapter — **no
+  database migration required** (new collections: `oauthClients`,
+  `oauthAccessTokens`, `oauthRefreshTokens`, `oauthConsents`,
+  `oauthClientAssertions`, `oauthClientResources`, `oauthResources`).
+  - **UI.** The Better Auth UI oauth-provider plugin is wired on both islands:
+    the auth island renders the consent view (`/auth/oauth-consent`) and the
+    OAuth sign-up view (`/auth/oauth-sign-up`, for `prompt=create`); the account
+    island adds a "Connected applications" security card (apps the user
+    authorized, with a remove action) and an "OAuth clients" tab (create / edit /
+    delete / rotate secret). Both match the backend flag.
+  - The redirect screens reuse the plugin's existing pages — login at `/login`,
+    consent/sign-up under `/auth/*` — so no new routes are injected.
+
+### Changed
+
+- **Settings page regrouped.** The Better Auth admin settings form now orders
+  fields by concern (email verification → feature plugins → identity provider →
+  billing → branding → signing secret) instead of an interleaved list, and adds
+  status banners that flag an enabled-but-inert feature (billing on with no
+  Stripe key; teams on with organizations off). A note records that username is
+  always required (it has no toggle by design).
+- **Version sync.** The companion settings plugin's reported version
+  (`SETTINGS_PLUGIN_VERSION` and the descriptor `version`) now tracks the
+  package version instead of a stale `0.1.0`.
+
 ## [0.5.0] - 2026-10-03
 
 ### Added
@@ -204,7 +294,9 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.5.0...v0.6.0
 [0.3.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/theweekendprojects/emdash-better-auth/releases/tag/v0.1.0

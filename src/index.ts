@@ -148,6 +148,44 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 	subscriptions: {
 		indexes: ["referenceId", "stripeSubscriptionId", "stripeCustomerId"] as const,
 	},
+	// OIDC / OAuth 2.1 provider plugin (@better-auth/oauth-provider). All of its
+	// models route to plugin storage via the adapter — no site tables, no
+	// migration. Collections are declared unconditionally; they stay empty until
+	// the oidcProvider feature flag is enabled, so there's no cost. Indexes
+	// mirror the fields the provider queries by (see the plugin's schema):
+	//   - oauthClients:    by clientId (resolve a client on authorize/token) and
+	//                      userId (list clients a user owns, for the client-mgmt UI).
+	//   - oauthAccessTokens: by token (introspect/userinfo lookup), refreshId
+	//                      (revoke the family on refresh), userId/clientId (revoke
+	//                      on sign-out / per client).
+	//   - oauthRefreshTokens: by token (refresh-grant lookup) and userId (revoke all).
+	//   - oauthConsents:   by userId (list a user's authorized apps) and clientId.
+	//   - oauthClientAssertions: by id only (replay tombstone — the row id IS the jti digest).
+	//   - oauthClientResources / oauthResources: by clientId / identifier
+	//      (resource-bound tokens; empty unless `resources` are configured).
+	oauthClients: {
+		indexes: ["clientId", "userId"] as const,
+		uniqueIndexes: ["clientId"] as const,
+	},
+	oauthAccessTokens: {
+		indexes: ["token", "refreshId", "userId", "clientId"] as const,
+	},
+	oauthRefreshTokens: {
+		indexes: ["token", "userId", "clientId"] as const,
+	},
+	oauthConsents: {
+		indexes: ["userId", "clientId"] as const,
+	},
+	oauthClientAssertions: {
+		indexes: ["expiresAt"] as const,
+	},
+	oauthClientResources: {
+		indexes: ["clientId", "resourceId"] as const,
+	},
+	oauthResources: {
+		indexes: ["identifier"] as const,
+		uniqueIndexes: ["identifier"] as const,
+	},
 } satisfies PluginStorageConfig;
 
 /**
@@ -273,7 +311,9 @@ export function betterAuthProvider(): AuthProviderDescriptor {
 export function betterAuthSettingsPlugin(): PluginDescriptor {
 	return {
 		id: SETTINGS_PLUGIN_ID,
-		version: "0.1.0",
+		// Keep in sync with SETTINGS_PLUGIN_VERSION (settings-plugin-entry.ts)
+		// and the package version.
+		version: "0.7.0",
 		format: "native",
 		entrypoint: `${PACKAGE_NAME}/settings-plugin`,
 		// Its own admin sidebar page (not the auto-rendered settingsSchema path).
