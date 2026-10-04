@@ -1,10 +1,10 @@
 /**
- * Audit-log viewer island (HeroUI).
+ * Audit-log viewer island.
  *
  * `better-auth-audit-logs` ships NO Better Auth UI component, so we render the
- * table ourselves — reusing the HeroUI + react-query stack the other islands
- * already use (no new deps). Data comes from `authClient.auditLog.listAuditLogs`
- * (the `/audit-log/list` endpoint the server plugin registers).
+ * table ourselves. Data comes from the `/audit-log/list` endpoint the server
+ * plugin registers (reached via `authClient.$fetch` — see the note on the fetch
+ * call below for why we don't use a generated client method).
  *
  * Two modes, one component:
  *   - mode="admin": site-wide log for admins (the /audit-log page). The list
@@ -13,26 +13,18 @@
  *     activity" card). The endpoint defaults to the session user, so no userId
  *     is passed — a user can only ever see their own rows.
  *
- * Self-styled (auth.css). `navigate` is unused here (no cross-view links), so
- * the island is a plain QueryClient + HeroUI table; it does not need the full
- * AuthProvider the auth/account views use.
+ * ponytail: this renders a plain semantic <table> + a native <select> filter,
+ * NOT HeroUI's <Table>/<Tabs>. HeroUI v3's table is a react-aria *collection*
+ * component (TableRoot > TableContent > ... primitives); the flat Table API
+ * throws "cannot be rendered outside a collection" both in SSR and on the
+ * client. A log table needs none of react-aria's selection/keyboard-nav
+ * machinery, so a plain table is smaller, SSR-safe, and has nothing to break.
+ * Chip/Spinner (not collection components) are still HeroUI for visual parity.
  */
 
 import "./auth.css";
 
-import {
-	Chip,
-	Pagination,
-	Spinner,
-	Table,
-	TableBody,
-	TableCell,
-	TableColumn,
-	TableHeader,
-	TableRow,
-	Tab,
-	Tabs,
-} from "@heroui/react";
+import { Chip, Spinner } from "@heroui/react";
 import {
 	QueryClient,
 	QueryClientProvider,
@@ -86,7 +78,7 @@ interface AuditLogTableProps {
 	mode: "admin" | "self";
 	/** Rows per page. Defaults to 25 (admin); the self card passes a smaller n. */
 	pageSize?: number;
-	/** Hide the status filter tabs (used by the compact self card). */
+	/** Hide the status filter (used by the compact self card). */
 	hideFilter?: boolean;
 }
 
@@ -98,17 +90,21 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 		queryKey: ["audit-log", mode, status, page, pageSize],
 		placeholderData: keepPreviousData,
 		queryFn: async () => {
-			// The endpoint scopes to the session user by default; for the admin
-			// view we don't pass a userId (admin access returns all users' rows).
-			const res = await authClient.auditLog.listAuditLogs({
-				query: {
-					limit: pageSize,
-					offset: (page - 1) * pageSize,
-					...(status !== "all" ? { status } : {}),
-				},
+			// Call the endpoint by its exact path. The audit-log client plugin
+			// only declares pathMethods (no named helpers), and Better Auth would
+			// otherwise derive a wrong path from a camelCase method name
+			// (listAuditLogs -> /audit-log/list-audit-logs -> 404). `$fetch` hits
+			// the real `/audit-log/list` route. The endpoint scopes to the session
+			// user by default; the admin view relies on admin access returning all
+			// rows (no userId passed either way).
+			const params = new URLSearchParams({
+				limit: String(pageSize),
+				offset: String((page - 1) * pageSize),
 			});
-			// Better Auth client returns { data, error }; the /audit-log/list
-			// endpoint responds with { entries, total }.
+			if (status !== "all") params.set("status", status);
+			const res = await authClient.$fetch(`/audit-log/list?${params.toString()}`, {
+				method: "GET",
+			});
 			const data = (res as { data?: { entries?: Entry[]; total?: number } }).data;
 			const rows: Entry[] = data?.entries ?? [];
 			const total = typeof data?.total === "number" ? data.total : rows.length;
@@ -120,84 +116,101 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 	const total = query.data?.total ?? 0;
 	const pages = Math.max(1, Math.ceil(total / pageSize));
 
-	// HeroUI's <Table> is a react-aria collection component that throws
-	// "cannot be rendered outside a collection" when server-rendered. Both
-	// islands that use this table hydrate with client:load, so they DO run one
-	// SSR pass — which crashed the whole /account page (500) and the /audit-log
-	// page. Gate the table to client-only: render a spinner on the server/first
-	// paint, the real table after mount. (Verified: the 500 was this SSR throw.)
-	const [mounted, setMounted] = React.useState(false);
-	React.useEffect(() => setMounted(true), []);
-	if (!mounted) {
-		return (
-			<div className="w-full flex items-center justify-center py-8">
-				<Spinner label="Loading…" />
-			</div>
-		);
-	}
-
 	return (
 		<div className="w-full flex flex-col gap-3">
 			{!hideFilter && (
-				<Tabs
-					aria-label="Filter by status"
-					selectedKey={status}
-					onSelectionChange={(k) => {
-						setStatus(k as "all" | "success" | "failed");
-						setPage(1);
-					}}
-					size="sm"
-				>
-					<Tab key="all" title="All" />
-					<Tab key="success" title="Success" />
-					<Tab key="failed" title="Failed" />
-				</Tabs>
+				<div className="flex items-center gap-2">
+					<label htmlFor="audit-status" className="text-sm text-foreground-500">
+						Status
+					</label>
+					<select
+						id="audit-status"
+						className="rounded-md border border-default-200 bg-content1 px-2 py-1 text-sm"
+						value={status}
+						onChange={(e) => {
+							setStatus(e.target.value as "all" | "success" | "failed");
+							setPage(1);
+						}}
+					>
+						<option value="all">All</option>
+						<option value="success">Success</option>
+						<option value="failed">Failed</option>
+					</select>
+				</div>
 			)}
 
-			<Table
-				aria-label={mode === "admin" ? "Audit log" : "Your recent activity"}
-				removeWrapper={hideFilter}
-			>
-				<TableHeader>
-					<TableColumn>WHEN</TableColumn>
-					<TableColumn>ACTION</TableColumn>
-					<TableColumn>STATUS</TableColumn>
-					<TableColumn>SEVERITY</TableColumn>
-					<TableColumn>IP</TableColumn>
-				</TableHeader>
-				<TableBody
-					emptyContent={query.isLoading ? " " : "No activity recorded yet."}
-					isLoading={query.isLoading}
-					loadingContent={<Spinner label="Loading…" />}
-					items={rows}
-				>
-					{(row: Entry) => (
-						<TableRow key={row.id}>
-							<TableCell>{fmtTime(row.createdAt)}</TableCell>
-							<TableCell className="font-mono text-xs">{row.action}</TableCell>
-							<TableCell>
-								<Chip
-									size="sm"
-									variant="flat"
-									color={row.status === "failed" ? "danger" : "success"}
-								>
-									{row.status}
-								</Chip>
-							</TableCell>
-							<TableCell>
-								<Chip size="sm" variant="flat" color={SEVERITY_COLOR[row.severity]}>
-									{row.severity}
-								</Chip>
-							</TableCell>
-							<TableCell className="font-mono text-xs">{row.ipAddress ?? "—"}</TableCell>
-						</TableRow>
-					)}
-				</TableBody>
-			</Table>
+			<div className="w-full overflow-x-auto">
+				<table className="w-full border-collapse text-sm">
+					<thead>
+						<tr className="border-b border-default-200 text-left text-xs uppercase text-foreground-500">
+							<th className="py-2 pr-3 font-medium">When</th>
+							<th className="py-2 pr-3 font-medium">Action</th>
+							<th className="py-2 pr-3 font-medium">Status</th>
+							<th className="py-2 pr-3 font-medium">Severity</th>
+							<th className="py-2 pr-3 font-medium">IP</th>
+						</tr>
+					</thead>
+					<tbody>
+						{query.isLoading ? (
+							<tr>
+								<td colSpan={5} className="py-8 text-center">
+									<Spinner label="Loading…" />
+								</td>
+							</tr>
+						) : rows.length === 0 ? (
+							<tr>
+								<td colSpan={5} className="py-8 text-center text-foreground-500">
+									No activity recorded yet.
+								</td>
+							</tr>
+						) : (
+							rows.map((row) => (
+								<tr key={row.id} className="border-b border-default-100">
+									<td className="py-2 pr-3 whitespace-nowrap">{fmtTime(row.createdAt)}</td>
+									<td className="py-2 pr-3 font-mono text-xs">{row.action}</td>
+									<td className="py-2 pr-3">
+										<Chip
+											size="sm"
+											variant="flat"
+											color={row.status === "failed" ? "danger" : "success"}
+										>
+											{row.status}
+										</Chip>
+									</td>
+									<td className="py-2 pr-3">
+										<Chip size="sm" variant="flat" color={SEVERITY_COLOR[row.severity]}>
+											{row.severity}
+										</Chip>
+									</td>
+									<td className="py-2 pr-3 font-mono text-xs">{row.ipAddress ?? "—"}</td>
+								</tr>
+							))
+						)}
+					</tbody>
+				</table>
+			</div>
 
 			{pages > 1 && (
-				<div className="flex justify-center">
-					<Pagination page={page} total={pages} onChange={setPage} size="sm" showControls />
+				<div className="flex items-center justify-center gap-3 text-sm">
+					<button
+						type="button"
+						className="rounded-md border border-default-200 px-3 py-1 disabled:opacity-40"
+						disabled={page <= 1}
+						onClick={() => setPage((p) => Math.max(1, p - 1))}
+					>
+						Previous
+					</button>
+					<span className="text-foreground-500">
+						Page {page} of {pages}
+					</span>
+					<button
+						type="button"
+						className="rounded-md border border-default-200 px-3 py-1 disabled:opacity-40"
+						disabled={page >= pages}
+						onClick={() => setPage((p) => Math.min(pages, p + 1))}
+					>
+						Next
+					</button>
 				</div>
 			)}
 		</div>
