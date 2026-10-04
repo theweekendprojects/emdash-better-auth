@@ -167,6 +167,8 @@ export interface BetterAuthStorage {
 	oauthClientAssertions: StorageCollection<Record<string, unknown>>;
 	oauthClientResources: StorageCollection<Record<string, unknown>>;
 	oauthResources: StorageCollection<Record<string, unknown>>;
+	// JWKS signing keys for the jwt plugin (used by the OIDC provider).
+	jwks: StorageCollection<Record<string, unknown>>;
 	// Audit log — written/read by the custom AuditLogStorage backend
 	// (audit-log-storage.ts), NOT by the Better Auth adapter's model routing, so
 	// there's no `storageFor()` case for it.
@@ -240,6 +242,9 @@ function storageFor(
 			return storage.oauthClientResources;
 		case "oauthResource":
 			return storage.oauthResources;
+		// jwt plugin signing keys (OIDC provider).
+		case "jwks":
+			return storage.jwks;
 		default:
 			throw new Error(`[better-auth] No storage collection for model "${model}"`);
 	}
@@ -282,6 +287,8 @@ const COLLECTION_INDEXES: Record<string, ReadonlySet<string>> = {
 	oauthClientAssertion: new Set(["id", "expiresAt"]),
 	oauthClientResource: new Set(["id", "clientId", "resourceId"]),
 	oauthResource: new Set(["id", "identifier"]),
+	// jwt plugin reads keys by id or the whole set; only the primary key.
+	jwks: new Set(["id"]),
 };
 
 /** Indexed field set for a storage model (empty = scan everything in JS). */

@@ -186,6 +186,16 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 		indexes: ["identifier"] as const,
 		uniqueIndexes: ["identifier"] as const,
 	},
+	// JWKS signing keys for the `jwt` plugin (registered alongside the OIDC
+	// provider). The plugin persists its ID/access-token signing keypairs in a
+	// `jwks` model; it reads the whole set (or by id) to sign/verify, so no
+	// secondary index beyond the storage primary key is needed. Routed to plugin
+	// storage via the adapter — no migration. Empty until the OIDC flag is on.
+	// REQUIRED whenever oidcProviderEnabled: without it, the adapter throws
+	// "No storage collection for model jwks" and every auth request 500s.
+	jwks: {
+		indexes: [] as const,
+	},
 	// Audit log (better-auth-audit-logs via a custom storage backend). The
 	// package normally creates its own `auditLog` DB table through a migration;
 	// we can't migrate on D1 + our custom adapter, so we route it here instead
