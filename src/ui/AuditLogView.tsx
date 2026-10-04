@@ -120,6 +120,22 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 	const total = query.data?.total ?? 0;
 	const pages = Math.max(1, Math.ceil(total / pageSize));
 
+	// HeroUI's <Table> is a react-aria collection component that throws
+	// "cannot be rendered outside a collection" when server-rendered. Both
+	// islands that use this table hydrate with client:load, so they DO run one
+	// SSR pass — which crashed the whole /account page (500) and the /audit-log
+	// page. Gate the table to client-only: render a spinner on the server/first
+	// paint, the real table after mount. (Verified: the 500 was this SSR throw.)
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => setMounted(true), []);
+	if (!mounted) {
+		return (
+			<div className="w-full flex items-center justify-center py-8">
+				<Spinner label="Loading…" />
+			</div>
+		);
+	}
+
 	return (
 		<div className="w-full flex flex-col gap-3">
 			{!hideFilter && (
