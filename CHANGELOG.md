@@ -6,6 +6,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-04
+
+### Fixed
+
+Four bugs caught live-testing 0.8.0 on a real deployed Worker with the new
+flags enabled (self-check and build alone hadn't exercised these paths):
+
+- **OIDC: every auth request 500'd once the identity-provider flag was
+  turned on.** The `jwt()` plugin (required alongside `oauthProvider()`)
+  persists its signing keypairs in a `jwks` model that was never declared as
+  a plugin-storage collection, so the adapter threw `No storage collection
+  for model "jwks"` on `/api/auth/get-session` and everything else. Added the
+  `jwks` collection + adapter routing.
+- **Audit log: the account page blanked (500/empty) and the admin page
+  looped back to the homepage.** Three compounding issues:
+  - HeroUI v3's `<Table>` is a react-aria *collection* component
+    (`TableRoot > TableContent > …` primitives); the flat `Table`/`Tabs` API
+    used here threw `cannot be rendered outside a collection` on both SSR
+    and the client. Replaced with a plain semantic `<table>` + a native
+    `<select>` status filter + prev/next paging — a log table needs none of
+    react-aria's selection/keyboard-nav machinery, so this is simpler and
+    SSR-safe, not a workaround.
+  - The list call used `authClient.auditLog.listAuditLogs(...)`; the audit
+    plugin's client only declares raw `pathMethods` (no generated helper),
+    so Better Auth derived the wrong path (`/audit-log/list-audit-logs`,
+    404). Fixed by calling the real path directly via `authClient.$fetch`.
+  - The admin page was a bare `/audit-log` route, but `Astro.locals.user` is
+    only reliably populated on the auth-provider **catch-all** routes (the
+    same reason `/account` and `/admin` are catch-alls with a redirecting
+    alias) — so the admin gate saw no user and bounced to sign-in, which
+    then bounced an already-logged-in admin to `/`. Restructured to
+    `/audit-log/[...path]` + a bare `/audit-log` alias, matching the
+    existing `/account`/`/admin` pattern.
+
 ## [0.8.0] - 2026-10-04
 
 ### Added
@@ -324,7 +358,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.5.0...v0.6.0

@@ -345,7 +345,7 @@ export function betterAuthSettingsPlugin(): PluginDescriptor {
 		id: SETTINGS_PLUGIN_ID,
 		// Keep in sync with SETTINGS_PLUGIN_VERSION (settings-plugin-entry.ts)
 		// and the package version.
-		version: "0.8.0",
+		version: "0.8.1",
 		format: "native",
 		entrypoint: `${PACKAGE_NAME}/settings-plugin`,
 		// Its own admin sidebar page (not the auto-rendered settingsSchema path).

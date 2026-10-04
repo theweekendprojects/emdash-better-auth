@@ -53,7 +53,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.8.0";
+export const SETTINGS_PLUGIN_VERSION = "0.8.1";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
