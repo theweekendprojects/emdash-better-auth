@@ -35,6 +35,7 @@ import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization"
 import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
+import { AuditLogTable } from "./AuditLogView.js";
 import { emailOtpPlugin } from "@better-auth-ui/heroui/plugins/email-otp";
 import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { billingPlugin } from "@better-auth-ui/heroui/plugins/billing";
@@ -114,6 +115,13 @@ export interface AccountViewProps {
 	 */
 	oidcProviderEnabled?: boolean;
 	/**
+	 * Whether audit logging is enabled (mirrors `auditLogEnabled`). When true, a
+	 * read-only "Recent activity" card is shown below the settings, listing the
+	 * signed-in user's OWN auth events (the list endpoint scopes to the session
+	 * user, so a user never sees anyone else's). Defaults to false.
+	 */
+	auditLogEnabled?: boolean;
+	/**
 	 * Whether email-OTP is enabled (mirrors `emailOtpEnabled`). When true, the
 	 * email-otp UI plugin wires OTP-based email change / verification into the
 	 * account settings. Defaults to false.
@@ -146,6 +154,7 @@ export default function AccountView({
 	passkeyEnabled = false,
 	billingEnabled = false,
 	oidcProviderEnabled = false,
+	auditLogEnabled = false,
 	emailOtpEnabled = false,
 	multiSessionEnabled = false,
 	planPriceIds = {},
@@ -286,6 +295,17 @@ export default function AccountView({
 						    Security panel's column width. */}
 						<div style={{ width: "100%", maxWidth: "28rem" }}>
 							<Settings path={path} />
+							{/* Per-user "Recent activity": the user's own auth events.
+							    Only on the account landing view (not security/billing
+							    sub-views) to keep those focused. The list endpoint
+							    scopes to the session user, so this never leaks other
+							    users' rows. Compact: no status filter, small page. */}
+							{auditLogEnabled && path === "account" && (
+								<div className="mt-6">
+									<h2 className="text-base font-semibold mb-2">Recent activity</h2>
+									<AuditLogTable mode="self" pageSize={10} hideFilter />
+								</div>
+							)}
 						</div>
 					</main>
 

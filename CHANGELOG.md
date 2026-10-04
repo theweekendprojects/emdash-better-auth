@@ -6,6 +6,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-04
+
+### Added
+
+- **Audit logging.** Opt-in (`auditLogEnabled`, off by default) via the
+  `better-auth-audit-logs` plugin: captures auth events (sign-in/up, password &
+  email change, 2FA, admin ban/impersonate, …) with IP, user-agent, and
+  inferred severity.
+  - **No migration.** The package normally creates its own `auditLog` table via
+    a Better Auth migration; instead we route it through a custom
+    `AuditLogStorage` backend (`src/audit-log-storage.ts`) over a new
+    `auditLogs` plugin-storage collection — consistent with the plugin's
+    zero-migration design. `Date`/`metadata` are serialized to ISO string / JSON
+    for D1 and parsed back on read.
+  - **Non-blocking + privacy.** Writes are fire-and-forget (`nonBlocking`), so
+    they never delay an auth response, and PII is hash-redacted
+    (`piiRedaction: { strategy: "hash" }`) — raw request bodies/secrets are not
+    stored; IP + user-agent are kept for forensics.
+  - **Two views (HeroUI, reusing the existing table/query stack — no new UI
+    deps):** an admin-only site-wide log at `/audit-log` (server-gated to
+    EmDash admins, role ≥ 50), and a per-user "Recent activity" card in the
+    account settings showing only the signed-in user's own events (the list
+    endpoint scopes to the session user).
+  - **Configurable retention.** `auditLogRetentionDays` setting, default **365**
+    (the PCI DSS 12-month baseline; inside GDPR's practical 1–3yr range and
+    bounds D1 growth). `0` = keep forever. Raise for HIPAA (~6y) / SOX (~7y).
+    Old entries are swept in the background off auth traffic (never blocks a
+    request). *Compliance figures are guidance — verify against your own
+    obligations.*
+
 ## [0.7.0] - 2026-10-04
 
 ### Added
@@ -294,7 +324,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.5.0...v0.6.0
 [0.3.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.2.0...v0.3.0

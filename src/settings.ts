@@ -102,6 +102,8 @@ export const SETTINGS_KEYS = {
 	multiSessionEnabled: "multiSessionEnabled",
 	genericOAuthEnabled: "genericOAuthEnabled",
 	hibpEnabled: "hibpEnabled",
+	auditLogEnabled: "auditLogEnabled",
+	auditLogRetentionDays: "auditLogRetentionDays",
 	billingEnabled: "billingEnabled",
 	stripeSecretKey: "stripeSecretKey",
 	stripeWebhookSecret: "stripeWebhookSecret",
@@ -130,6 +132,13 @@ export const SETTINGS_DEFAULTS = {
 	multiSessionEnabled: false,
 	genericOAuthEnabled: false,
 	hibpEnabled: false,
+	auditLogEnabled: false,
+	// Audit-log retention in days. 365 = the PCI DSS 12-month baseline (the
+	// shortest mandatory fixed period; also inside GDPR's practical 1–3yr range)
+	// and bounds D1 growth. Healthcare (HIPAA 6yr) / finance (SOX 7yr) sites
+	// raise it; 0 = keep forever. Operators should verify against their own
+	// compliance obligations.
+	auditLogRetentionDays: 365,
 	billingEnabled: false,
 } as const;
 
@@ -151,6 +160,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.multiSessionEnabled,
 	SETTINGS_KEYS.genericOAuthEnabled,
 	SETTINGS_KEYS.hibpEnabled,
+	SETTINGS_KEYS.auditLogEnabled,
 	SETTINGS_KEYS.billingEnabled,
 ] as const;
 
@@ -166,6 +176,10 @@ const SECRET_KEYS: readonly string[] = [
 const TEXT_KEYS: readonly string[] = [
 	SETTINGS_KEYS.baseUrl,
 	SETTINGS_KEYS.accentColor,
+	// Stored as text (the form field is a number input); coerced to a number in
+	// resolveSettings. Kept here so writeKvSettings persists/clears it like any
+	// other text field.
+	SETTINGS_KEYS.auditLogRetentionDays,
 	...SOCIAL_PROVIDERS.map((p) => providerClientIdKey(p.id)),
 ];
 
@@ -290,6 +304,13 @@ export interface ResolvedAuthSettings {
 	 * known breaches at sign-up / password change.
 	 */
 	hibpEnabled: boolean;
+	/** Audit logging enabled (captures auth events to plugin storage). */
+	auditLogEnabled: boolean;
+	/**
+	 * Audit-log retention in days. 0 means keep forever (no automatic sweep).
+	 * Negative/invalid saved values fall back to the default.
+	 */
+	auditLogRetentionDays: number;
 	/**
 	 * Generic OAuth provider configs (from env JSON). Only populated when
 	 * genericOAuthEnabled and the env var parses to a non-empty array. These are
@@ -362,6 +383,22 @@ function trimOrUndefined(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
 	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * Coerce a stored/env setting into a non-negative integer, tolerating the
+ * string shape the form persistence produces. Returns `fallback` for anything
+ * that isn't a finite number >= 0 (empty, NaN, negative, non-numeric).
+ */
+function coerceNonNegativeInt(value: unknown, fallback: number): number {
+	// Absent / empty must mean "unset" → fall back to the default, NOT 0.
+	// (Number("") is 0, which would wrongly read an unset field as "keep
+	// forever". Only an explicit "0" should mean forever.)
+	if (value === undefined || value === null) return fallback;
+	if (typeof value === "string" && value.trim() === "") return fallback;
+	const n = typeof value === "number" ? value : Number(String(value).trim());
+	if (!Number.isFinite(n) || n < 0) return fallback;
+	return Math.floor(n);
 }
 
 /**
@@ -438,6 +475,14 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.hibpEnabled],
 		SETTINGS_DEFAULTS.hibpEnabled,
 	);
+	const auditLogEnabled = coerceBool(
+		saved[SETTINGS_KEYS.auditLogEnabled],
+		SETTINGS_DEFAULTS.auditLogEnabled,
+	);
+	const auditLogRetentionDays = coerceNonNegativeInt(
+		saved[SETTINGS_KEYS.auditLogRetentionDays],
+		SETTINGS_DEFAULTS.auditLogRetentionDays,
+	);
 	// Generic OAuth: the toggle enables the plugin, but it does nothing without
 	// provider configs (operator config from env). Force the flag false when no
 	// provider resolves, so the UI status + the registered plugin agree ("on but
@@ -501,6 +546,8 @@ export function resolveSettings(
 		genericOAuthEnabled,
 		genericOAuthConfig,
 		hibpEnabled,
+		auditLogEnabled,
+		auditLogRetentionDays,
 		billingEnabled,
 		stripeSecretKey,
 		stripeWebhookSecret,

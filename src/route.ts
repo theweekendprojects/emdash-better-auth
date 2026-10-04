@@ -296,6 +296,9 @@ const handler: APIRoute = async ({ request, session, site }) => {
 				multiSessionEnabled: settings.multiSessionEnabled,
 				genericOAuthConfig: settings.genericOAuthEnabled ? settings.genericOAuthConfig : [],
 				hibpEnabled: settings.hibpEnabled,
+				// Audit logging + its retention window (both from settings).
+				auditLogEnabled: settings.auditLogEnabled,
+				auditLogRetentionDays: settings.auditLogRetentionDays,
 				// Stripe subscription billing. Enabled only when the flag is on and
 				// the keys + at least one plan price id resolve (buildStripePlugins
 				// enforces that); price ids come from env, keyed by plan id.

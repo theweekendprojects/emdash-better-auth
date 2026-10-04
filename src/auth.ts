@@ -22,6 +22,8 @@ import { apiKey } from "@better-auth/api-key";
 import { passkey } from "@better-auth/passkey";
 import { stripe as stripePlugin } from "@better-auth/stripe";
 import { oauthProvider } from "@better-auth/oauth-provider";
+import { auditLog } from "better-auth-audit-logs";
+import { createAuditLogStorage } from "./audit-log-storage.js";
 import Stripe from "stripe";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
@@ -214,6 +216,23 @@ export interface BetterAuthOptions {
 	 * leaves the Worker). No storage, no UI.
 	 */
 	hibpEnabled?: boolean;
+	/**
+	 * Whether audit logging is enabled. Default false. When true, the
+	 * `better-auth-audit-logs` plugin is registered to capture auth events
+	 * (sign-in/up, password/email change, 2FA, admin ban/impersonate, …) with
+	 * IP + user-agent + inferred severity. Writes are **non-blocking** (never
+	 * delay an auth response), PII is **hash-redacted**, and all entries persist
+	 * to the `auditLogs` plugin-storage collection via a custom storage backend
+	 * — no migration. Retention is governed by {@link auditLogRetentionDays}.
+	 */
+	auditLogEnabled?: boolean;
+	/**
+	 * Audit-log retention in days. Entries older than this are deleted as auth
+	 * traffic flows (throttled background sweep, never blocks a request). `0`
+	 * disables the sweep (keep forever). Only meaningful when
+	 * `auditLogEnabled`. Default 365.
+	 */
+	auditLogRetentionDays?: number;
 	/**
 	 * Whether Stripe subscription billing is enabled. Default false. The
 	 * `stripe()` plugin is only registered when this is true AND a secret key is
@@ -648,6 +667,25 @@ export function createBetterAuth(
 			// Have I Been Pwned: reject breached passwords at sign-up / change.
 			// Pure server, no storage, no UI. Only when the flag is on.
 			...(options.hibpEnabled ? [haveIBeenPwned()] : []),
+			// Audit log: capture auth events to EmDash plugin storage via a custom
+			// storage backend (no migration). Non-blocking so it never delays an
+			// auth response; PII hash-redacted so raw secrets/bodies aren't stored
+			// (IP + user-agent still captured for forensics). Retention sweep runs
+			// in the background off auth traffic; days come from the setting (0 =
+			// keep forever → sweep disabled). Only when the flag is on.
+			...(options.auditLogEnabled
+				? [
+						auditLog({
+							nonBlocking: true,
+							piiRedaction: { enabled: true, strategy: "hash" },
+							retention:
+								(options.auditLogRetentionDays ?? 0) > 0
+									? { enabled: true, days: options.auditLogRetentionDays as number }
+									: { enabled: false, days: 0 },
+							storage: createAuditLogStorage(storage.auditLogs),
+						}),
+					]
+				: []),
 			username(),
 		],
 		advanced: {

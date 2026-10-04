@@ -53,7 +53,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.7.0";
+export const SETTINGS_PLUGIN_VERSION = "0.8.0";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -238,6 +238,24 @@ function buildSettingsPage(
 					description:
 						"Register additional sign-in providers (Keycloak, Okta, Auth0, Microsoft Entra, …) defined in the GENERIC_OAUTH_CONFIG Worker env var (a JSON array). Has no effect until at least one provider is configured there.",
 					initial_value: bool(saved[SETTINGS_KEYS.genericOAuthEnabled]),
+				},
+				// --- Audit log ----------------------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.auditLogEnabled,
+					label: "Enable audit logging",
+					description:
+						"Record auth events (sign-in/up, password & email changes, 2FA, admin ban/impersonate) with IP, user-agent, and inferred severity. Admins see a site-wide log at /audit-log; each user sees their own 'Recent activity' in their account. Writes are non-blocking and PII is redacted.",
+					initial_value: bool(saved[SETTINGS_KEYS.auditLogEnabled]),
+				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.auditLogRetentionDays,
+					label: "Audit log retention (days)",
+					placeholder: "365",
+					description:
+						"Delete entries older than this many days (swept in the background off auth traffic). 0 = keep forever. Default 365 (PCI DSS baseline). Raise for HIPAA (6y ≈ 2190) or SOX (7y ≈ 2555); verify against your own compliance needs.",
+					initial_value: str(saved[SETTINGS_KEYS.auditLogRetentionDays]),
 				},
 				// --- Subscription billing (Stripe) --------------------------------
 				{

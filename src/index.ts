@@ -186,6 +186,15 @@ export const BETTER_AUTH_STORAGE_CONFIG = {
 		indexes: ["identifier"] as const,
 		uniqueIndexes: ["identifier"] as const,
 	},
+	// Audit log (better-auth-audit-logs via a custom storage backend). The
+	// package normally creates its own `auditLog` DB table through a migration;
+	// we can't migrate on D1 + our custom adapter, so we route it here instead
+	// (see audit-log-storage.ts). Indexes mirror the fields the list/retention
+	// queries filter by: userId (a user's own activity), action, and createdAt
+	// (sort + retention cutoff). Empty until the auditLog flag is on.
+	auditLogs: {
+		indexes: ["userId", "action", "createdAt"] as const,
+	},
 } satisfies PluginStorageConfig;
 
 /**
@@ -253,6 +262,13 @@ export function betterAuthProvider(): AuthProviderDescriptor {
 				pattern: "/admin",
 				entrypoint: `${PACKAGE_NAME}/pages/admin/index`,
 			},
+			// Audit log (admin-only HeroUI island). Single page, inert unless the
+			// auditLog feature flag is on (the page 404s when disabled). Admin
+			// authorization is enforced server-side in the page (role >= 50).
+			{
+				pattern: "/audit-log",
+				entrypoint: `${PACKAGE_NAME}/pages/audit-log/index`,
+			},
 			// Organization (multi-tenancy) management (Better Auth UI
 			// <Organization> shell: settings/people/teams tabs). Catch-all at
 			// /organization/[...path] + a friendly /organization alias. Inert
@@ -313,7 +329,7 @@ export function betterAuthSettingsPlugin(): PluginDescriptor {
 		id: SETTINGS_PLUGIN_ID,
 		// Keep in sync with SETTINGS_PLUGIN_VERSION (settings-plugin-entry.ts)
 		// and the package version.
-		version: "0.7.0",
+		version: "0.8.0",
 		format: "native",
 		entrypoint: `${PACKAGE_NAME}/settings-plugin`,
 		// Its own admin sidebar page (not the auto-rendered settingsSchema path).

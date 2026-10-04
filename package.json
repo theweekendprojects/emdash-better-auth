@@ -1,6 +1,6 @@
 {
   "name": "emdash-better-auth",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Email/password + social (Google, GitHub) authentication for EmDash CMS, powered by Better Auth with prebuilt Better Auth UI sign-in/sign-up pages, mandatory email verification, and an admin settings page.",
   "type": "module",
   "license": "MIT",
@@ -95,6 +95,10 @@
       "import": "./src/pages/admin/index.astro",
       "default": "./src/pages/admin/index.astro"
     },
+    "./pages/audit-log/index": {
+      "import": "./src/pages/audit-log/index.astro",
+      "default": "./src/pages/audit-log/index.astro"
+    },
     "./pages/organization": {
       "import": "./src/pages/organization/[...path].astro",
       "default": "./src/pages/organization/[...path].astro"
@@ -135,6 +139,7 @@
     "@better-auth/oauth-provider": "^1.7.7",
     "@better-auth/passkey": "^1.7.2",
     "@better-auth/stripe": "^1.7.2",
+    "better-auth-audit-logs": "^0.4.0",
     "stripe": "^22.0.0",
     "@gravity-ui/icons": "^2.20.0",
     "@heroui/react": "^3.2.4",

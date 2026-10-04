@@ -268,6 +268,21 @@ export async function genericOAuthProviderIds(): Promise<string[]> {
 }
 
 /**
+ * Whether audit logging is enabled site-wide. Gates the admin audit-log page
+ * and the per-user "Recent activity" card so they only render when the backend
+ * `auditLog()` plugin is registered. Never throws — default off.
+ */
+export async function auditLogEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).auditLogEnabled;
+}
+
+/**
  * Whether Stripe subscription billing is enabled site-wide. Same source of
  * truth/precedence as the auth route, so the Billing tab only renders when the
  * backend Stripe plugin is actually registered. Never throws — default off.

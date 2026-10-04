@@ -167,6 +167,10 @@ export interface BetterAuthStorage {
 	oauthClientAssertions: StorageCollection<Record<string, unknown>>;
 	oauthClientResources: StorageCollection<Record<string, unknown>>;
 	oauthResources: StorageCollection<Record<string, unknown>>;
+	// Audit log — written/read by the custom AuditLogStorage backend
+	// (audit-log-storage.ts), NOT by the Better Auth adapter's model routing, so
+	// there's no `storageFor()` case for it.
+	auditLogs: StorageCollection<Record<string, unknown>>;
 }
 
 /** Shape of a stored username record (keyed by userId in the collection). */

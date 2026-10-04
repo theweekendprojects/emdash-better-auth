@@ -20,6 +20,7 @@ import { magicLinkClient } from "better-auth/client/plugins";
 import { emailOTPClient } from "better-auth/client/plugins";
 import { anonymousClient } from "better-auth/client/plugins";
 import { multiSessionClient } from "better-auth/client/plugins";
+import { auditLogClient } from "better-auth-audit-logs/client";
 
 // The client is a single static build and can't read the per-request feature
 // flags that gate the server plugins, so the admin + organization client
@@ -123,6 +124,11 @@ export const authClient = createAuthClient({
 		emailOTPClient(),
 		anonymousClient(),
 		multiSessionClient(),
+		// Audit log: authClient.auditLog.listAuditLogs / getAuditLog. Always
+		// registered; the endpoints only exist server-side when auditLog() is on,
+		// so it's inert otherwise (same rationale as the other client plugins).
+		// Used by the admin audit-log island + the per-user "Recent activity" card.
+		auditLogClient(),
 	],
 });
 

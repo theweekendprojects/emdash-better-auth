@@ -174,4 +174,22 @@ import { resolveSettings } from "../src/settings.js";
 	equal(flagOff.genericOAuthEnabled, false);
 }
 
+// 12. Audit log: flag defaults off; retention defaults to 365 and coerces the
+//     stored string shape, treats 0 as "keep forever", and falls back to the
+//     default for negative/non-numeric values.
+{
+	const def = resolveSettings({}, {});
+	equal(def.auditLogEnabled, false);
+	equal(def.auditLogRetentionDays, 365);
+
+	equal(resolveSettings({ auditLogEnabled: "1" }, {}).auditLogEnabled, true);
+	// Stored as a string by the form; coerced to a number.
+	equal(resolveSettings({ auditLogRetentionDays: "90" }, {}).auditLogRetentionDays, 90);
+	// 0 = keep forever (valid, not the default).
+	equal(resolveSettings({ auditLogRetentionDays: "0" }, {}).auditLogRetentionDays, 0);
+	// Negative / garbage → fall back to the default.
+	equal(resolveSettings({ auditLogRetentionDays: "-5" }, {}).auditLogRetentionDays, 365);
+	equal(resolveSettings({ auditLogRetentionDays: "abc" }, {}).auditLogRetentionDays, 365);
+}
+
 console.log("settings-resolve self-check: all cases passed");
