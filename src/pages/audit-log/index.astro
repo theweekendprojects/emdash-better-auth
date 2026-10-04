@@ -1,63 +1,13 @@
 ---
 /**
- * Plugin-shipped audit-log admin page (HeroUI island).
+ * Friendly `/audit-log` alias → the admin audit-log view served by the
+ * `/audit-log/[...path]` catch-all (`/audit-log/log`). Mirrors how `/admin`
+ * forwards into `/admin/users`. The catch-all does all the real work
+ * (flag-gating, login-gating, rendering); this alias only forwards.
  *
- * Injected at `/audit-log` via the plugin's AuthProviderDescriptor.routes.
- * Shows the site-wide auth audit log for admins. Only mounted/rendered when the
- * audit-log plugin is enabled in settings; otherwise 404 (inert on sites that
- * haven't opted in).
- *
- * Admin-only, enforced server-side here (role >= 50) as defense-in-depth on top
- * of the audit-log endpoints' own session requirement. The table + data loading
- * live inside the island.
+ * We deliberately do NOT gate/render here: `Astro.locals.user` is reliably
+ * populated on the catch-all route, not on this bare alias.
  */
-import { getSiteSettings } from "emdash";
-import { auditLogEnabled, accentColor } from "../../providers.ts";
-import AuditLogView from "../../ui/AuditLogView.tsx";
-
-// EmDash's ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). Same
-// inline check as the /admin page — the `emdash` package doesn't re-export the
-// RBAC helper to consumers.
-const ROLE_ADMIN = 50;
-
-// Gate the whole route behind the audit-log feature flag.
-if (!(await auditLogEnabled())) {
-	return new Response("Not found", { status: 404 });
-}
-
-const user = Astro.locals.user;
-if (!user) {
-	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
-	return Astro.redirect(redirectUrl);
-}
-if ((user.role ?? 0) < ROLE_ADMIN) {
-	return new Response("Forbidden", { status: 403 });
-}
-
-const siteSettings = await getSiteSettings().catch(() => null);
-const accent = await accentColor();
+const qs = Astro.url.search;
+return Astro.redirect(`/audit-log/log${qs}`);
 ---
-
-<!doctype html>
-<html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Audit log</title>
-		<script is:inline>
-			(() => {
-				try {
-					const stored = localStorage.getItem("theme") || "system";
-					const dark =
-						stored === "dark" ||
-						(stored === "system" &&
-							window.matchMedia("(prefers-color-scheme: dark)").matches);
-					document.documentElement.classList.toggle("dark", dark);
-				} catch {}
-			})();
-		</script>
-	</head>
-	<body class="min-h-svh flex flex-col">
-		<AuditLogView mode="admin" client:load />
-	</body>
-</html>

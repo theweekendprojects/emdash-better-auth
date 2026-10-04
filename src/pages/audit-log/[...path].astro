@@ -1,0 +1,74 @@
+---
+/**
+ * Plugin-shipped audit-log admin page (HeroUI island), served by a catch-all.
+ *
+ * Injected at `/audit-log/[...path]` via the plugin's AuthProviderDescriptor
+ * routes, with a bare `/audit-log` alias (index.astro) that forwards here.
+ *
+ * WHY A CATCH-ALL (not a bare `/audit-log` route): `Astro.locals.user` is only
+ * reliably populated on the auth-provider catch-all routes — a bare injected
+ * route sees a null `locals.user`, so the admin gate below would wrongly treat
+ * a signed-in admin as anonymous and bounce them to sign-in (then home). Same
+ * pattern as `/account/[...path]` and `/admin/[...path]`; the gating + render
+ * live here.
+ *
+ * Admin-only, enforced server-side (role >= 50) as defense-in-depth on top of
+ * the audit-log endpoints' own session requirement.
+ */
+import { getSiteSettings } from "emdash";
+import { auditLogEnabled, accentColor } from "../../providers.ts";
+import AuditLogView from "../../ui/AuditLogView.tsx";
+
+// EmDash's ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). Same
+// inline check as the /admin page — the `emdash` package doesn't re-export the
+// RBAC helper to consumers.
+const ROLE_ADMIN = 50;
+
+// Gate the whole route behind the audit-log feature flag.
+if (!(await auditLogEnabled())) {
+	return new Response("Not found", { status: 404 });
+}
+
+// Single view ("log"); the bare alias forwards to /audit-log/log. Anything else
+// is unknown → 404 (mirrors the admin plugin's single-view guard).
+const { path } = Astro.params;
+const view = path && path !== "" ? path : "log";
+if (view !== "log") {
+	return new Response("Not found", { status: 404 });
+}
+
+const user = Astro.locals.user;
+if (!user) {
+	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
+	return Astro.redirect(redirectUrl);
+}
+if ((user.role ?? 0) < ROLE_ADMIN) {
+	return new Response("Forbidden", { status: 403 });
+}
+
+const accent = await accentColor();
+---
+
+<!doctype html>
+<html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Audit log</title>
+		<script is:inline>
+			(() => {
+				try {
+					const stored = localStorage.getItem("theme") || "system";
+					const dark =
+						stored === "dark" ||
+						(stored === "system" &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches);
+					document.documentElement.classList.toggle("dark", dark);
+				} catch {}
+			})();
+		</script>
+	</head>
+	<body class="min-h-svh flex flex-col">
+		<AuditLogView mode="admin" client:load />
+	</body>
+</html>

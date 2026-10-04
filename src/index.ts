@@ -272,9 +272,15 @@ export function betterAuthProvider(): AuthProviderDescriptor {
 				pattern: "/admin",
 				entrypoint: `${PACKAGE_NAME}/pages/admin/index`,
 			},
-			// Audit log (admin-only HeroUI island). Single page, inert unless the
-			// auditLog feature flag is on (the page 404s when disabled). Admin
-			// authorization is enforced server-side in the page (role >= 50).
+			// Audit log (admin-only HeroUI island). Catch-all + bare alias, same
+			// shape as /account and /admin — a bare route sees a null
+			// `locals.user`, so gating must live on the catch-all. Inert unless the
+			// auditLog flag is on (404 when disabled); admin authorization enforced
+			// server-side (role >= 50).
+			{
+				pattern: "/audit-log/[...path]",
+				entrypoint: `${PACKAGE_NAME}/pages/audit-log`,
+			},
 			{
 				pattern: "/audit-log",
 				entrypoint: `${PACKAGE_NAME}/pages/audit-log/index`,

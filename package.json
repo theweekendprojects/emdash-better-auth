@@ -95,6 +95,10 @@
       "import": "./src/pages/admin/index.astro",
       "default": "./src/pages/admin/index.astro"
     },
+    "./pages/audit-log": {
+      "import": "./src/pages/audit-log/[...path].astro",
+      "default": "./src/pages/audit-log/[...path].astro"
+    },
     "./pages/audit-log/index": {
       "import": "./src/pages/audit-log/index.astro",
       "default": "./src/pages/audit-log/index.astro"
