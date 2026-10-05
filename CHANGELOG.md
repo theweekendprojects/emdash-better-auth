@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-04
+
+### Added
+
+- **Cross-navigation between the two UI surfaces.** This plugin spans two
+  completely separate UI systems — EmDash's native admin and Better Auth
+  UI's own pages — with no shared nav. Removing the site's old homepage
+  admin link made this an actual gap, not just a cosmetic one.
+  - Every Better Auth UI page's `UserButton` dropdown (`/account`, `/admin`,
+    `/organization`) now gets an "EmDash Admin" entry linking to
+    `/_emdash/admin`. On `/account` and `/organization` it only shows for
+    signed-in EmDash admins (role >= 50, resolved server-side); on `/admin`
+    it's unconditional since reaching that page already requires admin.
+  - The Better Auth settings page (inside EmDash admin) gets a banner
+    pointing admins at `/account` and `/admin` for the Better Auth UI side.
+
 ## [0.8.2] - 2026-10-04
 
 ### Fixed
@@ -395,7 +411,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.7.0...v0.8.0

@@ -77,6 +77,13 @@ if (!Astro.locals.user) {
 	return Astro.redirect(redirectUrl);
 }
 
+// EmDash's ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). Gates the
+// UserButton's "EmDash Admin" link — cosmetic only (EmDash's own admin area
+// re-checks role), so a plain inline comparison is fine here, same as the
+// /admin and /audit-log pages.
+const ROLE_ADMIN = 50;
+const isEmdashAdmin = (Astro.locals.user.role ?? 0) >= ROLE_ADMIN;
+
 const redirectTo = "/account";
 // Brand shown in the header — read from EmDash site settings so the
 // plugin is site-agnostic (no hardcoded site name). Falls back generically.
@@ -137,6 +144,7 @@ const accent = await accentColor();
 			emailOtpEnabled={isEmailOtpEnabled}
 			multiSessionEnabled={isMultiSessionEnabled}
 			planPriceIds={resolvedPlanPriceIds}
+			isEmdashAdmin={isEmdashAdmin}
 			client:load
 		/>
 	</body>

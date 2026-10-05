@@ -27,7 +27,7 @@
 // Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
 import "./auth.css";
 
-import { AuthProvider, Settings, UserButton } from "@better-auth-ui/heroui";
+import { AuthProvider, Settings, UserButton, type UserButtonLink } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
@@ -63,6 +63,17 @@ function getQueryClient(): QueryClient {
 export interface AccountViewProps {
 	/** Better Auth UI settings view path, e.g. "account" | "security". */
 	path?: string;
+	/**
+	 * Whether the signed-in user is an EmDash admin (role >= 50). When true, a
+	 * "EmDash Admin" entry is added to the UserButton dropdown so admins can
+	 * jump from this (Better Auth UI) surface back to the native EmDash admin
+	 * at `/_emdash/admin` — the two are separate UI systems with no shared nav,
+	 * so without this link an admin has no way back except typing the URL.
+	 * Resolved server-side from `Astro.locals.user.role` (same pattern as the
+	 * `/admin` page's own role gate) — never trust a client-side check for
+	 * this, it's cosmetic only here (EmDash's own admin area re-checks role).
+	 */
+	isEmdashAdmin?: boolean;
 	/** Where to send the user after a successful auth. Defaults to "/account". */
 	redirectTo?: string;
 	/** Social providers to show. Empty by default (email/password only). */
@@ -158,6 +169,7 @@ export default function AccountView({
 	emailOtpEnabled = false,
 	multiSessionEnabled = false,
 	planPriceIds = {},
+	isEmdashAdmin = false,
 }: AccountViewProps) {
 	const queryClient = getQueryClient();
 
@@ -185,6 +197,13 @@ export default function AccountView({
 		Boolean,
 	).length;
 	const settingsMaxWidth = extraTabCount > 0 ? "36rem" : "28rem";
+
+	// UserButton dropdown entry back to EmDash's own admin (role-gated
+	// server-side, see isEmdashAdmin's doc comment). Empty array when not an
+	// admin — UserButton treats an empty `links` the same as omitting it.
+	const adminLinks: UserButtonLink[] = isEmdashAdmin
+		? [{ label: "EmDash Admin", href: "/_emdash/admin", visibility: "authenticated" }]
+		: [];
 
 	return (
 		<QueryClientProvider client={queryClient}>
@@ -289,7 +308,7 @@ export default function AccountView({
 									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
 								)}
 							</Link>
-							<UserButton size="icon" placement="bottom end" />
+							<UserButton size="icon" placement="bottom end" links={adminLinks} />
 						</div>
 					</header>
 

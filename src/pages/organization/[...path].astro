@@ -39,6 +39,11 @@ if (!Astro.locals.user) {
 	return Astro.redirect(redirectUrl);
 }
 
+// EmDash's ADMIN role level — gates the UserButton's "EmDash Admin" link.
+// Cosmetic only (EmDash's own admin area re-checks role on entry).
+const ROLE_ADMIN = 50;
+const isEmdashAdmin = (Astro.locals.user.role ?? 0) >= ROLE_ADMIN;
+
 const siteSettings = await getSiteSettings().catch(() => null);
 const siteName = siteSettings?.title || "Organization";
 const logoUrl = siteSettings?.logo?.url ?? null;
@@ -65,6 +70,13 @@ const accent = await accentColor();
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<OrganizationView path={view} siteName={siteName} logoUrl={logoUrl} teamsEnabled={teams} client:load />
+		<OrganizationView
+			path={view}
+			siteName={siteName}
+			logoUrl={logoUrl}
+			teamsEnabled={teams}
+			isEmdashAdmin={isEmdashAdmin}
+			client:load
+		/>
 	</body>
 </html>

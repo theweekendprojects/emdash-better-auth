@@ -53,7 +53,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.8.2";
+export const SETTINGS_PLUGIN_VERSION = "0.8.3";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -346,6 +346,23 @@ function buildSettingsPage(
 	for (const text of statusWarnings) {
 		blocks.push({ type: "banner", title: "Heads up", description: text, variant: "warning" });
 	}
+
+	// Bridge to the OTHER half of this plugin's UI: Better Auth UI (sign-in,
+	// account settings, admin user list, org management) is a completely
+	// separate surface from this EmDash admin page — different auth system,
+	// different look, no shared nav between the two. Without this, an admin
+	// configuring things here has no indication those pages even exist.
+	// `banner` here only carries title/description (no link/button field in
+	// EmDash's Block Kit, confirmed by every other banner on this page being
+	// text-only), so the path is spelled out for the admin to open directly —
+	// same convention the social-provider callback-URL banners already use.
+	blocks.push({
+		type: "banner",
+		title: "The other half of this UI",
+		description:
+			"Sign-in/sign-up, each user's own account settings, and (when enabled) the admin user list, org management, and OAuth client manager all live on separate Better Auth UI pages, not here. Visit /account to see your own profile, or /admin once 'Enable admin user management' is on. Each of those pages' user menu has an 'EmDash Admin' link back to this admin area.",
+		variant: "default",
+	});
 
 	// --- Social sign-in providers (one stacked section each) ------------------
 	// Callback/redirect URLs are built from the canonical base URL. If none is

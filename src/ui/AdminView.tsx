@@ -20,7 +20,7 @@
 // Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
 import "./auth.css";
 
-import { Admin, AuthProvider, UserButton } from "@better-auth-ui/heroui";
+import { Admin, AuthProvider, UserButton, type UserButtonLink } from "@better-auth-ui/heroui";
 import { adminPlugin } from "@better-auth-ui/heroui/plugins";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
@@ -51,6 +51,14 @@ export interface AdminViewProps {
 	/** Site logo URL; when set, shown in the header instead of the site name. */
 	logoUrl?: string | null;
 }
+
+// Reaching this island at all already requires EmDash admin (role >= 50) —
+// enforced server-side in admin/[...path].astro — so the "EmDash Admin" link
+// back to /_emdash/admin is unconditional here, unlike AccountView where
+// non-admins also render the UserButton.
+const ADMIN_LINKS: UserButtonLink[] = [
+	{ label: "EmDash Admin", href: "/_emdash/admin", visibility: "authenticated" },
+];
 
 export default function AdminView({
 	path = "users",
@@ -89,7 +97,7 @@ export default function AdminView({
 									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
 								)}
 							</Link>
-							<UserButton size="icon" placement="bottom end" />
+							<UserButton size="icon" placement="bottom end" links={ADMIN_LINKS} />
 						</div>
 					</header>
 

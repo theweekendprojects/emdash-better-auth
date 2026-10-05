@@ -20,7 +20,7 @@
 // Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
 import "./auth.css";
 
-import { AuthProvider, UserButton } from "@better-auth-ui/heroui";
+import { AuthProvider, UserButton, type UserButtonLink } from "@better-auth-ui/heroui";
 import {
 	Organization,
 	OrganizationSwitcher,
@@ -154,6 +154,13 @@ export interface OrganizationViewProps {
 	 * match the server, which only registers team models when teams are on.
 	 */
 	teamsEnabled?: boolean;
+	/**
+	 * Whether the signed-in user is an EmDash admin (role >= 50). When true,
+	 * adds an "EmDash Admin" entry to the UserButton dropdown. Unlike
+	 * AdminView, this page is reached by any org member, not just admins, so
+	 * the link is conditional here (same pattern as AccountView).
+	 */
+	isEmdashAdmin?: boolean;
 }
 
 export default function OrganizationView({
@@ -161,8 +168,12 @@ export default function OrganizationView({
 	siteName = "Organization",
 	logoUrl = null,
 	teamsEnabled = false,
+	isEmdashAdmin = false,
 }: OrganizationViewProps) {
 	const queryClient = getQueryClient();
+	const adminLinks: UserButtonLink[] = isEmdashAdmin
+		? [{ label: "EmDash Admin", href: "/_emdash/admin", visibility: "authenticated" }]
+		: [];
 
 	return (
 		<QueryClientProvider client={queryClient}>
@@ -196,7 +207,7 @@ export default function OrganizationView({
 							</Link>
 							<div className="flex items-center gap-3">
 								<OrganizationSwitcher placement="bottom end" />
-								<UserButton size="icon" placement="bottom end" />
+								<UserButton size="icon" placement="bottom end" links={adminLinks} />
 							</div>
 						</div>
 					</header>
