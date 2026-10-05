@@ -15,7 +15,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so the menu keeps the same shape as you move between pages. "Switch Account"
   (multi-session) now also appears on the admin, organization and audit log
   pages, not just the account page. The audit log's "Back" button moved next to
-  its title.
+  its title. The audit log also skips `organization:has-permission` (like
+  `admin:has-permission` before it): permission-check reads are not events.
 
 ## [0.9.0] - 2026-10-05
 
