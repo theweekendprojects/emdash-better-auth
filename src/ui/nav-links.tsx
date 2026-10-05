@@ -5,8 +5,8 @@
  * reachable only by typing the URL. Every UserButton now lists the ones that
  * apply: feature-gated by the same flags the routes check, and admin-level
  * links only for EmDash admins (the pages re-check the role server-side, this
- * only decides what to show). The audit log page has no UserButton (it isn't
- * inside the auth provider) and keeps its own back button.
+ * only decides what to show). Every page lists the SAME links (including its
+ * own) so the menu never changes shape as you navigate.
  */
 
 import type { UserButtonLink } from "@better-auth-ui/heroui";
@@ -43,8 +43,6 @@ export interface NavLinkFlags {
 	auditLogEnabled?: boolean;
 	/** Organizations are on (/organization exists). */
 	orgEnabled?: boolean;
-	/** The page being rendered, so its own link is left out. */
-	current?: "admin" | "organization" | "account";
 }
 
 export function buildNavLinks({
@@ -52,10 +50,9 @@ export function buildNavLinks({
 	adminEnabled = false,
 	auditLogEnabled = false,
 	orgEnabled = false,
-	current,
 }: NavLinkFlags): UserButtonLink[] {
 	const links: UserButtonLink[] = [];
-	if (isEmdashAdmin && adminEnabled && current !== "admin") {
+	if (isEmdashAdmin && adminEnabled) {
 		links.push({
 			label: "Manage users",
 			href: "/admin",
@@ -71,7 +68,7 @@ export function buildNavLinks({
 			visibility: "authenticated",
 		});
 	}
-	if (orgEnabled && current !== "organization") {
+	if (orgEnabled) {
 		links.push({
 			label: "Organization",
 			href: "/organization",

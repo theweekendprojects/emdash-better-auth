@@ -12,7 +12,13 @@
  * before enabling each action. The header/layout live inside the island.
  */
 import { getSiteSettings } from "emdash";
-import { adminEnabled, auditLogEnabled, orgEnabled, accentColor } from "../../providers.ts";
+import {
+	adminEnabled,
+	auditLogEnabled,
+	orgEnabled,
+	multiSessionEnabled,
+	accentColor,
+} from "../../providers.ts";
 import { requireUser } from "../../route.ts";
 import AdminView from "../../ui/AdminView.tsx";
 
@@ -55,6 +61,7 @@ const accent = await accentColor();
 // Feature flags for the avatar-menu links (Audit log / Organization).
 const hasAuditLog = await auditLogEnabled();
 const hasOrgs = await orgEnabled();
+const hasMultiSession = await multiSessionEnabled();
 ---
 
 <!doctype html>
@@ -83,6 +90,7 @@ const hasOrgs = await orgEnabled();
 			logoUrl={logoUrl}
 			auditLogEnabled={hasAuditLog}
 			orgEnabled={hasOrgs}
+			multiSessionEnabled={hasMultiSession}
 			client:load
 		/>
 	</body>

@@ -24,6 +24,10 @@
 
 import "./auth.css";
 
+import { AuthProvider, UserButton } from "@better-auth-ui/heroui";
+import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
+import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
+import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { Chip, Link, Spinner, buttonVariants } from "@heroui/react";
 import {
 	QueryClient,
@@ -31,10 +35,11 @@ import {
 	keepPreviousData,
 	useQuery,
 } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
 
 import { authClient } from "../client.js";
+import { buildNavLinks } from "./nav-links.js";
 
 let browserQueryClient: QueryClient | undefined;
 function getQueryClient(): QueryClient {
@@ -265,6 +270,12 @@ export interface AuditLogViewProps {
 	backHref?: string;
 	/** Back button text (admin mode only). */
 	backLabel?: string;
+	/** Admin user-management plugin on (adds the "Manage users" menu link). */
+	adminEnabled?: boolean;
+	/** Organizations on (adds the "Organization" menu link). */
+	orgEnabled?: boolean;
+	/** Multi-session on (adds the "Switch Account" menu item, as on /account). */
+	multiSessionEnabled?: boolean;
 }
 
 /**
@@ -272,8 +283,8 @@ export interface AuditLogViewProps {
  * `/audit-log` page. The per-user card renders <AuditLogTable> directly inside
  * the account island, which already provides the QueryClient/theme context.
  *
- * In admin mode this also renders a header bar (site name/logo + a "Back to
- * admin" link) — the same sticky-header pattern AdminView/AuthView use. The
+ * In admin mode this also renders a header bar (site name/logo + the shared
+ * avatar menu) — the same sticky-header pattern AdminView/AuthView use. The
  * page previously dropped straight into a bare table with no title or anchor;
  * this gives it the same visual frame every other plugin page already has.
  */
@@ -285,8 +296,19 @@ export default function AuditLogView({
 	logoUrl = null,
 	backHref = "/admin",
 	backLabel = "Back to admin",
+	adminEnabled = false,
+	orgEnabled = false,
+	multiSessionEnabled = false,
 }: AuditLogViewProps) {
 	const queryClient = getQueryClient();
+	// The admin page is only served to EmDash admins with audit logging on
+	// (enforced server-side), so both are implied. Same links as every other page.
+	const navLinks = buildNavLinks({
+		isEmdashAdmin: true,
+		adminEnabled,
+		auditLogEnabled: true,
+		orgEnabled,
+	});
 	return (
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -300,16 +322,41 @@ export default function AuditLogView({
 									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
 								)}
 							</Link>
-							{/* A real anchor styled as a button: keyboard/middle-click friendly. */}
-							<a href={backHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
-								<span aria-hidden="true">←</span> {backLabel}
-							</a>
+							{/* Same avatar menu as the account/admin/organization pages. */}
+							<AuthProvider
+								authClient={authClient}
+								basePaths={{
+									auth: "/auth",
+									settings: "/account",
+									admin: "/admin",
+									organization: "/organization",
+								}}
+								plugins={[
+									themePlugin({ useTheme }),
+									usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+									...(multiSessionEnabled ? [multiSessionPlugin()] : []),
+								]}
+								navigate={({ to, replace }: { to: string; replace?: boolean }) => {
+									if (replace) window.location.replace(to);
+									else window.location.href = to;
+								}}
+							>
+								<UserButton size="icon" placement="bottom end" links={navLinks} />
+							</AuthProvider>
 						</div>
 					</header>
 				)}
 				<main className="flex-1 flex flex-col items-center p-4 md:p-6">
 					<div style={{ width: "100%", maxWidth: "64rem" }}>
-						{mode === "admin" && <h2 className="text-xl font-semibold mb-4">Audit log</h2>}
+						{mode === "admin" && (
+							<div className="flex items-center justify-between gap-3 mb-4">
+								<h2 className="text-xl font-semibold">Audit log</h2>
+								{/* A real anchor styled as a button: keyboard/middle-click friendly. */}
+								<a href={backHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+									<span aria-hidden="true">←</span> {backLabel}
+								</a>
+							</div>
+						)}
 						<AuditLogTable mode={mode} pageSize={pageSize} hideFilter={hideFilter} />
 					</div>
 				</main>

@@ -28,6 +28,7 @@ import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
+import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { buildNavLinks } from "./nav-links.js";
 
 import { authClient } from "../client.js";
@@ -55,6 +56,8 @@ export interface AdminViewProps {
 	auditLogEnabled?: boolean;
 	/** Organizations on (adds an "Organization" menu link). */
 	orgEnabled?: boolean;
+	/** Multi-session on (adds the "Switch Account" menu item, as on /account). */
+	multiSessionEnabled?: boolean;
 }
 
 
@@ -64,17 +67,17 @@ export default function AdminView({
 	logoUrl = null,
 	auditLogEnabled = false,
 	orgEnabled = false,
+	multiSessionEnabled = false,
 }: AdminViewProps) {
 	const queryClient = getQueryClient();
 	// Reaching this island at all requires EmDash admin and the admin plugin
 	// (enforced server-side in admin/[...path].astro), so both are implied; the
-	// "Manage users" link to this very page is hidden via `current`.
+	// menu lists every link, this page's own included, like all other pages.
 	const adminLinks: UserButtonLink[] = buildNavLinks({
 		isEmdashAdmin: true,
 		adminEnabled: true,
 		auditLogEnabled,
 		orgEnabled,
-		current: "admin",
 	});
 
 	return (
@@ -92,6 +95,7 @@ export default function AdminView({
 						themePlugin({ useTheme }),
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
 						adminPlugin(),
+						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);

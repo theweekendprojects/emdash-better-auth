@@ -20,6 +20,7 @@ import {
 	teamsEnabled as teamsEnabledFlag,
 	adminEnabled,
 	auditLogEnabled,
+	multiSessionEnabled,
 	accentColor,
 } from "../../providers.ts";
 import { requireUser } from "../../route.ts";
@@ -51,6 +52,7 @@ const ROLE_ADMIN = 50;
 // Feature flags for the avatar-menu links (Manage users / Audit log).
 const hasAdminUi = await adminEnabled();
 const hasAuditLog = await auditLogEnabled();
+const hasMultiSession = await multiSessionEnabled();
 const isEmdashAdmin = (Astro.locals.user.role ?? 0) >= ROLE_ADMIN;
 
 const siteSettings = await getSiteSettings().catch(() => null);
@@ -87,6 +89,7 @@ const accent = await accentColor();
 			isEmdashAdmin={isEmdashAdmin}
 			adminEnabled={hasAdminUi}
 			auditLogEnabled={hasAuditLog}
+			multiSessionEnabled={hasMultiSession}
 			client:load
 		/>
 	</body>

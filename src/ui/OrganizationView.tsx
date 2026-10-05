@@ -32,6 +32,7 @@ import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
+import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { buildNavLinks } from "./nav-links.js";
 
 import { authClient } from "../client.js";
@@ -166,6 +167,8 @@ export interface OrganizationViewProps {
 	adminEnabled?: boolean;
 	/** Audit logging on (adds an "Audit log" menu link). */
 	auditLogEnabled?: boolean;
+	/** Multi-session on (adds the "Switch Account" menu item, as on /account). */
+	multiSessionEnabled?: boolean;
 }
 
 export default function OrganizationView({
@@ -176,16 +179,15 @@ export default function OrganizationView({
 	isEmdashAdmin = false,
 	adminEnabled = false,
 	auditLogEnabled = false,
+	multiSessionEnabled = false,
 }: OrganizationViewProps) {
 	const queryClient = getQueryClient();
 	const adminLinks: UserButtonLink[] = buildNavLinks({
 		isEmdashAdmin,
 		adminEnabled,
 		auditLogEnabled,
-		// This IS the organization page, so orgEnabled is implied; current
-		// hides its own link.
+		// This IS the organization page, so orgEnabled is implied.
 		orgEnabled: true,
-		current: "organization",
 	});
 
 	return (
@@ -203,6 +205,7 @@ export default function OrganizationView({
 						themePlugin({ useTheme }),
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
 						organizationPlugin(teamsEnabled ? { teams: { enabled: true } } : {}),
+						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);

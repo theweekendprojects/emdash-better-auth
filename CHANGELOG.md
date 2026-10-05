@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-05
+
+### Changed
+
+- **Same avatar menu on every page.** The audit log page now has the avatar
+  menu too (it only had a back button), and a page no longer hides its own link,
+  so the menu keeps the same shape as you move between pages. "Switch Account"
+  (multi-session) now also appears on the admin, organization and audit log
+  pages, not just the account page. The audit log's "Back" button moved next to
+  its title.
+
 ## [0.9.0] - 2026-10-05
 
 ### Added
@@ -14,8 +25,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/audit-log` and `/organization` had no link anywhere and were reachable only
   by typing the URL. The avatar menu on the account, admin and organization
   pages now lists "Manage users", "Audit log" and "Organization" (each only when
-  its feature is on; the first two only for EmDash admins; a page never links to
-  itself), each with an icon.
+  its feature is on; the first two only for EmDash admins), each with an icon.
 - **EmDash logo on the "EmDash Admin" menu item** (the logo mark from EmDash's
   own admin, single colour to match the other menu icons).
 
@@ -522,7 +532,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.7...v0.9.0
 [0.8.7]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.5...v0.8.6

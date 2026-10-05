@@ -16,7 +16,13 @@
  * the audit-log endpoints' own session requirement.
  */
 import { getSiteSettings } from "emdash";
-import { auditLogEnabled, adminEnabled, accentColor } from "../../providers.ts";
+import {
+	auditLogEnabled,
+	adminEnabled,
+	orgEnabled,
+	multiSessionEnabled,
+	accentColor,
+} from "../../providers.ts";
 import { requireUser } from "../../route.ts";
 import AuditLogView from "../../ui/AuditLogView.tsx";
 
@@ -51,6 +57,9 @@ const accent = await accentColor();
 const hasAdminUi = await adminEnabled();
 const backHref = hasAdminUi ? "/admin" : "/account";
 const backLabel = hasAdminUi ? "Back to admin" : "Back to account";
+// Feature flags for the avatar-menu links / Switch Account item.
+const hasOrgs = await orgEnabled();
+const hasMultiSession = await multiSessionEnabled();
 // Header branding (site name + logo), same source as /admin and /account —
 // the page previously had no title/anchor at all, dropping straight into the
 // bare table. Matches the existing pattern, not a new concept.
@@ -85,6 +94,9 @@ const logoUrl = siteSettings?.logo?.url ?? null;
 			logoUrl={logoUrl}
 			backHref={backHref}
 			backLabel={backLabel}
+			adminEnabled={hasAdminUi}
+			orgEnabled={hasOrgs}
+			multiSessionEnabled={hasMultiSession}
 			client:load
 		/>
 	</body>

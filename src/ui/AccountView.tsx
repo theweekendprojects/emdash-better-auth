@@ -210,7 +210,6 @@ export default function AccountView({
 		adminEnabled,
 		auditLogEnabled,
 		orgEnabled,
-		current: "account",
 	});
 
 	return (
