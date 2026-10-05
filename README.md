@@ -264,6 +264,18 @@ fallback (`<PREFIX>_CLIENT_ID/SECRET`), and callback URL are all derived from
 that list — no other wiring needed. Facebook was intentionally left out of the
 initial set to keep it simple.
 
+#### Session lifetime (recommended)
+
+EmDash keeps the signed-in user in the Astro session, whose cookie is a
+browser-session cookie by default (gone when the browser restarts), while Better
+Auth's cookie lasts 7 days. The plugin re-bridges automatically when it sees
+that mismatch, but giving the Astro session the same lifetime avoids the extra
+redirect. In `astro.config.mjs`:
+
+```js
+session: { cookie: { maxAge: 60 * 60 * 24 * 7 }, ttl: 60 * 60 * 24 * 7 },
+```
+
 ### 3. Deploy
 
 ```bash

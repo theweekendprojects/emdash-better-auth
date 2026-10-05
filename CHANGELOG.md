@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-10-05
+
+### Fixed
+
+- **Signed-in users were bounced to the sign-in form on `/account` (and
+  `/admin`, `/audit-log`, `/organization`).** EmDash stores the signed-in user
+  in its own Astro session cookie, which is a browser-session cookie (no
+  Max-Age) and disappears on every browser restart, while Better Auth's cookie
+  lasts 7 days. The two sessions drifted apart: `get-session` returned 200 and
+  the header showed the avatar, yet every gated page saw no user and redirected
+  to sign-in. The gated pages and the sign-in page now check Better Auth before
+  redirecting and, if it has a valid session, re-bridge it into the EmDash
+  session and reload once (a one-shot `_rb=1` marker prevents redirect loops).
+  Sites can also give the Astro session the same 7-day lifetime; see the
+  README "Session lifetime" note.
+
+### Changed
+
+- Per-request Better Auth construction moved into a shared
+  `createAuthForRequest` in `route.ts` (no behavior change) so the page gates and
+  the `/api/auth/*` handler always use identical configuration.
+
 ## [0.8.5] - 2026-10-04
 
 ### Changed
@@ -455,7 +477,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.2...v0.8.3
