@@ -160,19 +160,21 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 			<div className="w-full overflow-x-auto rounded-lg border border-default-200 bg-content1">
 				<table className="w-full table-fixed border-collapse text-sm">
 					<colgroup>
-						<col className="w-[22%]" />
-						<col className="w-[30%]" />
-						<col className="w-[14%]" />
-						<col className="w-[14%]" />
-						<col className="w-[20%]" />
+						{/* Phones show When / Action / Status only; Severity + IP
+						    return from the sm breakpoint. */}
+						<col className="w-[34%] sm:w-[22%]" />
+						<col className="w-[38%] sm:w-[30%]" />
+						<col className="w-[28%] sm:w-[14%]" />
+						<col className="hidden sm:table-column sm:w-[14%]" />
+						<col className="hidden sm:table-column sm:w-[20%]" />
 					</colgroup>
 					<thead>
 						<tr className="border-b border-default-200 text-left text-xs uppercase text-foreground-500">
 							<th className="py-2 px-3 font-medium">When</th>
 							<th className="py-2 px-3 font-medium">Action</th>
 							<th className="py-2 px-3 font-medium">Status</th>
-							<th className="py-2 px-3 font-medium">Severity</th>
-							<th className="py-2 px-3 font-medium">IP</th>
+							<th className="hidden sm:table-cell py-2 px-3 font-medium">Severity</th>
+							<th className="hidden sm:table-cell py-2 px-3 font-medium">IP</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -191,7 +193,7 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 						) : (
 							rows.map((row) => (
 								<tr key={row.id} className="border-b border-default-100 last:border-b-0">
-									<td className="py-2 px-3 whitespace-nowrap text-xs">
+									<td className="py-2 px-3 sm:whitespace-nowrap text-xs">
 										{fmtTime(row.createdAt)}
 									</td>
 									<td className="py-2 px-3 truncate font-mono text-xs" title={row.action}>
@@ -206,13 +208,13 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 											{row.status}
 										</Chip>
 									</td>
-									<td className="py-2 px-3">
+									<td className="hidden sm:table-cell py-2 px-3">
 										<Chip size="sm" variant="flat" color={SEVERITY_COLOR[row.severity]}>
 											{row.severity}
 										</Chip>
 									</td>
 									<td
-										className="py-2 px-3 truncate font-mono text-xs"
+										className="hidden sm:table-cell py-2 px-3 truncate font-mono text-xs"
 										title={row.ipAddress ?? undefined}
 									>
 										{shortenIp(row.ipAddress)}

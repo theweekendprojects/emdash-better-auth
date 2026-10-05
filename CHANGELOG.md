@@ -26,6 +26,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Role and Status sat off-screen behind an invisible horizontal scroll. Below
   40rem the table now fits the screen, drops the "Created" column and truncates
   long names and emails.
+- **Audit log table clipped on phones.** Status, Severity and IP were cut off.
+  On phones it now shows When, Action and Status (date wraps); Severity and IP
+  return from the `sm` breakpoint.
 - **Audit log back button.** The header now has a proper "Back to admin" button
   (or "Back to account" when the admin plugin is off, so it never lands on a 404)
   and the page has a visible "Audit log" title.
