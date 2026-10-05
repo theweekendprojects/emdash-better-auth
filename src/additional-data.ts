@@ -56,3 +56,18 @@ export function mergeAdditionalData(
 	}
 	return Object.keys(current).length > 0 ? JSON.stringify(current) : null;
 }
+
+/** EmDash's numeric ADMIN level (SUBSCRIBER=10 … ADMIN=50). */
+const EMDASH_ADMIN_LEVEL = 50;
+
+/**
+ * Better Auth admin-plugin role for a user. An explicitly stored string role
+ * (set through the admin UI) always wins; otherwise an EmDash admin (numeric
+ * role >= 50) is treated as "admin". Without this nobody ever holds the string
+ * "admin", so Better Auth's admin plugin answered "Access denied" even to the
+ * site's EmDash admins. Everyone else stays null (the plugin's default "user").
+ */
+export function effectiveAdminRole(stored: unknown, emdashRole: unknown): string | null {
+	if (typeof stored === "string" && stored !== "") return stored;
+	return typeof emdashRole === "number" && emdashRole >= EMDASH_ADMIN_LEVEL ? "admin" : null;
+}

@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-05
+
+### Fixed
+
+- **Themed buttons lost their colour.** An autofilled email address had been
+  saved as the "Accent color", and it was written straight into the
+  `--emdash-accent` CSS variable, so the sign-in button (and every accent-coloured
+  control) rendered with no background. The accent (hex or rgb/hsl/oklch colour)
+  and the canonical site URL (http/https) are now validated on save: an invalid
+  value is not stored and the settings page shows an error toast. A junk accent
+  that is already stored is ignored and the default blue is used.
+- **"Access denied" on `/admin/users` for EmDash admins.** Better Auth's admin
+  plugin checks a string role of `admin`, which nobody had, so even the site's
+  EmDash admins were refused. A user with no explicitly stored Better Auth role
+  and an EmDash role of 50 (admin) or higher now counts as `admin`. A role set
+  through the admin UI still wins.
+- **Audit log back button.** The header now has a proper "Back to admin" button
+  (or "Back to account" when the admin plugin is off, so it never lands on a 404)
+  and the page has a visible "Audit log" title.
+
+### Changed
+
+- The audit log no longer records `get-session` and `admin:has-permission`
+  reads. They fired on every page load and buried real security events.
+
 ## [0.8.6] - 2026-10-05
 
 ### Fixed
@@ -477,7 +502,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.3...v0.8.4

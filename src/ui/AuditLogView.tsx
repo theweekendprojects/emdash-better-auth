@@ -24,7 +24,7 @@
 
 import "./auth.css";
 
-import { Chip, Link, Spinner } from "@heroui/react";
+import { Chip, Link, Spinner, buttonVariants } from "@heroui/react";
 import {
 	QueryClient,
 	QueryClientProvider,
@@ -259,6 +259,10 @@ export interface AuditLogViewProps {
 	siteName?: string;
 	/** Site logo URL; when set, shown in the header instead of the site name. */
 	logoUrl?: string | null;
+	/** Where the header's back button goes (admin mode only). */
+	backHref?: string;
+	/** Back button text (admin mode only). */
+	backLabel?: string;
 }
 
 /**
@@ -277,6 +281,8 @@ export default function AuditLogView({
 	hideFilter,
 	siteName = "Admin",
 	logoUrl = null,
+	backHref = "/admin",
+	backLabel = "Back to admin",
 }: AuditLogViewProps) {
 	const queryClient = getQueryClient();
 	return (
@@ -292,17 +298,16 @@ export default function AuditLogView({
 									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
 								)}
 							</Link>
-							<div className="flex items-center gap-3">
-								<h2 className="text-sm font-medium text-foreground-500">Audit log</h2>
-								<Link href="/admin" className="text-sm">
-									Back to admin
-								</Link>
-							</div>
+							{/* A real anchor styled as a button: keyboard/middle-click friendly. */}
+							<a href={backHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+								<span aria-hidden="true">←</span> {backLabel}
+							</a>
 						</div>
 					</header>
 				)}
 				<main className="flex-1 flex flex-col items-center p-4 md:p-6">
 					<div style={{ width: "100%", maxWidth: "64rem" }}>
+						{mode === "admin" && <h2 className="text-xl font-semibold mb-4">Audit log</h2>}
 						<AuditLogTable mode={mode} pageSize={pageSize} hideFilter={hideFilter} />
 					</div>
 				</main>

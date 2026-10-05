@@ -11,6 +11,7 @@ import {
 	pickAdditionalData,
 	parseAdditionalData,
 	mergeAdditionalData,
+	effectiveAdminRole,
 } from "../src/additional-data.js";
 
 const FIELDS = new Set(["bio", "twoFactorEnabled", "role", "banned", "banReason", "banExpires"]);
@@ -73,4 +74,14 @@ const FIELDS = new Set(["bio", "twoFactorEnabled", "role", "banned", "banReason"
 	deepEqual(parseAdditionalData(null), {});
 }
 
-console.log("additional-data self-check: all 8 cases passed");
+// EmDash admins (numeric role >= 50) count as Better Auth "admin" unless an
+// explicit string role was stored; everyone else stays null.
+{
+	equal(effectiveAdminRole(null, 50), "admin");
+	equal(effectiveAdminRole(null, 10), null);
+	equal(effectiveAdminRole("user", 50), "user", "explicit stored role wins");
+	equal(effectiveAdminRole("", 50), "admin", "empty string is not a stored role");
+	equal(effectiveAdminRole(null, "50"), null, "non-numeric emdash role ignored");
+}
+
+console.log("additional-data self-check: all 9 cases passed");

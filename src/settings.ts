@@ -205,6 +205,35 @@ export async function readKvSettings(kv: KVAccess): Promise<Record<string, unkno
 }
 
 /**
+ * True for a hex colour or a CSS colour function (rgb/hsl/hwb/lab/lch/oklab/
+ * oklch/color). Stricter than "any CSS colour" on purpose: the accent is
+ * written straight into a `--emdash-accent` CSS custom property, so a stray
+ * value (browser autofill once saved an email address here) silently killed
+ * every themed button, and a value with `;`/quotes could inject CSS.
+ */
+export function isCssColor(value: string): boolean {
+	return /^(#[0-9a-f]{3,8}|(rgb|hsl|hwb|lab|lch|oklab|oklch|color)a?\([0-9a-z\s.,%/+-]+\))$/i.test(
+		value.trim(),
+	);
+}
+
+/** True for an absolute http(s) URL. */
+function isHttpUrl(value: string): boolean {
+	try {
+		const u = new URL(value);
+		return u.protocol === "http:" || u.protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
+/** Per-key validators for free-text settings; an invalid value is not saved. */
+const TEXT_VALIDATORS: Record<string, (v: string) => boolean> = {
+	[SETTINGS_KEYS.accentColor]: isCssColor,
+	[SETTINGS_KEYS.baseUrl]: isHttpUrl,
+};
+
+/**
  * Transient unlock-toggle action id guarding the three CORE secrets (session
  * signing key + both Stripe keys) in the admin form. Not a persisted setting —
  * it rides along in the submitted `values` only to authorize a secret write.
@@ -269,7 +298,9 @@ function isUnlocked(key: string, values: Record<string, unknown>): boolean {
 export async function writeKvSettings(
 	kv: KVAccess,
 	values: Record<string, unknown>,
-): Promise<void> {
+): Promise<string[]> {
+	/** Keys whose submitted value failed validation (left unchanged). */
+	const rejected: string[] = [];
 	for (const key of BOOLEAN_KEYS) {
 		if (!(key in values)) continue;
 		await kv.set(`settings:${key}`, coerceBool(values[key], false));
@@ -279,6 +310,10 @@ export async function writeKvSettings(
 		// Provider client ids are locked behind their editSocial_<id> toggle.
 		if (!isUnlocked(key, values)) continue;
 		const next = trimOrUndefined(values[key]);
+		if (next !== undefined && TEXT_VALIDATORS[key] && !TEXT_VALIDATORS[key](next)) {
+			rejected.push(key);
+			continue;
+		}
 		if (next !== undefined) await kv.set(`settings:${key}`, next);
 		else await kv.delete(`settings:${key}`);
 	}
@@ -303,6 +338,7 @@ export async function writeKvSettings(
 			await kv.delete(`settings:${key}`);
 		}
 	}
+	return rejected;
 }
 
 /** A single provider's resolved credentials. */
@@ -586,7 +622,10 @@ export function resolveSettings(
 
 	const baseUrl =
 		trimOrUndefined(saved[SETTINGS_KEYS.baseUrl]) ?? trimOrUndefined(env.baseUrl);
-	const accentColor = trimOrUndefined(saved[SETTINGS_KEYS.accentColor]);
+	// Ignore a stored accent that isn't a real colour (older junk already saved
+	// before write-time validation existed) so it can't break the theme.
+	const accentRaw = trimOrUndefined(saved[SETTINGS_KEYS.accentColor]);
+	const accentColor = accentRaw && isCssColor(accentRaw) ? accentRaw : undefined;
 
 	const secret =
 		trimOrUndefined(saved[SETTINGS_KEYS.betterAuthSecret]) ??

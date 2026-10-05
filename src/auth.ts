@@ -694,6 +694,13 @@ export function createBetterAuth(
 							// already-captured action name instead.
 							beforeLog: async (entry) => {
 								if (entry.action.startsWith("audit-log:")) return null;
+								// Same for other read-only polling: every page load calls
+								// get-session and the admin UI calls admin:has-permission
+								// several times. They are not security events and buried
+								// real ones (sign-ins, bans) under hundreds of rows.
+								if (entry.action === "get-session" || entry.action === "admin:has-permission") {
+									return null;
+								}
 								return entry;
 							},
 						}),

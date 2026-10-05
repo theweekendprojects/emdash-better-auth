@@ -71,6 +71,7 @@ import {
 	pickAdditionalData as pickAdditionalDataImpl,
 	parseAdditionalData,
 	mergeAdditionalData,
+	effectiveAdminRole,
 } from "./additional-data.js";
 import { constraintToCheck, recordMatchesConstraint } from "./unique-constraint.js";
 
@@ -549,6 +550,9 @@ function withUsername(
 	for (const field of ADDITIONAL_DATA_FIELDS) {
 		out[field] = additional[field] ?? null;
 	}
+	// `row.role` is still EmDash's numeric level here (out.role was just
+	// overwritten with the JSON string role) — derive the admin-plugin role.
+	out.role = effectiveAdminRole(out.role, row.role);
 	return out;
 }
 

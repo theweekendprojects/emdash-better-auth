@@ -55,7 +55,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.8.6";
+export const SETTINGS_PLUGIN_VERSION = "0.8.7";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -345,7 +345,7 @@ function buildSettingsPage(
 					label: "Accent color",
 					placeholder: "#0066cc",
 					description:
-						"Any CSS color (hex, rgb, oklch). Themes the login, account, admin, and organization pages to match your brand. Leave blank for the default blue.",
+						"A hex or rgb()/hsl()/oklch() colour. Themes the login, account, admin, and organization pages to match your brand. Leave blank for the default blue.",
 					initial_value: str(saved[SETTINGS_KEYS.accentColor]),
 				},
 				// --- Secrets (LOCKED by default) ----------------------------------
@@ -586,8 +586,14 @@ export function createPlugin() {
 						interaction.action_id.startsWith("save_social:");
 
 					if (isCoreSave || isSocialSave) {
-						await writeKvSettings(routeCtx.kv, interaction.values ?? {});
+						const rejected = await writeKvSettings(routeCtx.kv, interaction.values ?? {});
 						const saved = await readKvSettings(routeCtx.kv);
+						if (rejected.length > 0) {
+							return buildSettingsPage(saved, {
+								message: `Not saved, invalid value: ${rejected.join(", ")}. Accent must be a hex or rgb()/hsl()/oklch() colour; the site URL must start with http(s)://.`,
+								type: "error",
+							});
+						}
 						const label = isSocialSave
 							? `${interaction.action_id!.split(":")[1]} settings saved.`
 							: "Settings saved.";

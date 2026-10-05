@@ -217,4 +217,13 @@ import { resolveSettings } from "../src/settings.js";
 	equal(resolveSettings({ auditLogRetentionDays: "abc" }, {}).auditLogRetentionDays, 365);
 }
 
+// accentColor: a valid colour is kept; junk already stored (an autofilled
+// email once broke every themed button) resolves to undefined.
+{
+	equal(resolveSettings({ accentColor: "#0066cc" }, {}).accentColor, "#0066cc");
+	equal(resolveSettings({ accentColor: "oklch(0.6 0.2 250)" }, {}).accentColor, "oklch(0.6 0.2 250)");
+	equal(resolveSettings({ accentColor: "heroui-test-1@example.com" }, {}).accentColor, undefined);
+	equal(resolveSettings({ accentColor: "red; background:url(x)" }, {}).accentColor, undefined);
+}
+
 console.log("settings-resolve self-check: all cases passed");

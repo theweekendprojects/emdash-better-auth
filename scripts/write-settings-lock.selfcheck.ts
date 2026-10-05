@@ -124,4 +124,28 @@ const GSK = `settings:${providerClientSecretKey("google")}`;
 	);
 }
 
+// 6. Free-text validation: junk accent / base URL is rejected (reported, not
+//    written, stored value kept); valid values and clearing still work.
+{
+	const { store, kv } = makeKv();
+	const AK = `settings:${SETTINGS_KEYS.accentColor}`;
+	const BK = `settings:${SETTINGS_KEYS.baseUrl}`;
+	store.set(AK, "#123456");
+	const bad = await writeKvSettings(kv, {
+		[SETTINGS_KEYS.accentColor]: "heroui-test-1@example.com",
+		[SETTINGS_KEYS.baseUrl]: "not a url",
+	});
+	deepEqual([...bad].sort(), [SETTINGS_KEYS.accentColor, SETTINGS_KEYS.baseUrl].sort(), "junk rejected");
+	equal(store.get(AK), "#123456", "stored accent kept on rejection");
+	equal(store.has(BK), false, "junk base url not written");
+	const good = await writeKvSettings(kv, {
+		[SETTINGS_KEYS.accentColor]: "rgb(0, 102, 204)",
+		[SETTINGS_KEYS.baseUrl]: "https://example.com",
+	});
+	deepEqual(good, [], "valid values accepted");
+	equal(store.get(AK), "rgb(0, 102, 204)");
+	await writeKvSettings(kv, { [SETTINGS_KEYS.accentColor]: "" });
+	equal(store.has(AK), false, "blank clears accent");
+}
+
 console.log("write-settings-lock self-check: all cases passed");

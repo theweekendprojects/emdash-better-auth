@@ -16,7 +16,7 @@
  * the audit-log endpoints' own session requirement.
  */
 import { getSiteSettings } from "emdash";
-import { auditLogEnabled, accentColor } from "../../providers.ts";
+import { auditLogEnabled, adminEnabled, accentColor } from "../../providers.ts";
 import { requireUser } from "../../route.ts";
 import AuditLogView from "../../ui/AuditLogView.tsx";
 
@@ -46,6 +46,11 @@ if ((user.role ?? 0) < ROLE_ADMIN) {
 }
 
 const accent = await accentColor();
+// /admin only exists when the admin plugin is on; otherwise go back to the
+// user's own account page so the button never lands on a 404.
+const hasAdminUi = await adminEnabled();
+const backHref = hasAdminUi ? "/admin" : "/account";
+const backLabel = hasAdminUi ? "Back to admin" : "Back to account";
 // Header branding (site name + logo), same source as /admin and /account —
 // the page previously had no title/anchor at all, dropping straight into the
 // bare table. Matches the existing pattern, not a new concept.
@@ -74,6 +79,13 @@ const logoUrl = siteSettings?.logo?.url ?? null;
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<AuditLogView mode="admin" siteName={siteName} logoUrl={logoUrl} client:load />
+		<AuditLogView
+			mode="admin"
+			siteName={siteName}
+			logoUrl={logoUrl}
+			backHref={backHref}
+			backLabel={backLabel}
+			client:load
+		/>
 	</body>
 </html>
