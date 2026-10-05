@@ -53,7 +53,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.8.3";
+export const SETTINGS_PLUGIN_VERSION = "0.8.4";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -87,6 +87,15 @@ function buildSettingsPage(
 	const bool = (v: unknown) => v === true || v === "true" || v === "1" || v === "on";
 	const str = (v: unknown) => (typeof v === "string" ? v : "");
 	const hasVal = (v: unknown) => typeof v === "string" && v.trim() !== "";
+	// Coerce a stored value (saved as a string by the form, or a number) to a
+	// non-negative integer for the number_input's initial_value, falling back to
+	// `fallback` for empty/absent/invalid — mirrors coerceNonNegativeInt in
+	// settings.ts so the field shows the same value the auth route resolves.
+	const num = (v: unknown, fallback: number) => {
+		if (v === undefined || v === null || v === "") return fallback;
+		const n = typeof v === "number" ? v : Number(String(v).trim());
+		return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
+	};
 
 	const blocks: unknown[] = [
 		{ type: "header", text: "Better Auth" },
@@ -248,15 +257,26 @@ function buildSettingsPage(
 						"Record auth events (sign-in/up, password & email changes, 2FA, admin ban/impersonate) with IP, user-agent, and inferred severity. Admins see a site-wide log at /audit-log; each user sees their own 'Recent activity' in their account. Writes are non-blocking and PII is redacted.",
 					initial_value: bool(saved[SETTINGS_KEYS.auditLogEnabled]),
 				},
-				{
-					type: "text_input",
-					action_id: SETTINGS_KEYS.auditLogRetentionDays,
-					label: "Audit log retention (days)",
-					placeholder: "365",
-					description:
-						"Delete entries older than this many days (swept in the background off auth traffic). 0 = keep forever. Default 365 (PCI DSS baseline). Raise for HIPAA (6y ≈ 2190) or SOX (7y ≈ 2555); verify against your own compliance needs.",
-					initial_value: str(saved[SETTINGS_KEYS.auditLogRetentionDays]),
-				},
+				// Retention is only meaningful when audit logging is on, so the
+				// field is CONDITIONAL: shown only when the toggle is saved on.
+				// The handler re-renders buildSettingsPage(saved) after every
+				// save, so flipping the toggle on + Save reveals this field on the
+				// next render (and hides it again when turned off). `number_input`
+				// makes it numeric-only in the browser (no free-text); it has no
+				// description/placeholder slot, so the compliance guidance moves to
+				// a context note below the form. `min: 0` since 0 = keep forever
+				// and negatives are meaningless.
+				...(bool(saved[SETTINGS_KEYS.auditLogEnabled])
+					? [
+							{
+								type: "number_input",
+								action_id: SETTINGS_KEYS.auditLogRetentionDays,
+								label: "Audit log retention (days)",
+								initial_value: num(saved[SETTINGS_KEYS.auditLogRetentionDays], 365),
+								min: 0,
+							},
+						]
+					: []),
 				// --- Subscription billing (Stripe) --------------------------------
 				{
 					type: "toggle",
@@ -320,6 +340,17 @@ function buildSettingsPage(
 			type: "context",
 			text: `Identity provider (OIDC): when enabled, discovery is at ${str(saved[SETTINGS_KEYS.baseUrl]).replace(/\/+$/, "") || "https://<your-site>"}/api/auth/.well-known/openid-configuration and the OAuth endpoints under /api/auth/oauth2/*. Register client redirect URIs from the account 'OAuth clients' tab. Leaving the "Better Auth secret" blank (Worker secret) is strongly recommended here — it signs the ID tokens.`,
 		},
+		// Retention guidance — the number_input field has no description slot, so
+		// the compliance context lives here. Only shown when the field is (i.e.
+		// when audit logging is on), so it never dangles without its field.
+		...(bool(saved[SETTINGS_KEYS.auditLogEnabled])
+			? [
+					{
+						type: "context",
+						text: "Audit log retention: entries older than this many days are deleted in the background off auth traffic. 0 = keep forever. Default 365 (PCI DSS baseline). Raise for HIPAA (6y ≈ 2190) or SOX (7y ≈ 2555); verify against your own compliance needs.",
+					},
+				]
+			: []),
 	];
 
 	// --- Status hints: flag a toggle that's ON but inert (missing deps) -------

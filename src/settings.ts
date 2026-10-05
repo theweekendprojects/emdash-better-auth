@@ -176,12 +176,17 @@ const SECRET_KEYS: readonly string[] = [
 const TEXT_KEYS: readonly string[] = [
 	SETTINGS_KEYS.baseUrl,
 	SETTINGS_KEYS.accentColor,
-	// Stored as text (the form field is a number input); coerced to a number in
-	// resolveSettings. Kept here so writeKvSettings persists/clears it like any
-	// other text field.
-	SETTINGS_KEYS.auditLogRetentionDays,
 	...SOCIAL_PROVIDERS.map((p) => providerClientIdKey(p.id)),
 ];
+
+/**
+ * Number-typed setting keys. The admin UI renders these as a `number_input`,
+ * which submits an actual number (not a string) — so they must NOT go through
+ * the text path, whose `trimOrUndefined` would see a non-string, return
+ * undefined, and DELETE the key (silently resetting it to the default on every
+ * save). Handled by their own coerce-and-store branch in writeKvSettings.
+ */
+const NUMBER_KEYS: readonly string[] = [SETTINGS_KEYS.auditLogRetentionDays];
 
 /**
  * Read every saved setting from plugin kv into a flat `{ field: value }` map.
@@ -190,7 +195,7 @@ const TEXT_KEYS: readonly string[] = [
  * same values). Missing keys are simply absent from the map.
  */
 export async function readKvSettings(kv: KVAccess): Promise<Record<string, unknown>> {
-	const allKeys = [...BOOLEAN_KEYS, ...SECRET_KEYS, ...TEXT_KEYS];
+	const allKeys = [...BOOLEAN_KEYS, ...SECRET_KEYS, ...TEXT_KEYS, ...NUMBER_KEYS];
 	const out: Record<string, unknown> = {};
 	for (const key of allKeys) {
 		const value = await kv.get<unknown>(`settings:${key}`);
@@ -233,6 +238,19 @@ export async function writeKvSettings(
 		const next = trimOrUndefined(values[key]);
 		// Only update when a new secret was entered; blank = keep existing.
 		if (next !== undefined) await kv.set(`settings:${key}`, next);
+	}
+	for (const key of NUMBER_KEYS) {
+		if (!(key in values)) continue;
+		// number_input submits a number; also tolerate a numeric string. Store a
+		// clamped non-negative integer; a blank/invalid value deletes the key so
+		// it falls back to the default (not 0 — see coerceNonNegativeInt).
+		const raw = values[key];
+		const n = typeof raw === "number" ? raw : Number(String(raw ?? "").trim());
+		if (String(raw ?? "").trim() !== "" && Number.isFinite(n) && n >= 0) {
+			await kv.set(`settings:${key}`, Math.floor(n));
+		} else {
+			await kv.delete(`settings:${key}`);
+		}
 	}
 }
 

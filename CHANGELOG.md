@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-04
+
+### Changed
+
+- **Audit log retention field is now conditional and numeric.** The
+  "Audit log retention (days)" field only appears when audit logging is
+  toggled on (it's meaningless otherwise), and it's a `number_input` so the
+  browser accepts digits only instead of free text. Its compliance guidance
+  moved to a context note (number_input has no description slot).
+
+### Fixed
+
+- **Retention value could silently reset on save.** The field was persisted
+  through the text path, whose trim step returned `undefined` for the number
+  the `number_input` submits — deleting the key and falling back to the 365
+  default on every save. Retention now has its own numeric write branch
+  (coerce + clamp to a non-negative integer; blank/invalid clears to default,
+  an explicit `0` is stored as keep-forever).
+
 ## [0.8.3] - 2026-10-04
 
 ### Added
@@ -411,7 +430,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.0...v0.8.1
