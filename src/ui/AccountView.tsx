@@ -45,6 +45,7 @@ import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
+import { buildNavLinks } from "./nav-links.js";
 
 import { authClient } from "../client.js";
 
@@ -132,6 +133,8 @@ export interface AccountViewProps {
 	 * user, so a user never sees anyone else's). Defaults to false.
 	 */
 	auditLogEnabled?: boolean;
+	/** Whether the admin user-management plugin is on (links to /admin). */
+	adminEnabled?: boolean;
 	/**
 	 * Whether email-OTP is enabled (mirrors `emailOtpEnabled`). When true, the
 	 * email-otp UI plugin wires OTP-based email change / verification into the
@@ -166,6 +169,7 @@ export default function AccountView({
 	billingEnabled = false,
 	oidcProviderEnabled = false,
 	auditLogEnabled = false,
+	adminEnabled = false,
 	emailOtpEnabled = false,
 	multiSessionEnabled = false,
 	planPriceIds = {},
@@ -201,9 +205,13 @@ export default function AccountView({
 	// UserButton dropdown entry back to EmDash's own admin (role-gated
 	// server-side, see isEmdashAdmin's doc comment). Empty array when not an
 	// admin — UserButton treats an empty `links` the same as omitting it.
-	const adminLinks: UserButtonLink[] = isEmdashAdmin
-		? [{ label: "EmDash Admin", href: "/_emdash/admin", visibility: "authenticated" }]
-		: [];
+	const adminLinks: UserButtonLink[] = buildNavLinks({
+		isEmdashAdmin,
+		adminEnabled,
+		auditLogEnabled,
+		orgEnabled,
+		current: "account",
+	});
 
 	return (
 		<QueryClientProvider client={queryClient}>

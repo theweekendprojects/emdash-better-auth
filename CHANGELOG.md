@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-05
+
+### Added
+
+- **Avatar-menu links to the plugin's other pages.** `/admin` (user management),
+  `/audit-log` and `/organization` had no link anywhere and were reachable only
+  by typing the URL. The avatar menu on the account, admin and organization
+  pages now lists "Manage users", "Audit log" and "Organization" (each only when
+  its feature is on; the first two only for EmDash admins; a page never links to
+  itself), each with an icon.
+- **EmDash logo on the "EmDash Admin" menu item** (the logo mark from EmDash's
+  own admin, single colour to match the other menu icons).
+
 ## [0.8.7] - 2026-10-05
 
 ### Fixed
@@ -509,7 +522,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.7...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.7...v0.9.0
 [0.8.7]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.4...v0.8.5

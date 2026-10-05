@@ -27,6 +27,7 @@ import {
 	multiSessionEnabled,
 	planPriceIds,
 	accentColor,
+	adminEnabled,
 } from "../providers.ts";
 import { requireUser } from "../route.ts";
 import AccountView from "../ui/AccountView.tsx";
@@ -60,6 +61,8 @@ const isEmailOtpEnabled = await emailOtpEnabled();
 const isMultiSessionEnabled = await multiSessionEnabled();
 // Audit log — gates the per-user "Recent activity" card in the account view.
 const isAuditLogEnabled = await auditLogEnabled();
+// Admin plugin — gates the "Manage users" avatar-menu link.
+const isAdminEnabled = await adminEnabled();
 
 const knownViews = Object.values(viewPaths.settings) as string[];
 const allowedViews = [
@@ -145,6 +148,7 @@ const accent = await accentColor();
 			multiSessionEnabled={isMultiSessionEnabled}
 			planPriceIds={resolvedPlanPriceIds}
 			isEmdashAdmin={isEmdashAdmin}
+			adminEnabled={isAdminEnabled}
 			client:load
 		/>
 	</body>

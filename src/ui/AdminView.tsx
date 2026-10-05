@@ -28,6 +28,7 @@ import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
+import { buildNavLinks } from "./nav-links.js";
 
 import { authClient } from "../client.js";
 
@@ -50,22 +51,31 @@ export interface AdminViewProps {
 	siteName?: string;
 	/** Site logo URL; when set, shown in the header instead of the site name. */
 	logoUrl?: string | null;
+	/** Audit logging on (adds an "Audit log" menu link). */
+	auditLogEnabled?: boolean;
+	/** Organizations on (adds an "Organization" menu link). */
+	orgEnabled?: boolean;
 }
 
-// Reaching this island at all already requires EmDash admin (role >= 50) —
-// enforced server-side in admin/[...path].astro — so the "EmDash Admin" link
-// back to /_emdash/admin is unconditional here, unlike AccountView where
-// non-admins also render the UserButton.
-const ADMIN_LINKS: UserButtonLink[] = [
-	{ label: "EmDash Admin", href: "/_emdash/admin", visibility: "authenticated" },
-];
 
 export default function AdminView({
 	path = "users",
 	siteName = "Admin",
 	logoUrl = null,
+	auditLogEnabled = false,
+	orgEnabled = false,
 }: AdminViewProps) {
 	const queryClient = getQueryClient();
+	// Reaching this island at all requires EmDash admin and the admin plugin
+	// (enforced server-side in admin/[...path].astro), so both are implied; the
+	// "Manage users" link to this very page is hidden via `current`.
+	const adminLinks: UserButtonLink[] = buildNavLinks({
+		isEmdashAdmin: true,
+		adminEnabled: true,
+		auditLogEnabled,
+		orgEnabled,
+		current: "admin",
+	});
 
 	return (
 		<QueryClientProvider client={queryClient}>
@@ -97,7 +107,7 @@ export default function AdminView({
 									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
 								)}
 							</Link>
-							<UserButton size="icon" placement="bottom end" links={ADMIN_LINKS} />
+							<UserButton size="icon" placement="bottom end" links={adminLinks} />
 						</div>
 					</header>
 

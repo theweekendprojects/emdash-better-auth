@@ -15,7 +15,13 @@
  * island.
  */
 import { getSiteSettings } from "emdash";
-import { orgEnabled, teamsEnabled as teamsEnabledFlag, accentColor } from "../../providers.ts";
+import {
+	orgEnabled,
+	teamsEnabled as teamsEnabledFlag,
+	adminEnabled,
+	auditLogEnabled,
+	accentColor,
+} from "../../providers.ts";
 import { requireUser } from "../../route.ts";
 import OrganizationView from "../../ui/OrganizationView.tsx";
 
@@ -42,6 +48,9 @@ if (gate) return gate;
 // EmDash's ADMIN role level — gates the UserButton's "EmDash Admin" link.
 // Cosmetic only (EmDash's own admin area re-checks role on entry).
 const ROLE_ADMIN = 50;
+// Feature flags for the avatar-menu links (Manage users / Audit log).
+const hasAdminUi = await adminEnabled();
+const hasAuditLog = await auditLogEnabled();
 const isEmdashAdmin = (Astro.locals.user.role ?? 0) >= ROLE_ADMIN;
 
 const siteSettings = await getSiteSettings().catch(() => null);
@@ -76,6 +85,8 @@ const accent = await accentColor();
 			logoUrl={logoUrl}
 			teamsEnabled={teams}
 			isEmdashAdmin={isEmdashAdmin}
+			adminEnabled={hasAdminUi}
+			auditLogEnabled={hasAuditLog}
 			client:load
 		/>
 	</body>

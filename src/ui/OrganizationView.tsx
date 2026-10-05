@@ -32,6 +32,7 @@ import { Link, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
+import { buildNavLinks } from "./nav-links.js";
 
 import { authClient } from "../client.js";
 
@@ -161,6 +162,10 @@ export interface OrganizationViewProps {
 	 * the link is conditional here (same pattern as AccountView).
 	 */
 	isEmdashAdmin?: boolean;
+	/** Admin user-management plugin on (adds a "Manage users" menu link). */
+	adminEnabled?: boolean;
+	/** Audit logging on (adds an "Audit log" menu link). */
+	auditLogEnabled?: boolean;
 }
 
 export default function OrganizationView({
@@ -169,11 +174,19 @@ export default function OrganizationView({
 	logoUrl = null,
 	teamsEnabled = false,
 	isEmdashAdmin = false,
+	adminEnabled = false,
+	auditLogEnabled = false,
 }: OrganizationViewProps) {
 	const queryClient = getQueryClient();
-	const adminLinks: UserButtonLink[] = isEmdashAdmin
-		? [{ label: "EmDash Admin", href: "/_emdash/admin", visibility: "authenticated" }]
-		: [];
+	const adminLinks: UserButtonLink[] = buildNavLinks({
+		isEmdashAdmin,
+		adminEnabled,
+		auditLogEnabled,
+		// This IS the organization page, so orgEnabled is implied; current
+		// hides its own link.
+		orgEnabled: true,
+		current: "organization",
+	});
 
 	return (
 		<QueryClientProvider client={queryClient}>
