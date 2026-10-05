@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-05
+
+### Changed
+
+- **README rewritten** for the current feature set (social, passwordless, 2FA,
+  passkeys, API keys, organizations, OIDC provider, Stripe billing, audit log),
+  with a feature-toggle table, the configuration/env reference, and the gotchas
+  (autofill-locked secrets, plaintext-at-rest, sign-out ending all accounts) up
+  front. `package.json` description updated to match.
+
 ## [0.9.2] - 2026-10-05
 
 ### Added
@@ -543,7 +553,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.7...v0.9.0
