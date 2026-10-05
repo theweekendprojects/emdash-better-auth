@@ -47,6 +47,12 @@ if ((user.role ?? 0) < ROLE_ADMIN) {
 }
 
 const accent = await accentColor();
+// Header branding (site name + logo), same source as /admin and /account —
+// the page previously had no title/anchor at all, dropping straight into the
+// bare table. Matches the existing pattern, not a new concept.
+const siteSettings = await getSiteSettings().catch(() => null);
+const siteName = siteSettings?.title || "Admin";
+const logoUrl = siteSettings?.logo?.url ?? null;
 ---
 
 <!doctype html>
@@ -69,6 +75,6 @@ const accent = await accentColor();
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<AuditLogView mode="admin" client:load />
+		<AuditLogView mode="admin" siteName={siteName} logoUrl={logoUrl} client:load />
 	</body>
 </html>

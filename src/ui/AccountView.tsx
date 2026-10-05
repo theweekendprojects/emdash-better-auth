@@ -176,6 +176,16 @@ export default function AccountView({
 		});
 	}, [billingEnabled, planPriceIds]);
 
+	// Settings column width: 28rem fits the base 2-tab layout (Account +
+	// Security). Each of org/oidc/multi-session adds its own Settings tab;
+	// with 3+ tabs the row overflows/wraps at 28rem and cards like
+	// multi-session's account list get cramped, so widen it when any of them
+	// are on.
+	const extraTabCount = [orgEnabled, oidcProviderEnabled, multiSessionEnabled].filter(
+		Boolean,
+	).length;
+	const settingsMaxWidth = extraTabCount > 0 ? "36rem" : "28rem";
+
 	return (
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -285,15 +295,17 @@ export default function AccountView({
 
 					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
 						{/* Constrain the settings column so the Account tab matches
-						    the compact, centered width the Security tab already uses.
-						    Without this, Better Auth UI's account cards stretch the
-						    full viewport width. Inline style (not a Tailwind class):
-						    this island only emits utilities Tailwind finds via the
-						    @source scan of the HeroUI / Better Auth UI packages (see
-						    auth.css), so a max-w-* class used only here is purged and
-						    silently no-ops — the inline style can't be. ~28rem ≈ the
-						    Security panel's column width. */}
-						<div style={{ width: "100%", maxWidth: "28rem" }}>
+						    the compact, centered width the Security tab uses with the
+						    base plugin set. Without this, Better Auth UI's account
+						    cards stretch the full viewport width. Inline style (not a
+						    Tailwind class): this island only emits utilities Tailwind
+						    finds via the @source scan of the HeroUI / Better Auth UI
+						    packages (see auth.css), so a max-w-* class used only here
+						    is purged and silently no-ops — the inline style can't be.
+						    `settingsMaxWidth` widens this when extra tabs are on (see
+						    its definition above) so the tab row and multi-session's
+						    account list have enough room. */}
+						<div style={{ width: "100%", maxWidth: settingsMaxWidth }}>
 							<Settings path={path} />
 							{/* Per-user "Recent activity": the user's own auth events.
 							    Only on the account landing view (not security/billing

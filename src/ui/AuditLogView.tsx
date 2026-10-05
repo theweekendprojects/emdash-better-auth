@@ -24,7 +24,7 @@
 
 import "./auth.css";
 
-import { Chip, Spinner } from "@heroui/react";
+import { Chip, Link, Spinner } from "@heroui/react";
 import {
 	QueryClient,
 	QueryClientProvider,
@@ -71,6 +71,18 @@ const SEVERITY_COLOR: Record<Entry["severity"], "default" | "warning" | "danger"
 function fmtTime(iso: string): string {
 	const d = new Date(iso);
 	return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+/**
+ * Shorten an address for the table cell: the full value is still available
+ * via the `title` tooltip. An IPv6 address is long enough to blow out a
+ * narrow column (e.g. the account page's compact width) and push the
+ * Severity/IP headers into each other — truncating is a display choice, not
+ * data loss (the full value isn't needed at a glance in a log table).
+ */
+function shortenIp(ip: string | null): string {
+	if (!ip) return "—";
+	return ip.length > 15 ? `${ip.slice(0, 15)}…` : ip;
 }
 
 interface AuditLogTableProps {
@@ -139,15 +151,28 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 				</div>
 			)}
 
-			<div className="w-full overflow-x-auto">
-				<table className="w-full border-collapse text-sm">
+			{/* Card boundary (rounded border + bg) so the table reads as one
+			    section instead of floating directly on the page background —
+			    matches the bordered-card look the rest of the account/admin
+			    islands use. `table-fixed` + `<colgroup>` give every column a
+			    committed width so Severity/IP never collide and Action truncates
+			    instead of wrapping into the row below it. */}
+			<div className="w-full overflow-x-auto rounded-lg border border-default-200 bg-content1">
+				<table className="w-full table-fixed border-collapse text-sm">
+					<colgroup>
+						<col className="w-[22%]" />
+						<col className="w-[30%]" />
+						<col className="w-[14%]" />
+						<col className="w-[14%]" />
+						<col className="w-[20%]" />
+					</colgroup>
 					<thead>
 						<tr className="border-b border-default-200 text-left text-xs uppercase text-foreground-500">
-							<th className="py-2 pr-3 font-medium">When</th>
-							<th className="py-2 pr-3 font-medium">Action</th>
-							<th className="py-2 pr-3 font-medium">Status</th>
-							<th className="py-2 pr-3 font-medium">Severity</th>
-							<th className="py-2 pr-3 font-medium">IP</th>
+							<th className="py-2 px-3 font-medium">When</th>
+							<th className="py-2 px-3 font-medium">Action</th>
+							<th className="py-2 px-3 font-medium">Status</th>
+							<th className="py-2 px-3 font-medium">Severity</th>
+							<th className="py-2 px-3 font-medium">IP</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -165,10 +190,14 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 							</tr>
 						) : (
 							rows.map((row) => (
-								<tr key={row.id} className="border-b border-default-100">
-									<td className="py-2 pr-3 whitespace-nowrap">{fmtTime(row.createdAt)}</td>
-									<td className="py-2 pr-3 font-mono text-xs">{row.action}</td>
-									<td className="py-2 pr-3">
+								<tr key={row.id} className="border-b border-default-100 last:border-b-0">
+									<td className="py-2 px-3 whitespace-nowrap text-xs">
+										{fmtTime(row.createdAt)}
+									</td>
+									<td className="py-2 px-3 truncate font-mono text-xs" title={row.action}>
+										{row.action}
+									</td>
+									<td className="py-2 px-3">
 										<Chip
 											size="sm"
 											variant="flat"
@@ -177,12 +206,17 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 											{row.status}
 										</Chip>
 									</td>
-									<td className="py-2 pr-3">
+									<td className="py-2 px-3">
 										<Chip size="sm" variant="flat" color={SEVERITY_COLOR[row.severity]}>
 											{row.severity}
 										</Chip>
 									</td>
-									<td className="py-2 pr-3 font-mono text-xs">{row.ipAddress ?? "—"}</td>
+									<td
+										className="py-2 px-3 truncate font-mono text-xs"
+										title={row.ipAddress ?? undefined}
+									>
+										{shortenIp(row.ipAddress)}
+									</td>
 								</tr>
 							))
 						)}
@@ -221,22 +255,52 @@ export interface AuditLogViewProps {
 	mode?: "admin" | "self";
 	pageSize?: number;
 	hideFilter?: boolean;
+	/** Brand name shown in the header (admin mode only). */
+	siteName?: string;
+	/** Site logo URL; when set, shown in the header instead of the site name. */
+	logoUrl?: string | null;
 }
 
 /**
  * Standalone island wrapper (QueryClient + theme). Used by the admin
  * `/audit-log` page. The per-user card renders <AuditLogTable> directly inside
  * the account island, which already provides the QueryClient/theme context.
+ *
+ * In admin mode this also renders a header bar (site name/logo + a "Back to
+ * admin" link) — the same sticky-header pattern AdminView/AuthView use. The
+ * page previously dropped straight into a bare table with no title or anchor;
+ * this gives it the same visual frame every other plugin page already has.
  */
 export default function AuditLogView({
 	mode = "admin",
 	pageSize,
 	hideFilter,
+	siteName = "Admin",
+	logoUrl = null,
 }: AuditLogViewProps) {
 	const queryClient = getQueryClient();
 	return (
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+				{mode === "admin" && (
+					<header className="sticky top-0 z-10 bg-background border-b">
+						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center gap-3">
+							<Link href="/" className="no-underline text-foreground">
+								{logoUrl ? (
+									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
+								) : (
+									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+								)}
+							</Link>
+							<div className="flex items-center gap-3">
+								<h2 className="text-sm font-medium text-foreground-500">Audit log</h2>
+								<Link href="/admin" className="text-sm">
+									Back to admin
+								</Link>
+							</div>
+						</div>
+					</header>
+				)}
 				<main className="flex-1 flex flex-col items-center p-4 md:p-6">
 					<div style={{ width: "100%", maxWidth: "64rem" }}>
 						<AuditLogTable mode={mode} pageSize={pageSize} hideFilter={hideFilter} />

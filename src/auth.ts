@@ -683,6 +683,19 @@ export function createBetterAuth(
 									? { enabled: true, days: options.auditLogRetentionDays as number }
 									: { enabled: false, days: 0 },
 							storage: createAuditLogStorage(storage.auditLogs),
+							// Suppress the audit viewer's OWN reads from the log it's
+							// reading. Without this, every open of the admin page or the
+							// account "Recent activity" card logs an `audit-log:list` /
+							// `audit-log::id` entry, which — because viewing the log is
+							// itself the most frequent action once it's on — quickly
+							// drowns the real security events (sign-ins, bans, OAuth
+							// grants) the feature exists to surface. `paths` can't do this
+							// (it's an allowlist, not a denylist), so filter by the
+							// already-captured action name instead.
+							beforeLog: async (entry) => {
+								if (entry.action.startsWith("audit-log:")) return null;
+								return entry;
+							},
 						}),
 					]
 				: []),

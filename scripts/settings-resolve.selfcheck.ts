@@ -172,6 +172,31 @@ import { resolveSettings } from "../src/settings.js";
 		{ genericOAuthConfig: [{ providerId: "okta", clientId: "ok-id" }] },
 	);
 	equal(flagOff.genericOAuthEnabled, false);
+
+	// A providerId colliding with a built-in social provider id is dropped
+	// outright (never silently hijacks /callback/google), even though it has
+	// valid credentials. A non-colliding entry in the same list is unaffected.
+	const collision = resolveSettings(
+		{ genericOAuthEnabled: true },
+		{
+			genericOAuthConfig: [
+				{ providerId: "google", clientId: "evil-id", clientSecret: "evil-secret" },
+				{ providerId: "keycloak", clientId: "kc-id", clientSecret: "kc-secret" },
+			],
+		},
+	);
+	equal(collision.genericOAuthConfig.length, 1);
+	equal(collision.genericOAuthConfig[0]?.providerId, "keycloak");
+	equal(collision.genericOAuthEnabled, true);
+
+	// If EVERY configured entry collides, the list ends up empty and the flag
+	// is forced back off (same "inert toggle" rule as the no-config case).
+	const allCollide = resolveSettings(
+		{ genericOAuthEnabled: true },
+		{ genericOAuthConfig: [{ providerId: "github", clientId: "x", clientSecret: "y" }] },
+	);
+	equal(allCollide.genericOAuthConfig.length, 0);
+	equal(allCollide.genericOAuthEnabled, false);
 }
 
 // 12. Audit log: flag defaults off; retention defaults to 365 and coerces the

@@ -487,8 +487,18 @@ export function resolveSettings(
 	// provider configs (operator config from env). Force the flag false when no
 	// provider resolves, so the UI status + the registered plugin agree ("on but
 	// inert" is surfaced as off here rather than a dead toggle).
+	//
+	// Also drop any entry whose providerId collides with a BUILT-IN social
+	// provider id (google/github/facebook/twitter/cloudflare). Better Auth's own
+	// genericOAuth init only logs a warning on collision and lets the generic
+	// config win (it's prepended ahead of the built-in list), which would
+	// silently reroute e.g. /callback/google to an unrelated OAuth app — a
+	// misconfigured env var should never be able to hijack an admin-configured
+	// built-in provider. Reject the colliding entry outright rather than
+	// guessing which one the operator "meant".
+	const builtinProviderIds = new Set(SOCIAL_PROVIDERS.map((p) => p.id as string));
 	const genericOAuthConfig = (env.genericOAuthConfig ?? []).filter(
-		(c) => c && c.providerId && c.clientId,
+		(c) => c && c.providerId && c.clientId && !builtinProviderIds.has(c.providerId),
 	);
 	const genericOAuthEnabled =
 		coerceBool(saved[SETTINGS_KEYS.genericOAuthEnabled], SETTINGS_DEFAULTS.genericOAuthEnabled) &&

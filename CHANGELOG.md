@@ -6,6 +6,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-04
+
+### Fixed
+
+- **Generic OAuth could silently hijack a built-in social provider.** A
+  `GENERIC_OAUTH_CONFIG` entry whose `providerId` matched a built-in id
+  (`google`/`github`/`facebook`/`twitter`/`cloudflare`) would be accepted by
+  Better Auth (only a server log warning, never rejected) and would **win**
+  over the admin-configured built-in provider for that callback path. Now
+  rejected at `resolveSettings` — a colliding entry is dropped before it
+  ever reaches the plugin, same as any other invalid entry.
+- **Signing out of one account killed the whole browser session when
+  multi-session was on.** `/sign-out` only ends the *active* Better Auth
+  session; it never promotes another signed-in account. The EmDash session
+  bridge was tearing itself down unconditionally on any sign-out, so a user
+  with two concurrent accounts lost their EmDash session entirely even
+  though a second account was still validly signed in. The bridge now checks
+  for a remaining device session first and re-bridges to it instead of
+  logging out, matching the "switch accounts" intent of multi-session.
+- **Audit logging drowned itself in its own noise.** Every view of the
+  audit log (the admin page, the account "Recent activity" card) was itself
+  captured as a new `audit-log:*` entry, so the feature's own traffic
+  quickly buried the real events (sign-ins, bans, OAuth grants) it exists to
+  surface. Added a `beforeLog` filter that drops the viewer's own reads.
+
+### Changed
+
+- **Audit log table UI.** Fixed column widths + truncation (the Severity and
+  IP columns no longer visually collide, the Action column no longer wraps
+  into the row below it), a card border around the table instead of it
+  floating on the bare page background, a shortened IP display (full value
+  still in the `title` tooltip), and a header bar on the admin `/audit-log`
+  page (previously had no title or site branding at all).
+- **Account settings column widens** when org/OIDC/multi-session add extra
+  Settings tabs — the fixed 28rem width was sized for the base 2-tab layout
+  and became cramped once more tabs were registered.
+
 ## [0.8.1] - 2026-10-04
 
 ### Fixed
@@ -358,7 +395,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.6.0...v0.7.0

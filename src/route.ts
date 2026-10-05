@@ -342,12 +342,43 @@ const handler: APIRoute = async ({ request, session, site }) => {
 			}
 
 			// Better-Auth sign-out clears only its own cookie; tear down EmDash's
-			// bridged session too so the user is fully logged out.
+			// bridged session too so the user is fully logged out — UNLESS
+			// multi-session is on and another account is still signed in on this
+			// browser. Multi-session's /sign-out only deletes the ACTIVE session's
+			// row; it never promotes a different concurrent session to active, so
+			// without this check we'd nuke the EmDash session even though the
+			// user is still validly logged into another account (that account's
+			// own cookie is untouched by this response). Re-bridge to that
+			// account instead of logging out entirely, matching what multi-session
+			// is for ("switch accounts", not "always lose your session").
+			let rebridgedOnSignOut = false;
 			if (session && isSessionClearing && response.ok) {
-				try {
-					session.destroy();
-				} catch (err) {
-					console.error("[better-auth] session destroy failed:", err);
+				if (authOptions.multiSessionEnabled) {
+					try {
+						// Use the ORIGINAL request's cookies, not the response's — the
+						// response only clears the primary session cookie; any other
+						// device-session cookies multi-session tracks are untouched on
+						// the request that got us here.
+						const remaining = await auth.api.listDeviceSessions({
+							headers: request.headers,
+						});
+						const next = Array.isArray(remaining) ? remaining[0] : undefined;
+						const nextUserId = next?.user?.id;
+						if (nextUserId) {
+							await session.set("user", { id: nextUserId });
+							rebridgedOnSignOut = true;
+						}
+					} catch (err) {
+						// Fall through to destroy — never block sign-out on this check.
+						console.error("[better-auth] multi-session re-bridge check failed:", err);
+					}
+				}
+				if (!rebridgedOnSignOut) {
+					try {
+						session.destroy();
+					} catch (err) {
+						console.error("[better-auth] session destroy failed:", err);
+					}
 				}
 			}
 
@@ -368,12 +399,16 @@ const handler: APIRoute = async ({ request, session, site }) => {
 			// `better-auth.session_token=` cookie (empty, Max-Age=0, to delete it),
 			// which `responseSetSessionCookie` matches — so without excluding the
 			// clearing path here, sign-out would wrongly re-set the hint to "1".
-			const cleared = session && isSessionClearing && response.ok;
+			// EXCEPT when multi-session re-bridged to another still-valid account
+			// above — the browser is still logged in (just to a different user),
+			// so the hint must stay "1", not clear.
+			const cleared = session && isSessionClearing && response.ok && !rebridgedOnSignOut;
 			const established =
-				!cleared &&
-				session &&
-				(isSessionEstablishing || responseSetSessionCookie) &&
-				response.ok;
+				(rebridgedOnSignOut && session && isSessionClearing && response.ok) ||
+				(!cleared &&
+					session &&
+					(isSessionEstablishing || responseSetSessionCookie) &&
+					response.ok);
 			if (established || cleared) {
 				const hint = established
 					? "ba_logged_in=1; Path=/; Max-Age=604800; Secure; SameSite=Lax"
