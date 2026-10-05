@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-05
+
+### Added
+
+- **Links from the EmDash admin settings page to the Better Auth UI.** The
+  "other half of this UI" note now has real clickable links (My account,
+  Sign-in page, and Manage users / Organization / Audit log when those features
+  are on) instead of just naming the paths. The reverse links (Better Auth UI
+  back to EmDash admin) already existed, so navigation is now two-way.
+
 ## [0.9.1] - 2026-10-05
 
 ### Changed
@@ -533,7 +543,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.7...v0.9.0
 [0.8.7]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.6...v0.8.7

@@ -55,7 +55,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.9.1";
+export const SETTINGS_PLUGIN_VERSION = "0.9.2";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -447,16 +447,37 @@ function buildSettingsPage(
 	// separate surface from this EmDash admin page — different auth system,
 	// different look, no shared nav between the two. Without this, an admin
 	// configuring things here has no indication those pages even exist.
-	// `banner` here only carries title/description (no link/button field in
-	// EmDash's Block Kit, confirmed by every other banner on this page being
-	// text-only), so the path is spelled out for the admin to open directly —
-	// same convention the social-provider callback-URL banners already use.
+	// A banner explains the split, then an `actions` block gives real clickable
+	// links (Block Kit `link` elements, external target) — the Better Auth UI
+	// user menu already links back here, so this closes the loop both ways.
 	blocks.push({
 		type: "banner",
 		title: "The other half of this UI",
 		description:
-			"Sign-in/sign-up, each user's own account settings, and (when enabled) the admin user list, org management, and OAuth client manager all live on separate Better Auth UI pages, not here. Visit /account to see your own profile, or /admin once 'Enable admin user management' is on. Each of those pages' user menu has an 'EmDash Admin' link back to this admin area.",
+			"Sign-in/sign-up, each user's own account settings, and (when enabled) the admin user list, org management, and OAuth client manager live on separate Better Auth UI pages, not here. Open them below; their user menu links back to this admin area.",
 		variant: "default",
+	});
+	// Absolute targets so the links work regardless of where this admin page is
+	// mounted. Use the saved canonical base URL; if none is set yet, fall back to
+	// root-relative paths (still valid, just same-origin).
+	const uiBase = str(saved[SETTINGS_KEYS.baseUrl]).replace(/\/+$/, "");
+	const uiLink = (linkPath: string, label: string) => ({
+		type: "link" as const,
+		label,
+		target: { kind: "external" as const, url: `${uiBase}${linkPath}` },
+		appearance: "secondary" as const,
+	});
+	blocks.push({
+		type: "actions",
+		elements: [
+			uiLink("/account", "My account"),
+			uiLink("/auth/sign-in", "Sign-in page"),
+			// These only resolve when their feature is on (the routes 404
+			// otherwise), so only offer them then.
+			...(bool(saved[SETTINGS_KEYS.adminEnabled]) ? [uiLink("/admin", "Manage users")] : []),
+			...(bool(saved[SETTINGS_KEYS.orgEnabled]) ? [uiLink("/organization", "Organization")] : []),
+			...(bool(saved[SETTINGS_KEYS.auditLogEnabled]) ? [uiLink("/audit-log", "Audit log")] : []),
+		],
 	});
 
 	// --- Social sign-in providers (one stacked section each) ------------------
