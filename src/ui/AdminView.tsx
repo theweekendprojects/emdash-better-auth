@@ -101,7 +101,7 @@ export default function AdminView({
 						</div>
 					</header>
 
-					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
+					<main className="admin-view flex-1 flex flex-col items-center my-auto p-4 md:p-6">
 						<div style={{ width: "100%", maxWidth: "64rem" }}>
 							<Admin view={path} />
 						</div>

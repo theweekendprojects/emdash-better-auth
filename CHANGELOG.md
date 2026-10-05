@@ -22,6 +22,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   EmDash admins were refused. A user with no explicitly stored Better Auth role
   and an EmDash role of 50 (admin) or higher now counts as `admin`. A role set
   through the admin UI still wins.
+- **Admin users table unusable on phones.** Only the Name column was visible;
+  Role and Status sat off-screen behind an invisible horizontal scroll. Below
+  40rem the table now fits the screen, drops the "Created" column and truncates
+  long names and emails.
 - **Audit log back button.** The header now has a proper "Back to admin" button
   (or "Back to account" when the admin plugin is off, so it never lands on a 404)
   and the page has a visible "Audit log" title.

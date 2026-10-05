@@ -42,3 +42,38 @@ body {
 	--accent: var(--emdash-accent, #0066cc);
 	--accent-foreground: oklch(0.99 0 0);
 }
+
+/*
+ * Admin users table on phones. HeroUI's table has a 720px minimum width inside
+ * a scroll container, and the Name column grows to fill it, so on a phone only
+ * "Name" was visible and Role/Status sat off-screen behind an invisible
+ * horizontal scroll. Below 40rem: let the table fit the screen, drop the
+ * low-value "Created" column (4th), give Role/Status small fixed widths, and
+ * let Name shrink/truncate. Scoped to `.admin-view` so other HeroUI tables
+ * (organization members etc.) are untouched.
+ */
+@media (max-width: 40rem) {
+	.admin-view .table__content {
+		min-width: 0 !important;
+		width: 100% !important;
+		table-layout: fixed;
+	}
+	.admin-view .table__content th:nth-child(4),
+	.admin-view .table__content td:nth-child(4) {
+		display: none;
+	}
+	.admin-view .table__content th:nth-child(2),
+	.admin-view .table__content td:nth-child(2) {
+		width: 4.5rem;
+	}
+	.admin-view .table__content th:nth-child(3),
+	.admin-view .table__content td:nth-child(3) {
+		width: 5rem;
+	}
+	.admin-view .table__content td:first-child,
+	.admin-view .table__content td:first-child * {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
