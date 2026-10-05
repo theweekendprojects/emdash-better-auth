@@ -13,6 +13,7 @@
  */
 import { getSiteSettings } from "emdash";
 import { adminEnabled, accentColor } from "../../providers.ts";
+import { requireUser } from "../../route.ts";
 import AdminView from "../../ui/AdminView.tsx";
 
 // EmDash's ADMIN role level. `users.role` is a numeric RBAC level
@@ -40,11 +41,9 @@ if (view !== "users") {
 // Auth's own admin permission checks inside the UI). Anon → sign-in;
 // signed-in-but-not-admin → 403, so a non-admin can't even load the page shell.
 // `locals.user` is populated from the session on this public route.
-const user = Astro.locals.user;
-if (!user) {
-	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
-	return Astro.redirect(redirectUrl);
-}
+const gate = await requireUser(Astro);
+if (gate) return gate;
+const user = Astro.locals.user!;
 if ((user.role ?? 0) < ROLE_ADMIN) {
 	return new Response("Forbidden", { status: 403 });
 }

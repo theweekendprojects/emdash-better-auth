@@ -16,6 +16,7 @@
  */
 import { getSiteSettings } from "emdash";
 import { orgEnabled, teamsEnabled as teamsEnabledFlag, accentColor } from "../../providers.ts";
+import { requireUser } from "../../route.ts";
 import OrganizationView from "../../ui/OrganizationView.tsx";
 
 // Gate the whole route behind the organization feature flag.
@@ -33,11 +34,10 @@ if (!allowed.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
 
-// Login-gated: anonymous visitors go to sign-in and return here afterward.
-if (!Astro.locals.user) {
-	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
-	return Astro.redirect(redirectUrl);
-}
+// Login-gated: re-bridges a still-valid Better Auth session first (see
+// requireUser), else anonymous visitors go to sign-in and return here.
+const gate = await requireUser(Astro);
+if (gate) return gate;
 
 // EmDash's ADMIN role level — gates the UserButton's "EmDash Admin" link.
 // Cosmetic only (EmDash's own admin area re-checks role on entry).

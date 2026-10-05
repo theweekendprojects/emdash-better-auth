@@ -28,6 +28,7 @@ import {
 	planPriceIds,
 	accentColor,
 } from "../providers.ts";
+import { requireUser } from "../route.ts";
 import AccountView from "../ui/AccountView.tsx";
 
 const { path } = Astro.params;
@@ -71,11 +72,10 @@ if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
 
-// Login-gated: if no user is authenticated, redirect to sign-in and come back.
-if (!Astro.locals.user) {
-	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
-	return Astro.redirect(redirectUrl);
-}
+// Login-gated: re-bridges a still-valid Better Auth session first (see
+// requireUser), else redirects to sign-in and back.
+const gate = await requireUser(Astro);
+if (gate) return gate;
 
 // EmDash's ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). Gates the
 // UserButton's "EmDash Admin" link — cosmetic only (EmDash's own admin area

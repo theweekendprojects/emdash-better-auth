@@ -20,7 +20,7 @@
  * `/_emdash/admin` (subject to the user's `role`).
  */
 
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroGlobal } from "astro";
 import { env } from "cloudflare:workers";
 import { getPluginSettings } from "emdash";
 import { withEmDashRuntime } from "emdash/middleware";
@@ -214,6 +214,107 @@ function readGenericOAuthConfig(): import("./settings.js").GenericOAuthProviderC
 /** Endpoints whose success should tear down the EmDash session. */
 const SESSION_CLEARING = ["/api/auth/sign-out"];
 
+/** The EmDash runtime handed to `withEmDashRuntime` callbacks. */
+type Runtime = Parameters<Parameters<typeof withEmDashRuntime>[0]>[0];
+
+/**
+ * Build the per-request Better Auth instance (env + saved admin settings
+ * merged into options). Shared by the `/api/auth/*` handler below and by
+ * {@link requireUser} so both always see identical config.
+ */
+export async function createAuthForRequest(request: Request, site: URL | undefined, runtime: Runtime) {
+	const storage = getAuthProviderStorage(
+		runtime.db,
+		PROVIDER_ID,
+		BETTER_AUTH_STORAGE_CONFIG,
+	) as unknown as BetterAuthStorage;
+
+	// Env-derived base config (secret, Google, trusted origins, and the
+	// request/site-resolved origin).
+	const envConfig = readEnvConfig(request, site);
+
+	// Layer admin-configured settings on top of env values. Saved
+	// settings win; env is the fallback; built-in defaults fill the rest.
+	// Read failures (e.g. before the settings table exists) degrade to
+	// env-only rather than breaking auth.
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch (err) {
+		console.warn(
+			"[better-auth] Could not read admin settings; using env/defaults:",
+			err instanceof Error ? err.message : String(err),
+		);
+	}
+	const settings = resolveSettings(saved, {
+		secret: envConfig.secret,
+		baseUrl: envConfig.baseURL,
+		social: envConfig.social,
+		stripeSecretKey: envConfig.stripeSecretKey,
+		stripeWebhookSecret: envConfig.stripeWebhookSecret,
+		genericOAuthConfig: readGenericOAuthConfig(),
+	});
+
+	// A saved canonical URL overrides the env/request-resolved origin.
+	// Keep the request origin trusted either way so sign-in via a
+	// non-canonical host still works.
+	const requestOrigin = new URL(request.url).origin;
+	const baseURL = settings.baseUrl ?? envConfig.baseURL;
+	const trustedOrigins = Array.from(new Set([baseURL, requestOrigin]));
+
+	const authOptions = {
+		baseURL,
+		// Fall back to the env default if somehow unset (keeps auth working
+		// in dev before any secret is configured).
+		secret: settings.secret ?? envConfig.secret,
+		socialProviders: settings.socialProviders,
+		trustedOrigins,
+		requireEmailVerification: settings.requireEmailVerification,
+		sendOnSignIn: settings.sendOnSignIn,
+		autoSignInAfterVerification: settings.autoSignInAfterVerification,
+		// Two-factor authentication is a feature flag; only enable when
+		// the admin has opted in via settings.
+		twoFactorEnabled: settings.twoFactorEnabled,
+		// API key + passkey feature flags, same opt-in pattern as 2FA.
+		apiKeyEnabled: settings.apiKeyEnabled,
+		passkeyEnabled: settings.passkeyEnabled,
+		// Admin + organization (multi-tenancy) feature flags, same pattern.
+		adminEnabled: settings.adminEnabled,
+		orgEnabled: settings.orgEnabled,
+		teamsEnabled: settings.teamsEnabled,
+		// OIDC / OAuth 2.1 identity provider.
+		oidcProviderEnabled: settings.oidcProviderEnabled,
+		// Passwordless + session + security + extra-provider feature flags,
+		// same opt-in pattern. genericOAuthConfig is operator env config
+		// (resolveSettings already filtered to valid entries + gated the
+		// flag on a non-empty list).
+		magicLinkEnabled: settings.magicLinkEnabled,
+		emailOtpEnabled: settings.emailOtpEnabled,
+		anonymousEnabled: settings.anonymousEnabled,
+		multiSessionEnabled: settings.multiSessionEnabled,
+		genericOAuthConfig: settings.genericOAuthEnabled ? settings.genericOAuthConfig : [],
+		hibpEnabled: settings.hibpEnabled,
+		// Audit logging + its retention window (both from settings).
+		auditLogEnabled: settings.auditLogEnabled,
+		auditLogRetentionDays: settings.auditLogRetentionDays,
+		// Stripe subscription billing. Enabled only when the flag is on and
+		// the keys + at least one plan price id resolve (buildStripePlugins
+		// enforces that); price ids come from env, keyed by plan id.
+		billingEnabled: settings.billingEnabled,
+		stripeSecretKey: settings.stripeSecretKey,
+		stripeWebhookSecret: settings.stripeWebhookSecret,
+		planPriceIds: readPlanPriceIds(),
+		// Pass the EmDash email pipeline to Better Auth for password reset
+		// and email verification emails. This plugin stays provider-agnostic
+		// — it depends only on EmDash's runtime.email, never on a specific
+		// email provider like emdash-smtp or Resend.
+		email: runtime.email || null,
+	};
+
+	const auth = createBetterAuth(runtime.db, storage, authOptions);
+	return { auth, authOptions };
+}
+
 const handler: APIRoute = async ({ request, session, site }) => {
 	const path = new URL(request.url).pathname;
 	const isSessionEstablishing = SESSION_ESTABLISHING.some((p) =>
@@ -225,95 +326,7 @@ const handler: APIRoute = async ({ request, session, site }) => {
 
 	try {
 		return await withEmDashRuntime(async (runtime) => {
-			const storage = getAuthProviderStorage(
-				runtime.db,
-				PROVIDER_ID,
-				BETTER_AUTH_STORAGE_CONFIG,
-			) as unknown as BetterAuthStorage;
-
-			// Env-derived base config (secret, Google, trusted origins, and the
-			// request/site-resolved origin).
-			const envConfig = readEnvConfig(request, site);
-
-			// Layer admin-configured settings on top of env values. Saved
-			// settings win; env is the fallback; built-in defaults fill the rest.
-			// Read failures (e.g. before the settings table exists) degrade to
-			// env-only rather than breaking auth.
-			let saved: Record<string, unknown> = {};
-			try {
-				saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
-			} catch (err) {
-				console.warn(
-					"[better-auth] Could not read admin settings; using env/defaults:",
-					err instanceof Error ? err.message : String(err),
-				);
-			}
-			const settings = resolveSettings(saved, {
-				secret: envConfig.secret,
-				baseUrl: envConfig.baseURL,
-				social: envConfig.social,
-				stripeSecretKey: envConfig.stripeSecretKey,
-				stripeWebhookSecret: envConfig.stripeWebhookSecret,
-				genericOAuthConfig: readGenericOAuthConfig(),
-			});
-
-			// A saved canonical URL overrides the env/request-resolved origin.
-			// Keep the request origin trusted either way so sign-in via a
-			// non-canonical host still works.
-			const requestOrigin = new URL(request.url).origin;
-			const baseURL = settings.baseUrl ?? envConfig.baseURL;
-			const trustedOrigins = Array.from(new Set([baseURL, requestOrigin]));
-
-			const authOptions = {
-				baseURL,
-				// Fall back to the env default if somehow unset (keeps auth working
-				// in dev before any secret is configured).
-				secret: settings.secret ?? envConfig.secret,
-				socialProviders: settings.socialProviders,
-				trustedOrigins,
-				requireEmailVerification: settings.requireEmailVerification,
-				sendOnSignIn: settings.sendOnSignIn,
-				autoSignInAfterVerification: settings.autoSignInAfterVerification,
-				// Two-factor authentication is a feature flag; only enable when
-				// the admin has opted in via settings.
-				twoFactorEnabled: settings.twoFactorEnabled,
-				// API key + passkey feature flags, same opt-in pattern as 2FA.
-				apiKeyEnabled: settings.apiKeyEnabled,
-				passkeyEnabled: settings.passkeyEnabled,
-				// Admin + organization (multi-tenancy) feature flags, same pattern.
-				adminEnabled: settings.adminEnabled,
-				orgEnabled: settings.orgEnabled,
-				teamsEnabled: settings.teamsEnabled,
-				// OIDC / OAuth 2.1 identity provider.
-				oidcProviderEnabled: settings.oidcProviderEnabled,
-				// Passwordless + session + security + extra-provider feature flags,
-				// same opt-in pattern. genericOAuthConfig is operator env config
-				// (resolveSettings already filtered to valid entries + gated the
-				// flag on a non-empty list).
-				magicLinkEnabled: settings.magicLinkEnabled,
-				emailOtpEnabled: settings.emailOtpEnabled,
-				anonymousEnabled: settings.anonymousEnabled,
-				multiSessionEnabled: settings.multiSessionEnabled,
-				genericOAuthConfig: settings.genericOAuthEnabled ? settings.genericOAuthConfig : [],
-				hibpEnabled: settings.hibpEnabled,
-				// Audit logging + its retention window (both from settings).
-				auditLogEnabled: settings.auditLogEnabled,
-				auditLogRetentionDays: settings.auditLogRetentionDays,
-				// Stripe subscription billing. Enabled only when the flag is on and
-				// the keys + at least one plan price id resolve (buildStripePlugins
-				// enforces that); price ids come from env, keyed by plan id.
-				billingEnabled: settings.billingEnabled,
-				stripeSecretKey: settings.stripeSecretKey,
-				stripeWebhookSecret: settings.stripeWebhookSecret,
-				planPriceIds: readPlanPriceIds(),
-				// Pass the EmDash email pipeline to Better Auth for password reset
-				// and email verification emails. This plugin stays provider-agnostic
-				// — it depends only on EmDash's runtime.email, never on a specific
-				// email provider like emdash-smtp or Resend.
-				email: runtime.email || null,
-			};
-
-			const auth = createBetterAuth(runtime.db, storage, authOptions);
+			const { auth, authOptions } = await createAuthForRequest(request, site, runtime);
 			const response = await auth.handler(request);
 
 			// A session was just created iff Better Auth set its session-token
@@ -439,9 +452,55 @@ const handler: APIRoute = async ({ request, session, site }) => {
 export const GET = handler;
 export const POST = handler;
 
-// NOTE: Avatar upload (R2-backed) is intentionally not implemented yet.
-// Better Auth UI stores a resized data URL directly in user.image when no
-// `avatar.upload` handler is configured (see AccountView.tsx), so avatar
-// changes work without a backend endpoint. A future R2-backed upload would
-// add a route here that goes through EmDash's media pipeline (handleMediaCreate)
-// and returns a servable media URL — not a raw storage key.
+/** One-shot marker so a failed self-heal can never redirect-loop. */
+const REBRIDGE_PARAM = "_rb";
+
+/**
+ * Self-heal a desynced session: when Better Auth still has a valid session but
+ * EmDash has no user, write the Better Auth user into the EmDash session and
+ * return a one-shot redirect to the same URL (middleware then populates
+ * `locals.user`). Returns null when there is nothing to heal (already signed in
+ * to EmDash, no session store, already retried, or no valid Better Auth session).
+ *
+ * WHY: EmDash's `locals.user` comes only from its own Astro session cookie
+ * (`astro-session`), written by the bridge at sign-in time. That cookie is a
+ * browser-SESSION cookie (no Max-Age) so it vanishes on every browser restart,
+ * while Better Auth's own cookie lives 7 days. The user is then still signed in
+ * (get-session 200, header avatar shown) yet gated pages bounced them to the
+ * sign-in form.
+ */
+export async function rebridgeSession(Astro: AstroGlobal): Promise<Response | null> {
+	if (Astro.locals.user || !Astro.session || Astro.url.searchParams.has(REBRIDGE_PARAM)) {
+		return null;
+	}
+	try {
+		const userId = await withEmDashRuntime(async (runtime) => {
+			const { auth } = await createAuthForRequest(Astro.request, Astro.site, runtime);
+			const result = await auth.api.getSession({ headers: Astro.request.headers });
+			return result?.user?.id as string | undefined;
+		});
+		if (!userId) return null;
+		Astro.session.set("user", { id: userId });
+		const retry = new URL(Astro.url);
+		retry.searchParams.set(REBRIDGE_PARAM, "1");
+		return Astro.redirect(retry.pathname + retry.search);
+	} catch (err) {
+		console.error("[better-auth] re-bridge on page load failed:", err);
+		return null;
+	}
+}
+
+/**
+ * Login gate for the plugin's server-rendered pages (/account, /admin,
+ * /audit-log, /organization). Returns a redirect `Response` the page must
+ * return, or `null` when `Astro.locals.user` is set and the page may render.
+ * Tries {@link rebridgeSession} before bouncing to sign-in.
+ */
+export async function requireUser(Astro: AstroGlobal): Promise<Response | null> {
+	if (Astro.locals.user) return null;
+	const healed = await rebridgeSession(Astro);
+	if (healed) return healed;
+	const clean = new URL(Astro.url);
+	clean.searchParams.delete(REBRIDGE_PARAM);
+	return Astro.redirect(`/auth/sign-in?redirect=${encodeURIComponent(clean.href)}`);
+}

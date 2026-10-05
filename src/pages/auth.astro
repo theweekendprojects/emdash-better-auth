@@ -27,6 +27,7 @@ import {
 	accentColor,
 	siteLogoUrl,
 } from "../providers.ts";
+import { rebridgeSession } from "../route.ts";
 import AuthView from "../ui/AuthView.tsx";
 
 const { path } = Astro.params;
@@ -92,6 +93,13 @@ const signedInAllowed = new Set([
 ]);
 // select-account is in oauthViews only when multi-session is on; it's reached
 // mid-authorization-flow by a signed-in user, so it must not redirect home.
+// Self-heal first: Better Auth may still be signed in while EmDash's own
+// session cookie (browser-session only) is gone — re-bridge instead of showing
+// a sign-in form to someone who is already signed in.
+if (view === "sign-in") {
+	const healed = await rebridgeSession(Astro);
+	if (healed) return healed;
+}
 if (Astro.locals.user && !signedInAllowed.has(view)) {
 	return Astro.redirect("/");
 }

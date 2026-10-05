@@ -17,6 +17,7 @@
  */
 import { getSiteSettings } from "emdash";
 import { auditLogEnabled, accentColor } from "../../providers.ts";
+import { requireUser } from "../../route.ts";
 import AuditLogView from "../../ui/AuditLogView.tsx";
 
 // EmDash's ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). Same
@@ -37,11 +38,9 @@ if (view !== "log") {
 	return new Response("Not found", { status: 404 });
 }
 
-const user = Astro.locals.user;
-if (!user) {
-	const redirectUrl = `/auth/sign-in?redirect=${encodeURIComponent(Astro.url.href)}`;
-	return Astro.redirect(redirectUrl);
-}
+const gate = await requireUser(Astro);
+if (gate) return gate;
+const user = Astro.locals.user!;
 if ((user.role ?? 0) < ROLE_ADMIN) {
 	return new Response("Forbidden", { status: 403 });
 }
