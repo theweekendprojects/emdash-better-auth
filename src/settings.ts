@@ -205,6 +205,46 @@ export async function readKvSettings(kv: KVAccess): Promise<Record<string, unkno
 }
 
 /**
+ * Transient unlock-toggle action id guarding the three CORE secrets (session
+ * signing key + both Stripe keys) in the admin form. Not a persisted setting —
+ * it rides along in the submitted `values` only to authorize a secret write.
+ */
+export const EDIT_SECRETS_FLAG = "editSecrets";
+
+/** Per-provider unlock-toggle action id, e.g. `editSocial_google`. */
+export function editSocialFlag(providerId: string): string {
+	return `editSocial_${providerId}`;
+}
+
+/**
+ * The unlock-toggle flag that must be true in the submitted `values` before a
+ * given sensitive key may be written, or `undefined` for keys that are always
+ * writable. Mirrors the `condition` gates the admin form puts on these fields,
+ * so a tampered/replayed payload still can't overwrite a secret while locked.
+ */
+function unlockFlagFor(key: string): string | undefined {
+	if (
+		key === SETTINGS_KEYS.betterAuthSecret ||
+		key === SETTINGS_KEYS.stripeSecretKey ||
+		key === SETTINGS_KEYS.stripeWebhookSecret
+	) {
+		return EDIT_SECRETS_FLAG;
+	}
+	for (const p of SOCIAL_PROVIDERS) {
+		if (key === providerClientIdKey(p.id) || key === providerClientSecretKey(p.id)) {
+			return editSocialFlag(p.id);
+		}
+	}
+	return undefined;
+}
+
+/** A sensitive key is writable only when its unlock toggle came back true. */
+function isUnlocked(key: string, values: Record<string, unknown>): boolean {
+	const flag = unlockFlagFor(key);
+	return flag === undefined || coerceBool(values[flag], false);
+}
+
+/**
  * Persist submitted form values to plugin kv.
  *
  * IMPORTANT: only keys ACTUALLY PRESENT in `values` are touched. The admin UI
@@ -212,7 +252,14 @@ export async function readKvSettings(kv: KVAccess): Promise<Record<string, unkno
  * submits only its own fields — so a provider save must not reset the toggles
  * or another provider's keys just because they're absent from this payload.
  *
- * Per key type (when present):
+ * LOCKED SECRETS: every secret and social-credential field is hidden in the UI
+ * behind an "unlock" toggle (`editSecrets` for the core keys, `editSocial_<id>`
+ * per provider). This save path enforces the same lock server-side — a secret
+ * or provider id/secret is written ONLY when its unlock flag came back true, so
+ * a stray Save (or browser autofill) while the field is locked can't clobber a
+ * stored credential. Belt-and-suspenders with the client-side `condition`.
+ *
+ * Per key type (when present AND unlocked):
  * - Booleans: coerced and written.
  * - Text: write trimmed value, or delete the key when explicitly cleared.
  * - Secrets: only overwrite when a new value was typed; a blank/absent secret
@@ -229,12 +276,16 @@ export async function writeKvSettings(
 	}
 	for (const key of TEXT_KEYS) {
 		if (!(key in values)) continue;
+		// Provider client ids are locked behind their editSocial_<id> toggle.
+		if (!isUnlocked(key, values)) continue;
 		const next = trimOrUndefined(values[key]);
 		if (next !== undefined) await kv.set(`settings:${key}`, next);
 		else await kv.delete(`settings:${key}`);
 	}
 	for (const key of SECRET_KEYS) {
 		if (!(key in values)) continue;
+		// Refuse to touch a locked secret even if a value rode along in the payload.
+		if (!isUnlocked(key, values)) continue;
 		const next = trimOrUndefined(values[key]);
 		// Only update when a new secret was entered; blank = keep existing.
 		if (next !== undefined) await kv.set(`settings:${key}`, next);

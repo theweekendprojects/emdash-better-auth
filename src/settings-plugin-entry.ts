@@ -41,10 +41,12 @@
 import { definePlugin } from "emdash";
 
 import {
+	EDIT_SECRETS_FLAG,
 	SETTINGS_ADMIN_PAGE_PATH,
 	SETTINGS_KEYS,
 	SETTINGS_PLUGIN_ID,
 	SOCIAL_PROVIDERS,
+	editSocialFlag,
 	providerClientIdKey,
 	providerClientSecretKey,
 	readKvSettings,
@@ -53,7 +55,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.8.4";
+export const SETTINGS_PLUGIN_VERSION = "0.8.5";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -96,12 +98,57 @@ function buildSettingsPage(
 		const n = typeof v === "number" ? v : Number(String(v).trim());
 		return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
 	};
+	// FieldCondition shorthand: a field with `cond(X)` only renders when the
+	// in-form toggle X is on — client-side, no save round-trip (verified Block
+	// Kit `condition` support, same mechanism emdash-ai-search uses to lock its
+	// connection secrets). Used to collapse all the sensitive inputs behind an
+	// "unlock" toggle so browser autofill / a stray Save can't clobber them.
+	const cond = (field: string) => ({ field, eq: true });
+	// Single unlock toggle guarding every secret in the CORE form (session
+	// signing key + Stripe keys). One switch for the lot keeps the form short;
+	// per-social-provider cards get their own unlock (below). Shared with the
+	// save path (settings.ts) so the UI gate and the server gate can't drift.
+	const EDIT_SECRETS = EDIT_SECRETS_FLAG;
 
 	const blocks: unknown[] = [
 		{ type: "header", text: "Better Auth" },
 		{
 			type: "context",
 			text: "Configure Better Auth without redeploying. Blank fields fall back to the matching Worker env var (e.g. BETTER_AUTH_SECRET, BETTER_AUTH_URL, and per-provider <PROVIDER>_CLIENT_ID/SECRET), then to built-in defaults.",
+		},
+		{ type: "divider" },
+		// Read-only view of the stored secrets (masked) + a locked banner, so an
+		// admin can see what's configured without an editable box exposed to
+		// autofill. The actual inputs are inside the form below, hidden behind
+		// the "Edit secrets" toggle. Mirrors emdash-ai-search's locked
+		// connection-settings pattern.
+		{
+			type: "fields",
+			fields: [
+				{
+					label: "Better Auth secret",
+					value: hasVal(saved[SETTINGS_KEYS.betterAuthSecret])
+						? "•••••••• (stored)"
+						: "— not set (uses BETTER_AUTH_SECRET env) —",
+				},
+				{
+					label: "Stripe secret key",
+					value: hasVal(saved[SETTINGS_KEYS.stripeSecretKey]) ? "•••••••• (stored)" : "— not set —",
+				},
+				{
+					label: "Stripe webhook secret",
+					value: hasVal(saved[SETTINGS_KEYS.stripeWebhookSecret])
+						? "•••••••• (stored)"
+						: "— not set —",
+				},
+			],
+		},
+		{
+			type: "banner",
+			variant: "default",
+			title: "🔒 Secrets are locked",
+			description:
+				"The session signing key and Stripe keys are shown read-only above to prevent accidental overwrites (browser autofill is the usual culprit). Turn on “Edit secrets” in the form below to change them.",
 		},
 		{ type: "divider" },
 		{
@@ -129,6 +176,8 @@ function buildSettingsPage(
 					label: "Re-send verification on sign-in",
 					description: "Re-send the link when an unverified user tries to log in.",
 					initial_value: bool(saved[SETTINGS_KEYS.sendOnSignIn]),
+					// Only meaningful when verification is required — hide otherwise.
+					condition: cond(SETTINGS_KEYS.requireEmailVerification),
 				},
 				{
 					type: "toggle",
@@ -136,6 +185,7 @@ function buildSettingsPage(
 					label: "Auto sign-in after verification",
 					description: "Log the user in immediately when they click the verification link.",
 					initial_value: bool(saved[SETTINGS_KEYS.autoSignInAfterVerification]),
+					condition: cond(SETTINGS_KEYS.requireEmailVerification),
 				},
 				// --- Feature plugins ----------------------------------------------
 				{
@@ -182,9 +232,11 @@ function buildSettingsPage(
 					type: "toggle",
 					action_id: SETTINGS_KEYS.teamsEnabled,
 					label: "Enable organization teams",
-					description:
-						"Adds teams within each organization. Only takes effect when 'Enable organizations' is on — it has no effect otherwise.",
+					description: "Adds teams within each organization.",
 					initial_value: bool(saved[SETTINGS_KEYS.teamsEnabled]),
+					// Teams only matter with orgs on — show the toggle only then
+					// (replaces the old always-visible "has no effect" caveat).
+					condition: cond(SETTINGS_KEYS.orgEnabled),
 				},
 				// --- Identity provider (OIDC / OAuth 2.1) -------------------------
 				{
@@ -257,26 +309,19 @@ function buildSettingsPage(
 						"Record auth events (sign-in/up, password & email changes, 2FA, admin ban/impersonate) with IP, user-agent, and inferred severity. Admins see a site-wide log at /audit-log; each user sees their own 'Recent activity' in their account. Writes are non-blocking and PII is redacted.",
 					initial_value: bool(saved[SETTINGS_KEYS.auditLogEnabled]),
 				},
-				// Retention is only meaningful when audit logging is on, so the
-				// field is CONDITIONAL: shown only when the toggle is saved on.
-				// The handler re-renders buildSettingsPage(saved) after every
-				// save, so flipping the toggle on + Save reveals this field on the
-				// next render (and hides it again when turned off). `number_input`
-				// makes it numeric-only in the browser (no free-text); it has no
-				// description/placeholder slot, so the compliance guidance moves to
-				// a context note below the form. `min: 0` since 0 = keep forever
-				// and negatives are meaningless.
-				...(bool(saved[SETTINGS_KEYS.auditLogEnabled])
-					? [
-							{
-								type: "number_input",
-								action_id: SETTINGS_KEYS.auditLogRetentionDays,
-								label: "Audit log retention (days)",
-								initial_value: num(saved[SETTINGS_KEYS.auditLogRetentionDays], 365),
-								min: 0,
-							},
-						]
-					: []),
+				// Retention only matters when audit logging is on. Uses a live
+				// `condition` (shows/hides instantly as the toggle flips, no Save
+				// needed) rather than a save-reload. `number_input` makes it
+				// numeric-only; it has no description slot, so the compliance
+				// guidance lives in a context note below. `min: 0` (0 = forever).
+				{
+					type: "number_input",
+					action_id: SETTINGS_KEYS.auditLogRetentionDays,
+					label: "Audit log retention (days)",
+					initial_value: num(saved[SETTINGS_KEYS.auditLogRetentionDays], 365),
+					min: 0,
+					condition: cond(SETTINGS_KEYS.auditLogEnabled),
+				},
 				// --- Subscription billing (Stripe) --------------------------------
 				{
 					type: "toggle",
@@ -286,18 +331,7 @@ function buildSettingsPage(
 						"Registers the Better Auth Stripe plugin and adds a Billing tab to each user's account. Requires the Stripe secret key and webhook secret below, plus plans configured in the site's auth config.",
 					initial_value: bool(saved[SETTINGS_KEYS.billingEnabled]),
 				},
-				{
-					type: "secret_input",
-					action_id: SETTINGS_KEYS.stripeSecretKey,
-					label: "Stripe secret key",
-					has_value: hasVal(saved[SETTINGS_KEYS.stripeSecretKey]),
-				},
-				{
-					type: "secret_input",
-					action_id: SETTINGS_KEYS.stripeWebhookSecret,
-					label: "Stripe webhook signing secret",
-					has_value: hasVal(saved[SETTINGS_KEYS.stripeWebhookSecret]),
-				},
+				// --- Branding (non-sensitive, always editable) --------------------
 				{
 					type: "text_input",
 					action_id: SETTINGS_KEYS.baseUrl,
@@ -314,11 +348,41 @@ function buildSettingsPage(
 						"Any CSS color (hex, rgb, oklch). Themes the login, account, admin, and organization pages to match your brand. Leave blank for the default blue.",
 					initial_value: str(saved[SETTINGS_KEYS.accentColor]),
 				},
+				// --- Secrets (LOCKED by default) ----------------------------------
+				// All credential fields are hidden behind this one unlock toggle so
+				// browser autofill / a stray Save can't overwrite a good secret with
+				// junk (the exact trap that bit us during testing). Current state is
+				// shown read-only above the form (a `fields` block); flip this to
+				// edit. The save path (writeKvSettings) also refuses to touch any
+				// secret unless this toggle came back true — belt and suspenders.
+				{
+					type: "toggle",
+					action_id: EDIT_SECRETS,
+					label: "🔓 Edit secrets (session key + Stripe keys)",
+					description:
+						"Off by default so stored secrets can't be accidentally overwritten. Turn on to reveal and change the fields below.",
+					initial_value: false,
+				},
 				{
 					type: "secret_input",
 					action_id: SETTINGS_KEYS.betterAuthSecret,
-					label: "Better Auth secret",
+					label: "Better Auth secret (session signing key — blank keeps the stored/Worker value)",
 					has_value: hasVal(saved[SETTINGS_KEYS.betterAuthSecret]),
+					condition: cond(EDIT_SECRETS),
+				},
+				{
+					type: "secret_input",
+					action_id: SETTINGS_KEYS.stripeSecretKey,
+					label: "Stripe secret key",
+					has_value: hasVal(saved[SETTINGS_KEYS.stripeSecretKey]),
+					condition: cond(EDIT_SECRETS),
+				},
+				{
+					type: "secret_input",
+					action_id: SETTINGS_KEYS.stripeWebhookSecret,
+					label: "Stripe webhook signing secret",
+					has_value: hasVal(saved[SETTINGS_KEYS.stripeWebhookSecret]),
+					condition: cond(EDIT_SECRETS),
 				},
 			],
 			submit: { label: "Save settings", action_id: SAVE_ACTION_ID },
@@ -417,13 +481,22 @@ function buildSettingsPage(
 		const secretKey = providerClientSecretKey(provider.id);
 		const callbackUrl = `${callbackBase}/api/auth/callback/${provider.id}`;
 		const enabled = hasVal(saved[idKey]) && hasVal(saved[secretKey]);
+		// Per-provider unlock toggle. Each card's credential inputs are hidden by
+		// default (condition on this), so you can't fat-finger a secret into the
+		// wrong provider's box and autofill can't clobber a configured provider.
+		// Shared with the save path so the UI gate and server gate stay in sync.
+		const editKey = editSocialFlag(provider.id);
 
 		blocks.push({ type: "divider" });
-		// A banner acts as a titled card grouping each provider.
+		// A banner acts as a titled card grouping each provider, with its stored
+		// state read-only so you see what's set without an exposed input.
 		blocks.push({
 			type: "banner",
-			title: `${provider.label}${enabled ? " · enabled" : ""}`,
-			description: `Authorized redirect URI (register this in the ${provider.label} console):\n${callbackUrl}`,
+			title: `${provider.label}${enabled ? " · enabled" : " · not configured"}`,
+			description:
+				`Client ID: ${hasVal(saved[idKey]) ? str(saved[idKey]) : "— not set —"}\n` +
+				`Client secret: ${hasVal(saved[secretKey]) ? "•••••••• (stored)" : "— not set —"}\n` +
+				`Authorized redirect URI (register this in the ${provider.label} console):\n${callbackUrl}`,
 			variant: "default",
 		});
 		blocks.push({
@@ -431,16 +504,24 @@ function buildSettingsPage(
 			block_id: `social-${provider.id}`,
 			fields: [
 				{
+					type: "toggle",
+					action_id: editKey,
+					label: `🔓 Edit ${provider.label} credentials`,
+					initial_value: false,
+				},
+				{
 					type: "text_input",
 					action_id: idKey,
 					label: `${provider.label} client ID`,
 					initial_value: str(saved[idKey]),
+					condition: cond(editKey),
 				},
 				{
 					type: "secret_input",
 					action_id: secretKey,
-					label: `${provider.label} client secret`,
+					label: `${provider.label} client secret (blank keeps the stored one)`,
 					has_value: hasVal(saved[secretKey]),
+					condition: cond(editKey),
 				},
 			],
 			submit: {

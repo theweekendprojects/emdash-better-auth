@@ -64,7 +64,8 @@ cat > "$OUT/tsconfig.json" <<EOF
     "$ROOT/scripts/additional-data.selfcheck.ts",
     "$ROOT/scripts/unique-constraint.selfcheck.ts",
     "$ROOT/scripts/billing-plans.selfcheck.ts",
-    "$ROOT/scripts/settings-resolve.selfcheck.ts"
+    "$ROOT/scripts/settings-resolve.selfcheck.ts",
+    "$ROOT/scripts/write-settings-lock.selfcheck.ts"
   ]
 }
 EOF
@@ -80,5 +81,6 @@ node "$OUT/js/scripts/additional-data.selfcheck.js"
 node "$OUT/js/scripts/unique-constraint.selfcheck.js"
 node "$OUT/js/scripts/billing-plans.selfcheck.js"
 node "$OUT/js/scripts/settings-resolve.selfcheck.js"
+node "$OUT/js/scripts/write-settings-lock.selfcheck.js"
 
 echo "==> All self-checks passed"

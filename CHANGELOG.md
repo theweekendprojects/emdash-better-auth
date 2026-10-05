@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-04
+
+### Changed
+
+- **Sensitive fields are now locked by default.** The session signing key, both
+  Stripe keys, and all five social-provider client ID/secret pairs are hidden
+  behind an "unlock" toggle (one `editSecrets` switch for the core secrets, a
+  per-provider `editSocial_<id>` switch on each social card). Their stored state
+  shows read-only and masked above the form, so an admin can see what's
+  configured without an editable box exposed to browser autofill. This closes
+  the trap where a stray Save (or a password manager autofilling a secret field)
+  silently overwrote a good credential with junk. Follows the same pattern
+  `emdash-ai-search` uses to lock its connection settings.
+- **Existing conditional fields now hide/show live.** Retention days, teams, and
+  the two email-verification sub-toggles use a client-side `condition` (they
+  appear/disappear the instant their parent toggle flips) instead of needing a
+  Save round-trip.
+
+### Security
+
+- **The lock is enforced server-side too.** `writeKvSettings` refuses to write a
+  secret or a provider's id/secret unless the matching unlock toggle came back
+  `true` in the submitted form values — so the protection holds even against a
+  replayed or hand-crafted payload, not just the hidden UI field.
+
 ## [0.8.4] - 2026-10-04
 
 ### Changed
@@ -430,7 +455,8 @@ powered by Better Auth with prebuilt Better Auth UI pages.
   key. For the session signing key, prefer leaving the admin field blank and
   setting `BETTER_AUTH_SECRET` as a Worker secret. See the README security note.
 
-[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/theweekendprojects/emdash-better-auth/compare/v0.8.1...v0.8.2
