@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-10-08
+### Fixed
+- **Creating an organization returned HTTP 500** (`Cannot query on non-indexed
+  field 'id'`). The organization plugin re-reads a freshly created row with a
+  `findMany` filtered by `id`, and EmDash rejects `id` as a non-indexed where
+  field. The adapter's storage query now resolves an `id` equality filter with a
+  direct `get()` and applies any remaining filters in memory.
+
 ## [0.9.3] - 2026-10-05
 
 ### Changed

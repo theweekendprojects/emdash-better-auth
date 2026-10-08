@@ -618,6 +618,19 @@ async function queryStorage(
 		indexed?: ReadonlySet<string>;
 	},
 ): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
+	// `id` is the primary key, not a declared index, and EmDash's
+	// validateWhereClause throws on it ("Cannot query on non-indexed field
+	// 'id'"). Better Auth's organization plugin re-reads a fresh row via
+	// findMany by id, so resolve it with a direct get() and match the rest in JS.
+	const idClause = where.find(
+		(w) => w.field === "id" && (w.operator ?? "eq") === "eq" && (w.connector ?? "AND") === "AND",
+	);
+	if (idClause && typeof idClause.value === "string") {
+		const found = (await collection.get(idClause.value)) as Record<string, unknown> | null;
+		if (!found || !matchesWhere(found, where)) return [];
+		return [{ id: idClause.value, data: found }];
+	}
+
 	const { storageWhere, residual } = opts?.indexed
 		? splitWhere(where, opts.indexed)
 		: { storageWhere: {}, residual: where };
