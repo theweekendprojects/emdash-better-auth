@@ -23,6 +23,7 @@
 
 // Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
 import "./auth.css";
+import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
 import { Auth, AuthProvider, UserButton } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
@@ -304,6 +305,7 @@ export default function AuthView({
 						...(magicLinkEnabled ? [magicLinkPlugin()] : []),
 						...(emailOtpEnabled ? [emailOtpPlugin()] : []),
 						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
+						...extraUiPlugins,
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);

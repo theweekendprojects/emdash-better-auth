@@ -23,6 +23,7 @@
  */
 
 import "./auth.css";
+import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
 import { AuthProvider, UserButton } from "@better-auth-ui/heroui";
 import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
@@ -335,6 +336,7 @@ export default function AuditLogView({
 									themePlugin({ useTheme }),
 									usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
 									...(multiSessionEnabled ? [multiSessionPlugin()] : []),
+									...extraUiPlugins,
 								]}
 								navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 									if (replace) window.location.replace(to);

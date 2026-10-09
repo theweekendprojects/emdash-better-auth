@@ -19,6 +19,7 @@
 
 // Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
 import "./auth.css";
+import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
 import { Admin, AuthProvider, UserButton, type UserButtonLink } from "@better-auth-ui/heroui";
 import { adminPlugin } from "@better-auth-ui/heroui/plugins";
@@ -96,6 +97,7 @@ export default function AdminView({
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
 						adminPlugin(),
 						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
+						...extraUiPlugins,
 					]}
 					navigate={({ to, replace }: { to: string; replace?: boolean }) => {
 						if (replace) window.location.replace(to);

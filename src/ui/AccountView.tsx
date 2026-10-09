@@ -26,6 +26,7 @@
 
 // Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
 import "./auth.css";
+import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
 import { AuthProvider, Settings, UserButton, type UserButtonLink } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
@@ -279,6 +280,7 @@ export default function AccountView({
 						...(billingAdapter
 							? [billingPlugin({ adapter: billingAdapter, user: true })]
 							: []),
+						...extraUiPlugins,
 					]}
 					// `bio` is a profile-only field, stored in users.data by the
 					// adapter (see emdash-adapter.ts). Declared here so Better Auth

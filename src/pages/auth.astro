@@ -28,6 +28,7 @@ import {
 	siteLogoUrl,
 } from "../providers.ts";
 import { rebridgeSession } from "../route.ts";
+import { extraViews } from "../ui-plugin-views.ts";
 import AuthView from "../ui/AuthView.tsx";
 
 const { path } = Astro.params;
@@ -76,6 +77,7 @@ const allowedViews = [
 	...(isOidcEnabled ? oauthViews : []),
 	...(isMagicLinkEnabled ? ["magic-link"] : []),
 	...(isEmailOtpEnabled ? ["email-otp"] : []),
+	...extraViews("auth"),
 ];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });

@@ -30,6 +30,7 @@ import {
 	adminEnabled,
 } from "../providers.ts";
 import { requireUser } from "../route.ts";
+import { extraViews } from "../ui-plugin-views.ts";
 import AccountView from "../ui/AccountView.tsx";
 
 const { path } = Astro.params;
@@ -70,6 +71,7 @@ const allowedViews = [
 	...(isOrgEnabled ? ["organizations"] : []),
 	...(isBillingEnabled ? ["billing"] : []),
 	...(isOidcEnabled ? ["oauth-clients"] : []),
+	...extraViews("settings"),
 ];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });

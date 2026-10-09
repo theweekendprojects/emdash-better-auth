@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-09
+### Added
+- **Extension point for Better Auth UI plugins.** A site can add its own settings tabs, avatar-menu items and views
+  through the new `emdash-better-auth/vite` plugin (`betterAuthUi({ plugins })`) and a module that default-exports an
+  array of Better Auth UI plugins. All five views register them, and `/account` and `/auth` allow the view paths the
+  plugins declare. Empty by default, so existing sites are unaffected. See README, "Extending the UI". (#21)
+
 ## [0.9.4] - 2026-10-08
 ### Fixed
 - **Creating an organization returned HTTP 500** (`Cannot query on non-indexed

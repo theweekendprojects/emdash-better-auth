@@ -209,6 +209,37 @@ and set its key (e.g. `RESEND_API_KEY`) as a Worker secret.
 > the link to the terminal. Password reset fails quietly (never crashes) when no
 > provider is set.
 
+## Extending the UI with your own Better Auth UI plugins
+
+Better Auth UI plugins can add **settings tabs** (an extra tab on `/account`), **avatar-menu items** and routable
+sub-pages. To add your own, point the package at a module that default-exports an array of plugins, with the
+`betterAuthUi()` Vite plugin:
+
+```ts
+// astro.config.mjs
+import { betterAuthUi } from "emdash-better-auth/vite";
+
+export default defineConfig({
+  vite: { plugins: [betterAuthUi({ plugins: "./src/better-auth-ui.ts" })] },
+});
+```
+
+```ts
+// src/better-auth-ui.ts
+import { createAuthPlugin } from "@better-auth-ui/core";
+import { Billing } from "./Billing"; // your React component
+
+const myPlugin = createAuthPlugin("my-plugin", () => ({
+  viewPaths: { settings: { billing: "billing" } },                // /account/billing
+  settingsTabs: [{ view: "billing", label: "Billing", component: Billing }],
+}));
+export default [myPlugin()];
+```
+
+Every view this package renders (sign-in, account, admin, organization, audit log) registers the plugins, and the
+`/account` and `/auth` pages allow the view paths the plugins declare under `viewPaths.settings` / `viewPaths.auth`.
+Without `betterAuthUi()` the list is empty and nothing changes.
+
 ## Gotchas
 
 - **Browser autofill on secret fields.** A password manager may fill the Better
