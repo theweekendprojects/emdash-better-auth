@@ -226,4 +226,12 @@ import { resolveSettings } from "../src/settings.js";
 	equal(resolveSettings({ accentColor: "red; background:url(x)" }, {}).accentColor, undefined);
 }
 
+// signUpEnabled: on by default (existing sites keep working); an explicit off, as a boolean or the
+// strings the settings form stores, turns it off.
+{
+	equal(resolveSettings({}, {}).signUpEnabled, true);
+	equal(resolveSettings({ signUpEnabled: false }, {}).signUpEnabled, false);
+	equal(resolveSettings({ signUpEnabled: "false" }, {}).signUpEnabled, false);
+	equal(resolveSettings({ signUpEnabled: true }, {}).signUpEnabled, true);
+}
 console.log("settings-resolve self-check: all cases passed");

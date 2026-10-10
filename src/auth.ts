@@ -7,6 +7,7 @@
  */
 
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
@@ -105,6 +106,12 @@ export interface BetterAuthOptions {
 	 *   - autoSignInAfterVerification: true
 	 */
 	requireEmailVerification?: boolean;
+	/**
+	 * Can visitors create accounts? Default true. When false every path that would create a user
+	 * (email sign-up, social, magic link, email OTP, anonymous, ...) is refused with 403
+	 * SIGN_UP_DISABLED; an administrator adding a user through the admin plugin still works.
+	 */
+	signUpEnabled?: boolean;
 	sendOnSignIn?: boolean;
 	autoSignInAfterVerification?: boolean;
 	/**
@@ -312,6 +319,7 @@ export function createBetterAuth(
 	// Verification behavior — admin-configurable, defaulting to the mandatory
 	// (bot-blocking) posture when unset.
 	const requireEmailVerification = options.requireEmailVerification ?? true;
+	const signUpEnabled = options.signUpEnabled ?? true;
 	const sendOnSignIn = options.sendOnSignIn ?? true;
 	const autoSignInAfterVerification = options.autoSignInAfterVerification ?? true;
 
@@ -375,7 +383,13 @@ export function createBetterAuth(
 		databaseHooks: {
 			user: {
 				create: {
-					before: async (user: Record<string, unknown>) => {
+					before: async (user: Record<string, unknown>, ctx?: { path?: string } | null) => {
+						// Sign-up switch. One hook on user creation covers every way an account can
+						// appear, so no auth path has to be listed (and a new one is covered too).
+						// Adding a user as an administrator (admin plugin) is deliberate and stays allowed.
+						if (!signUpEnabled && !(ctx?.path ?? "").startsWith("/admin/")) {
+							throw new APIError("FORBIDDEN", { code: "SIGN_UP_DISABLED", message: "Sign-up is disabled on this site." });
+						}
 						// Username enforcement. For the email+password sign-up path
 						// (and username sign-up) the Better Auth UI collects a
 						// required username, and we enforce its presence here so the

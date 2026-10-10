@@ -269,6 +269,7 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		secret: settings.secret ?? envConfig.secret,
 		socialProviders: settings.socialProviders,
 		trustedOrigins,
+		signUpEnabled: settings.signUpEnabled,
 		requireEmailVerification: settings.requireEmailVerification,
 		sendOnSignIn: settings.sendOnSignIn,
 		autoSignInAfterVerification: settings.autoSignInAfterVerification,

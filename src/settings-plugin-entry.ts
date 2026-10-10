@@ -161,6 +161,15 @@ function buildSettingsPage(
 			// only inputs, so the grouping is by order; the identity + username
 			// status cues live in the context blocks after the form.
 			fields: [
+				// --- Sign-up --------------------------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.signUpEnabled,
+					label: "Allow new sign-ups",
+					description:
+						"Let visitors create their own account (email, social, magic link). Turn off to keep this site invite-only: existing users can still sign in, and administrators can still add users.",
+					initial_value: bool(saved[SETTINGS_KEYS.signUpEnabled]),
+				},
 				// --- Email verification -------------------------------------------
 				{
 					type: "toggle",

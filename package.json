@@ -1,6 +1,6 @@
 {
   "name": "emdash-better-auth",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Full authentication for EmDash CMS, powered by Better Auth: email/password + social login, passwordless, 2FA, passkeys, organizations, OIDC provider, Stripe billing, and audit logging, with prebuilt themed UI, an admin settings page, and no database migrations.",
   "type": "module",
   "license": "MIT",

@@ -162,7 +162,7 @@ Feature toggles (all **off** by default except email verification):
 | Feature | Default | What it adds |
 | --- | --- | --- |
 | Email verification (+ resend, auto sign-in) | **on** | Blocks unverified login. |
-| Social sign-in | off | Google, GitHub, Facebook, X, Cloudflare — per provider. |
+| Allow new sign-ups | **on** | Turn off to make the site invite-only: every account-creating path answers `403 SIGN_UP_DISABLED`; existing users still sign in and admins can still add users. || Social sign-in | off | Google, GitHub, Facebook, X, Cloudflare — per provider. |
 | Two-factor (TOTP) | off | Authenticator-app 2FA + backup codes. |
 | Passkeys (WebAuthn) | off | Passwordless biometric / security-key sign-in. |
 | API keys | off | User-created programmatic keys (stored hashed). |

@@ -84,6 +84,7 @@ export function providerClientSecretKey(id: string): string {
  * Kept as a const object so callers reference the same string literals.
  */
 export const SETTINGS_KEYS = {
+	signUpEnabled: "signUpEnabled",
 	requireEmailVerification: "requireEmailVerification",
 	sendOnSignIn: "sendOnSignIn",
 	autoSignInAfterVerification: "autoSignInAfterVerification",
@@ -116,6 +117,7 @@ export const SETTINGS_KEYS = {
  * unset keys.
  */
 export const SETTINGS_DEFAULTS = {
+	signUpEnabled: true,
 	requireEmailVerification: true,
 	sendOnSignIn: true,
 	autoSignInAfterVerification: true,
@@ -144,6 +146,7 @@ export const SETTINGS_DEFAULTS = {
 
 /** Boolean-typed setting keys (rendered as toggles, coerced on read). */
 const BOOLEAN_KEYS = [
+	SETTINGS_KEYS.signUpEnabled,
 	SETTINGS_KEYS.requireEmailVerification,
 	SETTINGS_KEYS.sendOnSignIn,
 	SETTINGS_KEYS.autoSignInAfterVerification,
@@ -369,6 +372,8 @@ export interface GenericOAuthProviderConfig {
 
 /** Resolved, typed Better Auth configuration after merging all sources. */
 export interface ResolvedAuthSettings {
+	/** New accounts can be created (sign-up, social, magic link, ...). Default true. */
+	signUpEnabled: boolean;
 	requireEmailVerification: boolean;
 	sendOnSignIn: boolean;
 	autoSignInAfterVerification: boolean;
@@ -520,6 +525,7 @@ export function resolveSettings(
 	saved: Record<string, unknown>,
 	env: AuthEnvFallback,
 ): ResolvedAuthSettings {
+	const signUpEnabled = coerceBool(saved[SETTINGS_KEYS.signUpEnabled], SETTINGS_DEFAULTS.signUpEnabled);
 	const requireEmailVerification = coerceBool(
 		saved[SETTINGS_KEYS.requireEmailVerification],
 		SETTINGS_DEFAULTS.requireEmailVerification,
@@ -647,6 +653,7 @@ export function resolveSettings(
 	}
 
 	return {
+		signUpEnabled,
 		requireEmailVerification,
 		sendOnSignIn,
 		autoSignInAfterVerification,

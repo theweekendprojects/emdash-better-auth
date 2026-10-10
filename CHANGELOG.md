@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format is based on
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.11.0] - 2026-10-10
+### Added
+- **"Allow new sign-ups" setting** (Settings, off switch for public registration; default on, so nothing changes for existing
+  sites). When off, every way of creating an account (email sign-up, social, magic link, email OTP, anonymous, ...) is refused
+  with `403 SIGN_UP_DISABLED`; users who already exist still sign in, and an administrator adding a user through the admin
+  plugin still works. Implemented as one user-creation hook, so no sign-in path has to be listed. Also available as the
+  `signUpEnabled` option of `createAuth`.
 
 ## [0.10.0] - 2026-10-09
 ### Added
