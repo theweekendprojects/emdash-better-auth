@@ -307,6 +307,9 @@ export default function AccountView({
 					<DashboardShell
 						path={path}
 						brand={{ name: siteName, logoUrl, tagline }}
+						orgEnabled={orgEnabled}
+						auditLogEnabled={auditLogEnabled}
+						isAdmin={isEmdashAdmin}
 						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
 					>
 						{/* Per-user "Recent activity": the user's own auth events, on the

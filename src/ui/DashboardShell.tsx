@@ -13,6 +13,10 @@ import { Settings } from "@better-auth-ui/heroui";
 import { useAuth } from "@better-auth-ui/react";
 import type * as React from "react";
 import { DashboardLayout } from "./dashboard/layout.js";
+import { Home } from "./dashboard/home.js";
+import { Accounts } from "./dashboard/users.js";
+import { HomeIcon } from "./dashboard/icons/sidebar/home-icon.js";
+import { ViewIcon } from "./dashboard/icons/sidebar/view-icon.js";
 import type { NavGroup, NavItem } from "./dashboard/sidebar.js";
 import { AccountsIcon } from "./dashboard/icons/sidebar/accounts-icon.js";
 import { CustomersIcon } from "./dashboard/icons/sidebar/customers-icon.js";
@@ -28,7 +32,9 @@ function iconFor(view: string): React.ReactNode {
 	if (/billing|plan|pay/.test(view)) return <PaymentsIcon />;
 	if (/key|oauth|client|dev/.test(view)) return <DevIcon />;
 	if (/site|project/.test(view)) return <ProductsIcon />;
-	if (view === "account") return <AccountsIcon />;
+	if (view === "home") return <HomeIcon />;
+	if (view === "users") return <AccountsIcon />;
+	if (view === "account") return <ViewIcon />;
 	if (view === "security") return <SettingsIcon />;
 	return <ReportsIcon />;
 }
@@ -38,12 +44,23 @@ export function DashboardShell({
 	path,
 	brand,
 	userMenu,
+	orgEnabled = false,
+	auditLogEnabled = false,
+	isAdmin = false,
+	feedbackUrl,
+	helpUrl,
 	children,
 }: {
 	path: string;
 	brand: { name: string; logoUrl?: string | null; tagline?: string };
 	/** Avatar menu for the top bar. */
 	userMenu: React.ReactNode;
+	/** What the signed-in user can see (mirrors the site flags; the server still enforces access). */
+	orgEnabled?: boolean;
+	auditLogEnabled?: boolean;
+	isAdmin?: boolean;
+	feedbackUrl?: string;
+	helpUrl?: string;
 	children?: React.ReactNode;
 }) {
 	// biome-ignore lint/suspicious/noExplicitAny: plugin shapes are typed per plugin; we only read settingsTabs/viewPaths.
@@ -64,19 +81,35 @@ export function DashboardShell({
 			),
 		);
 	const groups: NavGroup[] = [
-		...(main.length ? [{ title: "Main Menu", items: main }] : []),
+		{ items: [item("home", "Home")] },
+		...(main.length || isAdmin ? [{ title: "Main Menu", items: [...main, ...(isAdmin ? [item("users", "Users")] : [])] }] : []),
 		{ title: "General", items: [item("account", "Account"), item("security", "Security")] },
 	];
 	return (
-		<DashboardLayout brand={brand} groups={groups} userMenu={userMenu} settingsHref={`${base}/account`}>
-			<div className="h-full px-4 py-6 lg:px-6">
-				<div className="mx-auto w-full max-w-3xl">
-					<div className="settings-bare">
-						<Settings path={path} />
+		<DashboardLayout
+			brand={brand}
+			groups={groups}
+			userMenu={userMenu}
+			settingsHref={`${base}/account`}
+			orgEnabled={orgEnabled}
+			feedbackUrl={feedbackUrl}
+			helpUrl={helpUrl}
+			siteUrl="/"
+		>
+			{path === "home" ? (
+				<Home orgEnabled={orgEnabled} auditLogEnabled={auditLogEnabled} isAdmin={isAdmin} />
+			) : path === "users" ? (
+				<Accounts />
+			) : (
+				<div className="h-full px-4 py-6 lg:px-6">
+					<div className="mx-auto w-full max-w-3xl">
+						<div className="settings-bare">
+							<Settings path={path} />
+						</div>
+						{children}
 					</div>
-					{children}
 				</div>
-			</div>
+			)}
 		</DashboardLayout>
 	);
 }

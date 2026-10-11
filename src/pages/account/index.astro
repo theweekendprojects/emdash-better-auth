@@ -10,5 +10,5 @@
  * route, so gating belongs there, not on this bare alias.
  */
 const qs = Astro.url.search;
-return Astro.redirect(`/account/account${qs}`);
+return Astro.redirect(`/account/home${qs}`);
 ---

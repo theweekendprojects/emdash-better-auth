@@ -13,6 +13,7 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "@better-auth-ui/heroui/styles";
+@import "@fontsource-variable/inter";
 
 /* Scan the component packages so Tailwind emits every utility/variant class
    HeroUI and Better Auth UI reference at runtime. */
@@ -25,6 +26,7 @@
 html,
 body {
 	@apply bg-background text-foreground;
+	font-family: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 /*
@@ -82,4 +84,16 @@ body {
 /* Account page: the sidebar replaces Better Auth UI's own settings tab row. */
 .settings-bare .tabs__list-container {
 	display: none;
+}
+
+/* Dashboard chart: text and grid follow the HeroUI theme (apexcharts draws SVG). */
+.apexcharts-text,
+.apexcharts-legend-text {
+	fill: var(--muted) !important;
+	color: var(--muted) !important;
+}
+.apexcharts-gridline,
+.apexcharts-xaxis-tick,
+.apexcharts-xaxis line {
+	stroke: var(--border);
 }

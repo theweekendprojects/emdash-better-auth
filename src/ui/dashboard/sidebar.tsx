@@ -1,8 +1,11 @@
 /** Sidebar. Port of the nextui-dashboard-template sidebar (MIT) to HeroUI v3. */
-import { Tooltip } from "@heroui/react";
+import { Avatar, Dropdown, Tooltip } from "@heroui/react";
 import * as React from "react";
 import { FilterIcon } from "./icons/sidebar/filter-icon.js";
 import { SettingsIcon } from "./icons/sidebar/settings-icon.js";
+import { useOrgs } from "./data.js";
+import { BottomIcon } from "./icons/sidebar/bottom-icon.js";
+import { authClient } from "../../client.js";
 import { useLayout } from "./layout.js";
 
 export interface NavItem {
@@ -33,9 +36,9 @@ function SidebarItem({ icon, title, active, href }: NavItem) {
 	);
 }
 
-function Brand({ name, logoUrl, tagline }: { name: string; logoUrl?: string | null; tagline?: string }) {
+function BrandBlock({ name, logoUrl, tagline }: { name: string; logoUrl?: string | null; tagline?: string }) {
 	return (
-		<a href="/" className="flex items-center gap-2 text-foreground no-underline">
+		<div className="flex items-center gap-2">
 			{logoUrl ? (
 				<img src={logoUrl} alt="" className="h-9 w-auto max-w-11 rounded-lg object-contain" />
 			) : (
@@ -45,9 +48,54 @@ function Brand({ name, logoUrl, tagline }: { name: string; logoUrl?: string | nu
 			)}
 			<div className="flex flex-col">
 				<h3 className="m-0 whitespace-nowrap text-xl font-medium text-foreground">{name}</h3>
-				{tagline ? <span className="max-w-40 truncate text-xs font-medium text-muted">{tagline}</span> : null}
+				{tagline ? <span className="max-w-28 truncate text-xs font-medium text-muted">{tagline}</span> : null}
 			</div>
-		</a>
+		</div>
+	);
+}
+
+/** Brand block. With organizations on it is the template's "companies" dropdown: pick the active organization. */
+function Brand(props: { name: string; logoUrl?: string | null; tagline?: string; orgEnabled?: boolean }) {
+	const orgs = useOrgs(!!props.orgEnabled);
+	if (!props.orgEnabled || !orgs.data?.length) {
+		return (
+			<a href="/" className="text-foreground no-underline">
+				<BrandBlock {...props} />
+			</a>
+		);
+	}
+	return (
+		<Dropdown>
+			<Dropdown.Trigger aria-label="Switch organization" className="cursor-pointer bg-transparent p-0 text-left">
+				<div className="flex items-center gap-2">
+					<BrandBlock {...props} />
+					<BottomIcon />
+				</div>
+			</Dropdown.Trigger>
+			<Dropdown.Popover placement="bottom start">
+				<Dropdown.Menu
+					className="w-full min-w-[260px]"
+					aria-label="Organizations"
+					onAction={async (id) => {
+						// biome-ignore lint/suspicious/noExplicitAny: organization client methods are typed per build.
+						await (authClient as any).organization.setActive({ organizationId: String(id) });
+						window.location.reload();
+					}}
+				>
+					<Dropdown.Section>
+						<span className="px-3 py-1 text-xs text-muted">Organizations</span>
+						{orgs.data.map((o) => (
+							<Dropdown.Item key={o.id} id={o.id} textValue={o.name}>
+								<div className="flex flex-col py-2">
+									<span className="text-base font-semibold">{o.name}</span>
+									<span className="text-xs text-muted">{o.slug}</span>
+								</div>
+							</Dropdown.Item>
+						))}
+					</Dropdown.Section>
+				</Dropdown.Menu>
+			</Dropdown.Popover>
+		</Dropdown>
 	);
 }
 
@@ -55,7 +103,9 @@ export function Sidebar(props: {
 	brand: { name: string; logoUrl?: string | null; tagline?: string };
 	groups: NavGroup[];
 	settingsHref?: string;
+	orgEnabled?: boolean;
 }) {
+	const { data: session } = authClient.useSession();
 	const { open, toggle, query } = useLayout();
 	const q = query.trim().toLowerCase();
 	const groups = props.groups
@@ -76,7 +126,7 @@ export function Sidebar(props: {
 				}`}
 			>
 				<div className="flex items-center gap-8 px-6">
-					<Brand {...props.brand} />
+					<Brand {...props.brand} orgEnabled={props.orgEnabled} />
 				</div>
 				<div className="flex h-full flex-col justify-between">
 					<nav aria-label="Main" className="mt-9 flex flex-col gap-6 px-2">
@@ -106,6 +156,17 @@ export function Sidebar(props: {
 									</a>
 								</Tooltip.Trigger>
 								<Tooltip.Content>Security</Tooltip.Content>
+							</Tooltip>
+							<Tooltip>
+								<Tooltip.Trigger>
+									<a href={props.settingsHref} aria-label="Profile">
+										<Avatar size="sm">
+											{session?.user?.image ? <Avatar.Image src={session.user.image} alt="" /> : null}
+											<Avatar.Fallback>{(session?.user?.name || session?.user?.email || "?").slice(0, 1).toUpperCase()}</Avatar.Fallback>
+										</Avatar>
+									</a>
+								</Tooltip.Trigger>
+								<Tooltip.Content>Profile</Tooltip.Content>
 							</Tooltip>
 						</div>
 					) : null}

@@ -37,7 +37,7 @@ const { path } = Astro.params;
 // Better Auth UI's settings view paths default to `account` and `security`
 // (there is NO `settings` segment). The account view is the default landing
 // view, so an empty/root path resolves to `account`.
-const view = path && path !== "" ? path : "account";
+const view = path && path !== "" ? path : "home";
 
 // Whether organizations are enabled — adds the Organizations tab to Settings
 // AND the `/account/organizations` settings view. Read before the allow-list
@@ -68,6 +68,8 @@ const isAdminEnabled = await adminEnabled();
 const knownViews = Object.values(viewPaths.settings) as string[];
 const allowedViews = [
 	...knownViews,
+	"home",
+	"users",
 	...(isOrgEnabled ? ["organizations"] : []),
 	...(isBillingEnabled ? ["billing"] : []),
 	...(isOidcEnabled ? ["oauth-clients"] : []),

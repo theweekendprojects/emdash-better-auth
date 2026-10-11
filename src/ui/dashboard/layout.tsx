@@ -34,9 +34,12 @@ export interface DashboardLayoutProps {
 	userMenu: React.ReactNode;
 	/** Footer icon links in the sidebar: where the settings icons point. */
 	settingsHref?: string;
-	/** Optional top bar links; hidden when not set. */
+	orgEnabled?: boolean;
+	/** Top bar links; each is hidden when not set. */
 	feedbackUrl?: string;
 	helpUrl?: string;
+	/** The public site; shown as the last icon before the avatar. */
+	siteUrl?: string;
 	children: React.ReactNode;
 }
 
@@ -53,8 +56,8 @@ export function DashboardLayout(props: DashboardLayoutProps) {
 	return (
 		<LayoutContext.Provider value={{ open, toggle, query, setQuery }}>
 			<section className="flex">
-				<Sidebar brand={props.brand} groups={props.groups} settingsHref={props.settingsHref} />
-				<Navbar userMenu={props.userMenu} feedbackUrl={props.feedbackUrl} helpUrl={props.helpUrl}>
+				<Sidebar brand={props.brand} groups={props.groups} settingsHref={props.settingsHref} orgEnabled={props.orgEnabled} />
+				<Navbar userMenu={props.userMenu} feedbackUrl={props.feedbackUrl} helpUrl={props.helpUrl} siteUrl={props.siteUrl} orgEnabled={props.orgEnabled}>
 					{props.children}
 				</Navbar>
 			</section>
