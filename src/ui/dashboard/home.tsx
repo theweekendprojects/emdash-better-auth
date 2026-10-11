@@ -37,7 +37,9 @@ function StatCard(props: { tone: Tone; title: string; subtitle: string; value: s
 		<Card className={`w-full rounded-xl px-3 shadow-md xl:max-w-sm ${t.card}`}>
 			<Card.Content className="overflow-hidden py-5">
 				<div className="flex gap-2.5">
-					<Community />
+					<span className={props.tone === "default" ? "" : "[&_path]:fill-white"}>
+						<Community />
+					</span>
 					<div className="flex flex-col">
 						<span className={t.text}>{props.title}</span>
 						<span className={`text-xs ${t.text}`}>{props.subtitle}</span>

@@ -152,7 +152,7 @@ function AddUser() {
 									["password", "Password", "password"],
 									["confirm", "Confirm Password", "password"],
 								].map(([name, label, type]) => (
-									<TextField key={name} name={name} type={type} isRequired fullWidth>
+									<TextField key={name} name={name} type={type} isRequired fullWidth autoComplete={type === "password" ? "new-password" : "off"}>
 										<Label>{label}</Label>
 										<Input variant="secondary" />
 									</TextField>
