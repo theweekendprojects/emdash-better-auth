@@ -83,6 +83,8 @@ export interface AccountViewProps {
 	socialProviders?: string[];
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/** Short line under the brand in the sidebar. */
+	tagline?: string;
 	/** Site logo URL; when set, shown in the header instead of the site name. */
 	logoUrl?: string | null;
 	/**
@@ -163,6 +165,7 @@ export default function AccountView({
 	redirectTo = "/account",
 	socialProviders = [],
 	siteName = "Account",
+	tagline = "",
 	logoUrl = null,
 	twoFactorEnabled = false,
 	orgEnabled = false,
@@ -303,13 +306,7 @@ export default function AccountView({
 				>
 					<DashboardShell
 						path={path}
-						brand={
-							logoUrl ? (
-								<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
-							) : (
-								<span className="truncate text-base font-semibold">{siteName}</span>
-							)
-						}
+						brand={{ name: siteName, logoUrl, tagline }}
 						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
 					>
 						{/* Per-user "Recent activity": the user's own auth events, on the
