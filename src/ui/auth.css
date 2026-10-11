@@ -16,6 +16,7 @@
 
 /* Scan the component packages so Tailwind emits every utility/variant class
    HeroUI and Better Auth UI reference at runtime. */
+@source "./";
 @source "../../node_modules/@heroui/react/dist";
 @source "../../node_modules/@better-auth-ui/heroui/dist";
 @source "../../node_modules/@better-auth-ui/react/dist";
@@ -76,4 +77,9 @@ body {
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+}
+
+/* Account page: the sidebar replaces Better Auth UI's own settings tab row. */
+.settings-bare .tabs__list-container {
+	display: none;
 }

@@ -37,6 +37,7 @@ import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
 import { AuditLogTable } from "./AuditLogView.js";
+import { DashboardShell } from "./DashboardShell.js";
 import { emailOtpPlugin } from "@better-auth-ui/heroui/plugins/email-otp";
 import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { billingPlugin } from "@better-auth-ui/heroui/plugins/billing";
@@ -193,16 +194,6 @@ export default function AccountView({
 		});
 	}, [billingEnabled, planPriceIds]);
 
-	// Settings column width: 28rem fits the base 2-tab layout (Account +
-	// Security). Each of org/oidc/multi-session adds its own Settings tab;
-	// with 3+ tabs the row overflows/wraps at 28rem and cards like
-	// multi-session's account list get cramped, so widen it when any of them
-	// are on.
-	const extraTabCount = [orgEnabled, oidcProviderEnabled, multiSessionEnabled].filter(
-		Boolean,
-	).length;
-	const settingsMaxWidth = extraTabCount > 0 ? "36rem" : "28rem";
-
 	// UserButton dropdown entry back to EmDash's own admin (role-gated
 	// server-side, see isEmdashAdmin's doc comment). Empty array when not an
 	// admin — UserButton treats an empty `links` the same as omitting it.
@@ -242,6 +233,9 @@ export default function AccountView({
 					// server `twoFactor` plugin when enabled). TOTP-only for now —
 					// email OTP is a deliberate follow-up.
 					plugins={[
+						// Plugins from `emdash-better-auth/ui-plugins` first: their tabs
+						// lead the sidebar (e.g. a host's "My sites").
+						...extraUiPlugins,
 						themePlugin({ useTheme }),
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
 						...(twoFactorEnabled
@@ -280,7 +274,6 @@ export default function AccountView({
 						...(billingAdapter
 							? [billingPlugin({ adapter: billingAdapter, user: true })]
 							: []),
-						...extraUiPlugins,
 					]}
 					// `bio` is a profile-only field, stored in users.data by the
 					// adapter (see emdash-adapter.ts). Declared here so Better Auth
@@ -308,46 +301,27 @@ export default function AccountView({
 						else window.location.href = to;
 					}}
 				>
-					<header className="sticky top-0 z-10 bg-background border-b">
-						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center">
-							<Link href="/" className="no-underline text-foreground">
-								{logoUrl ? (
-									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
-								) : (
-									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
-								)}
-							</Link>
-							<UserButton size="icon" placement="bottom end" links={adminLinks} />
-						</div>
-					</header>
-
-					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
-						{/* Constrain the settings column so the Account tab matches
-						    the compact, centered width the Security tab uses with the
-						    base plugin set. Without this, Better Auth UI's account
-						    cards stretch the full viewport width. Inline style (not a
-						    Tailwind class): this island only emits utilities Tailwind
-						    finds via the @source scan of the HeroUI / Better Auth UI
-						    packages (see auth.css), so a max-w-* class used only here
-						    is purged and silently no-ops — the inline style can't be.
-						    `settingsMaxWidth` widens this when extra tabs are on (see
-						    its definition above) so the tab row and multi-session's
-						    account list have enough room. */}
-						<div style={{ width: "100%", maxWidth: settingsMaxWidth }}>
-							<Settings path={path} />
-							{/* Per-user "Recent activity": the user's own auth events.
-							    Only on the account landing view (not security/billing
-							    sub-views) to keep those focused. The list endpoint
-							    scopes to the session user, so this never leaks other
-							    users' rows. Compact: no status filter, small page. */}
-							{auditLogEnabled && path === "account" && (
-								<div className="mt-6">
-									<h2 className="text-base font-semibold mb-2">Recent activity</h2>
-									<AuditLogTable mode="self" pageSize={10} hideFilter />
-								</div>
-							)}
-						</div>
-					</main>
+					<DashboardShell
+						path={path}
+						brand={
+							logoUrl ? (
+								<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
+							) : (
+								<span className="truncate text-base font-semibold">{siteName}</span>
+							)
+						}
+						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
+					>
+						{/* Per-user "Recent activity": the user's own auth events, on the
+						    account page only. The list endpoint scopes to the session
+						    user, so this never leaks other users' rows. */}
+						{auditLogEnabled && path === "account" && (
+							<div className="mt-6">
+								<h2 className="text-base font-semibold mb-2">Recent activity</h2>
+								<AuditLogTable mode="self" pageSize={10} hideFilter />
+							</div>
+						)}
+					</DashboardShell>
 
 					<Toast.Provider />
 				</AuthProvider>

@@ -25,7 +25,7 @@
 import "./auth.css";
 import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
-import { Auth, AuthProvider, UserButton } from "@better-auth-ui/heroui";
+import { Auth, AuthProvider } from "@better-auth-ui/heroui";
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
@@ -151,6 +151,8 @@ export interface AuthViewProps {
 	socialProviders?: string[];
 	/** Brand name shown in the header. */
 	siteName?: string;
+	/** Short line under the brand on the sign-in side panel. */
+	tagline?: string;
 	/** Site logo URL; when set, shown in the header instead of the site name. */
 	logoUrl?: string | null;
 	/**
@@ -234,6 +236,7 @@ export default function AuthView({
 	redirectTo = "/",
 	socialProviders = [],
 	siteName = "Home",
+	tagline = "",
 	logoUrl = null,
 	requireEmailVerification = true,
 	twoFactorEnabled = false,
@@ -312,26 +315,40 @@ export default function AuthView({
 						else window.location.href = to;
 					}}
 				>
-					<header className="sticky top-0 z-10 bg-background border-b">
-						<div className="py-3 px-4 md:px-6 mx-auto justify-between flex items-center">
-							<Link href="/" className="no-underline text-foreground">
+					{/* Split screen: form on the left, brand panel on the right (hidden on
+					    small screens, where the brand sits above the form). */}
+					<div className="grid min-h-svh md:grid-cols-2">
+						<main className="flex flex-col items-center justify-center gap-4 p-6">
+							<Link href="/" className="no-underline text-foreground md:hidden">
 								{logoUrl ? (
 									<img src={logoUrl} alt={siteName} className="h-7 w-auto max-w-40 object-contain" />
 								) : (
-									<h1 className="sm:text-base truncate font-semibold">{siteName}</h1>
+									<span className="text-base font-semibold">{siteName}</span>
 								)}
 							</Link>
-							<UserButton size="icon" placement="bottom end" />
-						</div>
-					</header>
-
-					<main className="flex-1 flex flex-col items-center my-auto p-4 md:p-6">
-						<Auth path={path} />
-						{path === "sign-in" && <EmDashLoginButton redirectTo={redirectTo} />}
-						{path === "sign-in" && anonymousEnabled && (
-							<GuestButton redirectTo={redirectTo} />
-						)}
-					</main>
+							<Auth path={path} />
+							{path === "sign-in" && <EmDashLoginButton redirectTo={redirectTo} />}
+							{path === "sign-in" && anonymousEnabled && (
+								<GuestButton redirectTo={redirectTo} />
+							)}
+						</main>
+						<aside
+							className="hidden flex-col justify-center gap-4 border-l border-border p-12 md:flex"
+							style={{
+								background:
+									"linear-gradient(135deg, color-mix(in oklab, var(--accent) 22%, var(--background)), var(--background) 70%)",
+							}}
+						>
+							<Link href="/" className="no-underline text-foreground">
+								{logoUrl ? (
+									<img src={logoUrl} alt={siteName} className="h-10 w-auto max-w-56 object-contain" />
+								) : (
+									<span className="text-4xl font-bold">{siteName}</span>
+								)}
+							</Link>
+							{tagline && <p className="max-w-md text-lg text-muted">{tagline}</p>}
+						</aside>
+					</div>
 
 					<Toast.Provider />
 				</AuthProvider>
