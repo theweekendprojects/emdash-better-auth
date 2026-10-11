@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { authClient } from "../../client.js";
 import { type AdminUser, useUsers } from "./data.js";
+import { SkeletonRows } from "./skeletons.js";
 import { DotsIcon } from "./icons/accounts/dots-icon.js";
 import { ExportIcon } from "./icons/accounts/export-icon.js";
 import { InfoIcon } from "./icons/accounts/info-icon.js";
@@ -63,10 +64,11 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 						</tr>
 					</thead>
 					<tbody>
-						{users.length === 0 ? (
+						{loading && users.length === 0 ? <SkeletonRows cols={4} rows={5} /> : null}
+						{users.length === 0 && !loading ? (
 							<tr>
 								<td colSpan={4} className="px-3 py-6 text-center text-muted">
-									{denied ? "You need an administrator account to see users." : loading ? "Loading…" : "No users found."}
+									{denied ? "You need an administrator account to see users." : "No users found."}
 								</td>
 							</tr>
 						) : null}

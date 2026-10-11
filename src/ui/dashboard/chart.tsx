@@ -1,5 +1,6 @@
 /** Statistics chart (area), as in the template. Client only: apexcharts needs `window`. */
 import * as React from "react";
+import { Skeleton } from "@heroui/react";
 import type { Entry } from "./data.js";
 
 const Chart = React.lazy(() => import("react-apexcharts"));
@@ -30,7 +31,7 @@ function series(entries: Entry[]) {
 	};
 }
 
-export function Steam({ entries }: { entries: Entry[] }) {
+export function Steam({ entries, loading = false }: { entries: Entry[]; loading?: boolean }) {
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => setMounted(true), []);
 	const s = React.useMemo(() => series(entries), [entries]);
@@ -48,11 +49,13 @@ export function Steam({ entries }: { entries: Entry[] }) {
 	};
 	return (
 		<div className="z-20 w-full" style={{ minHeight: 425 }}>
-			{mounted ? (
-				<React.Suspense fallback={null}>
+			{mounted && !loading ? (
+				<React.Suspense fallback={<Skeleton className="h-[425px] w-full rounded-xl" />}>
 					<Chart options={options} series={s.series} type="area" height={425} />
 				</React.Suspense>
-			) : null}
+			) : (
+				<Skeleton className="h-[425px] w-full rounded-xl" />
+			)}
 		</div>
 	);
 }

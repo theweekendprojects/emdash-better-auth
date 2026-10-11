@@ -1,75 +1,34 @@
 ---
 /**
- * Plugin-shipped Better Auth UI (HeroUI) admin user-management catch-all page.
- *
- * Injected at `/admin/[...path]` via the plugin's AuthProviderDescriptor.routes.
- * Serves Better Auth UI's admin view: `/admin/users` (user list + detail
- * drawer). Only mounted/rendered when the admin plugin is enabled in settings;
- * otherwise 404 (so the route is inert on sites that haven't opted in).
- *
- * Login-gated here; actual admin authorization is enforced by Better Auth's
- * admin permission API, which the <Admin> UI calls before listing users and
- * before enabling each action. The header/layout live inside the island.
+ * Plugin-shipped Better Auth UI admin page (user management) at /admin.
+ * Rendered by the same island as /account/* so the sidebar and plugins are identical on every page.
  */
-import { getSiteSettings } from "emdash";
-import {
-	adminEnabled,
-	auditLogEnabled,
-	orgEnabled,
-	multiSessionEnabled,
-	accentColor,
-} from "../../providers.ts";
+import { accountProps, ROLE_ADMIN } from "../../account-props.ts";
+import { adminEnabled, auditLogEnabled, orgEnabled, teamsEnabled } from "../../providers.ts";
 import { requireUser } from "../../route.ts";
-import AdminView from "../../ui/AdminView.tsx";
-
-// EmDash's ADMIN role level. `users.role` is a numeric RBAC level
-// (SUBSCRIBER=10 … ADMIN=50); admin-tier capabilities require 50.
-// ponytail: compared inline rather than importing a `hasPermission`/`Role`
-// helper — the published `emdash` package doesn't re-export the RBAC module to
-// consumers, so a direct level check is the dependency-free option. If EmDash
-// later exports `hasPermission`, switch to `hasPermission(user, "users:manage")`.
-const ROLE_ADMIN = 50;
-
-// Gate the whole route behind the admin feature flag.
+import AccountView from "../../ui/AccountView.tsx";
+const { path } = Astro.params;
+const view = path && path !== "" ? path : "users";
 if (!(await adminEnabled())) {
 	return new Response("Not found", { status: 404 });
 }
-
-const { path } = Astro.params;
-// Better Auth UI's admin plugin currently exposes a single "users" view; the
-// root path resolves to it. Anything else is unknown → 404.
-const view = path && path !== "" ? path : "users";
 if (view !== "users") {
 	return new Response("Not found", { status: 404 });
 }
-
-// Admin-only, enforced server-side here (defense-in-depth on top of Better
-// Auth's own admin permission checks inside the UI). Anon → sign-in;
-// signed-in-but-not-admin → 403, so a non-admin can't even load the page shell.
-// `locals.user` is populated from the session on this public route.
 const gate = await requireUser(Astro);
 if (gate) return gate;
 const user = Astro.locals.user!;
 if ((user.role ?? 0) < ROLE_ADMIN) {
 	return new Response("Forbidden", { status: 403 });
 }
-
-const siteSettings = await getSiteSettings().catch(() => null);
-const siteName = siteSettings?.title || "Admin";
-const logoUrl = siteSettings?.logo?.url ?? null;
-const accent = await accentColor();
-// Feature flags for the avatar-menu links (Audit log / Organization).
-const hasAuditLog = await auditLogEnabled();
-const hasOrgs = await orgEnabled();
-const hasMultiSession = await multiSessionEnabled();
+const { accent, props } = await accountProps(user.role);
 ---
-
 <!doctype html>
 <html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Admin</title>
+		<title>Users admin</title>
 		<script is:inline>
 			(() => {
 				try {
@@ -84,14 +43,6 @@ const hasMultiSession = await multiSessionEnabled();
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<AdminView
-			path={view}
-			siteName={siteName}
-			logoUrl={logoUrl}
-			auditLogEnabled={hasAuditLog}
-			orgEnabled={hasOrgs}
-			multiSessionEnabled={hasMultiSession}
-			client:load
-		/>
+		<AccountView {...props} section="admin" path={view} client:load />
 	</body>
 </html>

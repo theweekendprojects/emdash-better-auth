@@ -3,12 +3,13 @@
  * Port of the nextui-dashboard-template home page (MIT) to HeroUI v3, with the
  * demo numbers replaced by data from the Better Auth client.
  */
-import { Avatar, AvatarGroup, Card } from "@heroui/react";
+import { Avatar, AvatarGroup, Card, Skeleton } from "@heroui/react";
 import { authClient } from "../../client.js";
 import * as React from "react";
 import { Steam } from "./chart.js";
 import { type Entry, useAccounts, useAudit, useInvites, useOrgs, useSessions, useUsers } from "./data.js";
 import { Community } from "./icons/community.js";
+import { StatCardSkeleton } from "./skeletons.js";
 import { UsersTable } from "./users.js";
 
 export interface HomeFlags {
@@ -92,6 +93,7 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 	const nOrgs = orgs.data?.length ?? 0;
 	const nInvites = invites.data?.length ?? 0;
 	const failed = entries.filter((e) => e.status === "failed").length;
+	const statsLoading = sessions.isLoading || accounts.isLoading || (orgEnabled && (orgs.isLoading || invites.isLoading));
 	const name = session?.user?.name || session?.user?.email || "there";
 	return (
 		<div className="h-full lg:px-6">
@@ -100,6 +102,14 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 					<div className="flex flex-col gap-2">
 						<h3 className="text-xl font-semibold">Welcome back, {name}</h3>
 						<div className="grid w-full grid-cols-1 justify-center gap-5 md:grid-cols-2 2xl:grid-cols-3">
+							{statsLoading ? (
+								<>
+									<StatCardSkeleton />
+									{orgEnabled ? <StatCardSkeleton /> : null}
+									<StatCardSkeleton />
+								</>
+							) : (
+								<>
 							<StatCard
 								tone="primary"
 								title="Sessions"
@@ -139,13 +149,15 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 									{ symbol: "⭐", value: (session?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled ? "On" : "Off", label: "2FA" },
 								]}
 							/>
+						</>
+							)}
 						</div>
 					</div>
 					{auditLogEnabled ? (
 						<div className="flex h-full flex-col gap-2">
 							<h3 className="text-xl font-semibold">Statistics</h3>
 							<div className="w-full rounded-2xl bg-surface p-6 shadow-lg">
-								<Steam entries={entries} />
+								<Steam entries={entries} loading={audit.isLoading} />
 							</div>
 						</div>
 					) : null}
@@ -161,7 +173,9 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 										{orgEnabled ? "The organizations you belong to." : "Your profile at a glance."}
 									</span>
 									<AvatarGroup>
-										{orgEnabled && nOrgs ? (
+										{orgEnabled && orgs.isLoading ? (
+											<Skeleton className="h-10 w-28 rounded-full" />
+										) : orgEnabled && nOrgs ? (
 											orgs.data?.slice(0, 5).map((o) => (
 												<Avatar key={o.id}>
 													{o.logo ? <Avatar.Image src={o.logo} alt={o.name} /> : null}
@@ -183,7 +197,18 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 								<Card.Content className="gap-4 py-5">
 									<Dashed>Recent activity</Dashed>
 									<div className="flex flex-col gap-6">
-										{entries.length === 0 ? <p className="text-center text-sm text-muted">Nothing yet.</p> : null}
+										{audit.isLoading
+											? Array.from({ length: 4 }, (_, i) => (
+													// biome-ignore lint/suspicious/noArrayIndexKey: static placeholders.
+													<div key={i} className="grid w-full grid-cols-4 items-center" aria-hidden="true">
+														<Skeleton className="h-10 w-10 rounded-full" />
+														<Skeleton className="h-4 w-20 rounded-lg" />
+														<Skeleton className="h-3 w-12 rounded-lg" />
+														<Skeleton className="h-3 w-14 rounded-lg" />
+													</div>
+												))
+											: null}
+										{!audit.isLoading && entries.length === 0 ? <p className="text-center text-sm text-muted">Nothing yet.</p> : null}
 										{entries.slice(0, 5).map((e) => (
 											<div key={e.id} className="grid w-full grid-cols-4 items-center">
 												<div className="w-full">

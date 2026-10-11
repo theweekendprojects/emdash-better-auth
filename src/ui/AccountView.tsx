@@ -33,6 +33,7 @@ import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
+import { adminPlugin } from "@better-auth-ui/heroui/plugins";
 import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
@@ -66,6 +67,10 @@ function getQueryClient(): QueryClient {
 export interface AccountViewProps {
 	/** Better Auth UI settings view path, e.g. "account" | "security". */
 	path?: string;
+	/** Which page body: account (default), admin (user management), audit (audit log), organization (active org). */
+	section?: "account" | "admin" | "audit" | "organization";
+	/** Teams inside organizations (mirrors `teamsEnabled`). */
+	teamsEnabled?: boolean;
 	/**
 	 * Whether the signed-in user is an EmDash admin (role >= 50). When true, a
 	 * "EmDash Admin" entry is added to the UserButton dropdown so admins can
@@ -162,6 +167,8 @@ export interface AccountViewProps {
 
 export default function AccountView({
 	path = "account",
+	section = "account",
+	teamsEnabled = false,
 	redirectTo = "/account",
 	socialProviders = [],
 	siteName = "Account",
@@ -246,7 +253,7 @@ export default function AccountView({
 							: []),
 						// Adds the "Organizations" tab to Settings (list orgs + pending
 						// invitations + create). Only when org is on.
-						...(orgEnabled ? [organizationPlugin()] : []),
+						...(orgEnabled ? [organizationPlugin(teamsEnabled ? { teams: { enabled: true } } : {})] : []),
 						// Adds the "Passkeys" card to the Security tab (register /
 						// rename / delete device passkeys). Only when the flag is on,
 						// matching the backend `passkey()` plugin.
@@ -269,6 +276,7 @@ export default function AccountView({
 						// Email-OTP: OTP-based email change / verification in account
 						// settings. Multi-session: account switcher in the UserButton.
 						// Each only when its site flag is on, matching the backend.
+						...(adminEnabled && isEmdashAdmin ? [adminPlugin()] : []),
 						...(emailOtpEnabled ? [emailOtpPlugin()] : []),
 						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 						// Adds the "Billing" tab (pricing, checkout, portal, cancel).
@@ -306,10 +314,12 @@ export default function AccountView({
 				>
 					<DashboardShell
 						path={path}
+						section={section}
 						brand={{ name: siteName, logoUrl, tagline }}
 						orgEnabled={orgEnabled}
 						auditLogEnabled={auditLogEnabled}
 						isAdmin={isEmdashAdmin}
+						adminEnabled={adminEnabled}
 						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
 					>
 						{/* Per-user "Recent activity": the user's own auth events, on the

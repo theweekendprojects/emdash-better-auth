@@ -30,6 +30,7 @@ import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session
 import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { Chip, Link, Spinner, buttonVariants } from "@heroui/react";
+import { SkeletonRows } from "./dashboard/skeletons.js";
 import {
 	QueryClient,
 	QueryClientProvider,
@@ -185,11 +186,7 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 					</thead>
 					<tbody>
 						{query.isLoading ? (
-							<tr>
-								<td colSpan={5} className="py-8 text-center">
-									<Spinner label="Loading…" />
-								</td>
-							</tr>
+							<SkeletonRows cols={5} rows={6} />
 						) : rows.length === 0 ? (
 							<tr>
 								<td colSpan={5} className="py-8 text-center text-foreground-500">
@@ -208,14 +205,14 @@ function AuditLogTable({ mode, pageSize = PAGE_SIZE, hideFilter = false }: Audit
 									<td className="py-2 px-3">
 										<Chip
 											size="sm"
-											variant="flat"
+											variant="soft"
 											color={row.status === "failed" ? "danger" : "success"}
 										>
 											{row.status}
 										</Chip>
 									</td>
 									<td className="hidden sm:table-cell py-2 px-3">
-										<Chip size="sm" variant="flat" color={SEVERITY_COLOR[row.severity]}>
+										<Chip size="sm" variant="soft" color={SEVERITY_COLOR[row.severity]}>
 											{row.severity}
 										</Chip>
 									</td>

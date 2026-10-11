@@ -1,66 +1,27 @@
 ---
 /**
- * Plugin-shipped Better Auth UI (HeroUI) organization management catch-all.
- *
- * Injected at `/organization/[...path]` via the plugin's
- * AuthProviderDescriptor.routes. Serves Better Auth UI's <Organization> shell:
- * `/organization/settings` (profile + danger zone), `/organization/people`
- * (members + invitations), and `/organization/teams` when teams are enabled.
- * Only mounted/rendered when the organization plugin is enabled in settings;
- * otherwise 404.
- *
- * Login-gated here; per-organization authorization (who may manage members,
- * roles, etc.) is enforced by Better Auth's organization permission checks that
- * the UI calls. The header (with the org switcher) and layout live inside the
- * island.
+ * Plugin-shipped organization page (settings, people, teams of the active organization) at /organization.
+ * Rendered by the same island as /account/* so the sidebar and plugins are identical on every page.
  */
-import { getSiteSettings } from "emdash";
-import {
-	orgEnabled,
-	teamsEnabled as teamsEnabledFlag,
-	adminEnabled,
-	auditLogEnabled,
-	multiSessionEnabled,
-	accentColor,
-} from "../../providers.ts";
+import { accountProps, ROLE_ADMIN } from "../../account-props.ts";
+import { adminEnabled, auditLogEnabled, orgEnabled, teamsEnabled } from "../../providers.ts";
 import { requireUser } from "../../route.ts";
-import OrganizationView from "../../ui/OrganizationView.tsx";
-
-// Gate the whole route behind the organization feature flag.
+import AccountView from "../../ui/AccountView.tsx";
+const { path } = Astro.params;
+const view = path && path !== "" ? path : "settings";
 if (!(await orgEnabled())) {
 	return new Response("Not found", { status: 404 });
 }
-
-const teams = await teamsEnabledFlag();
-
-const { path } = Astro.params;
-// <Organization> tabs: settings | people (+ teams when enabled). Root → settings.
-const view = path && path !== "" ? path : "settings";
-const allowed = teams ? ["settings", "people", "teams"] : ["settings", "people"];
+const allowed = (await teamsEnabled()) ? ["settings", "people", "teams"] : ["settings", "people"];
 if (!allowed.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
-
-// Login-gated: re-bridges a still-valid Better Auth session first (see
-// requireUser), else anonymous visitors go to sign-in and return here.
 const gate = await requireUser(Astro);
 if (gate) return gate;
+const user = Astro.locals.user!;
 
-// EmDash's ADMIN role level — gates the UserButton's "EmDash Admin" link.
-// Cosmetic only (EmDash's own admin area re-checks role on entry).
-const ROLE_ADMIN = 50;
-// Feature flags for the avatar-menu links (Manage users / Audit log).
-const hasAdminUi = await adminEnabled();
-const hasAuditLog = await auditLogEnabled();
-const hasMultiSession = await multiSessionEnabled();
-const isEmdashAdmin = (Astro.locals.user.role ?? 0) >= ROLE_ADMIN;
-
-const siteSettings = await getSiteSettings().catch(() => null);
-const siteName = siteSettings?.title || "Organization";
-const logoUrl = siteSettings?.logo?.url ?? null;
-const accent = await accentColor();
+const { accent, props } = await accountProps(user.role);
 ---
-
 <!doctype html>
 <html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
@@ -81,16 +42,6 @@ const accent = await accentColor();
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<OrganizationView
-			path={view}
-			siteName={siteName}
-			logoUrl={logoUrl}
-			teamsEnabled={teams}
-			isEmdashAdmin={isEmdashAdmin}
-			adminEnabled={hasAdminUi}
-			auditLogEnabled={hasAuditLog}
-			multiSessionEnabled={hasMultiSession}
-			client:load
-		/>
+		<AccountView {...props} section="organization" path={view} client:load />
 	</body>
 </html>

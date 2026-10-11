@@ -13,105 +13,31 @@
  * site's themed content pages are untouched.
  */
 import { viewPaths } from "@better-auth-ui/core";
-import { getSiteSettings } from "emdash";
-import {
-	configuredSocialProviders,
-	twoFactorEnabled,
-	orgEnabled,
-	apiKeyEnabled,
-	passkeyEnabled,
-	billingEnabled,
-	oidcProviderEnabled,
-	auditLogEnabled,
-	emailOtpEnabled,
-	multiSessionEnabled,
-	planPriceIds,
-	accentColor,
-	adminEnabled,
-} from "../providers.ts";
+import { accountProps } from "../account-props.ts";
 import { requireUser } from "../route.ts";
 import { extraViews } from "../ui-plugin-views.ts";
 import AccountView from "../ui/AccountView.tsx";
 
 const { path } = Astro.params;
-// Better Auth UI's settings view paths default to `account` and `security`
-// (there is NO `settings` segment). The account view is the default landing
-// view, so an empty/root path resolves to `account`.
 const view = path && path !== "" ? path : "home";
-
-// Whether organizations are enabled — adds the Organizations tab to Settings
-// AND the `/account/organizations` settings view. Read before the allow-list
-// because the org plugin only augments viewPaths.settings at the TYPE level,
-// so we must allow "organizations" through explicitly when org is on (same
-// pattern as the 2FA "two-factor" view in auth.astro).
-const isOrgEnabled = await orgEnabled();
-// Whether billing is enabled — adds the Billing tab AND the `/account/billing`
-// settings view. Same TYPE-level-only augmentation caveat as orgs, so allow
-// "billing" through explicitly when on.
-const isBillingEnabled = await billingEnabled();
-const resolvedPlanPriceIds = isBillingEnabled ? planPriceIds() : {};
-// Whether the OIDC provider is enabled — adds the "OAuth clients" settings tab
-// AND the `/account/oauth-clients` view (manage the user's own OAuth clients),
-// plus the "Connected applications" security card. Same TYPE-level-only
-// viewPaths augmentation caveat as orgs/billing, so allow "oauth-clients"
-// through explicitly when on.
-const isOidcEnabled = await oidcProviderEnabled();
-// Email-OTP + multi-session gate their account-settings surfaces (OTP email
-// change; account switcher), matching the backend plugins.
-const isEmailOtpEnabled = await emailOtpEnabled();
-const isMultiSessionEnabled = await multiSessionEnabled();
-// Audit log — gates the per-user "Recent activity" card in the account view.
-const isAuditLogEnabled = await auditLogEnabled();
-// Admin plugin — gates the "Manage users" avatar-menu link.
-const isAdminEnabled = await adminEnabled();
-
+const gate = await requireUser(Astro);
+if (gate) return gate;
+const flags = await accountProps(Astro.locals.user.role);
+const accent = flags.accent;
 const knownViews = Object.values(viewPaths.settings) as string[];
 const allowedViews = [
 	...knownViews,
 	"home",
 	"users",
-	...(isOrgEnabled ? ["organizations"] : []),
-	...(isBillingEnabled ? ["billing"] : []),
-	...(isOidcEnabled ? ["oauth-clients"] : []),
+	...(flags.props.orgEnabled ? ["organizations"] : []),
+	...(flags.props.billingEnabled ? ["billing"] : []),
+	...(flags.props.oidcProviderEnabled ? ["oauth-clients"] : []),
 	...extraViews("settings"),
 ];
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
-
-// Login-gated: re-bridges a still-valid Better Auth session first (see
-// requireUser), else redirects to sign-in and back.
-const gate = await requireUser(Astro);
-if (gate) return gate;
-
-// EmDash's ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). Gates the
-// UserButton's "EmDash Admin" link — cosmetic only (EmDash's own admin area
-// re-checks role), so a plain inline comparison is fine here, same as the
-// /admin and /audit-log pages.
-const ROLE_ADMIN = 50;
-const isEmdashAdmin = (Astro.locals.user.role ?? 0) >= ROLE_ADMIN;
-
-const redirectTo = "/account";
-// Brand shown in the header — read from EmDash site settings so the
-// plugin is site-agnostic (no hardcoded site name). Falls back generically.
-const siteSettings = await getSiteSettings().catch(() => null);
-const siteName = siteSettings?.title || "Account";
-// Site logo for the header (same settings object; no extra read).
-const logoUrl = siteSettings?.logo?.url ?? null;
-// Show a social button only for providers whose credentials are actually set
-// (admin settings or env). Matches exactly what the auth route enables.
-const socialProviders = await configuredSocialProviders();
-// Whether 2FA is enabled site-wide — gates the Security tab's enrollment card
-// so it matches the backend (same setting the auth route reads).
-const is2faEnabled = await twoFactorEnabled();
-// Whether API keys / passkeys are enabled — gate their Security-tab cards so
-// they match the backend (same settings the auth route reads).
-const isApiKeyEnabled = await apiKeyEnabled();
-const isPasskeyEnabled = await passkeyEnabled();
-// Accent color (operator setting) injected as a CSS var for HeroUI theming.
-const accent = await accentColor();
 ---
-
 <!doctype html>
 <html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
@@ -135,26 +61,6 @@ const accent = await accentColor();
 		</script>
 	</head>
 	<body class="min-h-svh flex flex-col">
-		<AccountView
-			path={view}
-			redirectTo={redirectTo}
-			siteName={siteName}
-			tagline={siteSettings?.tagline ?? ""}
-			logoUrl={logoUrl}
-			socialProviders={socialProviders}
-			twoFactorEnabled={is2faEnabled}
-			orgEnabled={isOrgEnabled}
-			apiKeyEnabled={isApiKeyEnabled}
-			passkeyEnabled={isPasskeyEnabled}
-			billingEnabled={isBillingEnabled}
-			oidcProviderEnabled={isOidcEnabled}
-			auditLogEnabled={isAuditLogEnabled}
-			emailOtpEnabled={isEmailOtpEnabled}
-			multiSessionEnabled={isMultiSessionEnabled}
-			planPriceIds={resolvedPlanPriceIds}
-			isEmdashAdmin={isEmdashAdmin}
-			adminEnabled={isAdminEnabled}
-			client:load
-		/>
+		<AccountView {...flags.props} path={view} redirectTo="/account" client:load />
 	</body>
 </html>
