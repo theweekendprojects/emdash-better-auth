@@ -121,9 +121,9 @@ export function DashboardShell({
 		);
 	const main: NavItem[] = [
 		...tabs,
-		...fixed(orgEnabled, "Organization", "/organization", <BalanceIcon />, "organization"),
+		...fixed(orgEnabled, "Active organization", "/organization", <BalanceIcon />, "organization"),
 		...(isAdmin ? [item("users", "Users")] : []),
-		...fixed(isAdmin && adminEnabled, "User admin", "/admin", <DevIcon />, "admin"),
+		...fixed(isAdmin && adminEnabled, "Roles & sessions", "/admin", <DevIcon />, "admin"),
 		...fixed(isAdmin && auditLogEnabled, "Audit log", "/audit-log", <ChangeLogIcon />, "audit"),
 	];
 	const groups: NavGroup[] = [
