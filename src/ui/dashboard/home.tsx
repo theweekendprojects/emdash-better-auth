@@ -157,7 +157,7 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 						<div className="flex h-full flex-col gap-2">
 							<h3 className="text-xl font-semibold">Statistics</h3>
 							<div className="w-full rounded-2xl bg-surface p-6 shadow-lg">
-								<Steam entries={entries} loading={audit.isLoading} />
+								{audit.isLoading ? <Skeleton className="h-[400px] w-full rounded-xl" /> : <Steam entries={entries} />}
 							</div>
 						</div>
 					) : null}

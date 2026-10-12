@@ -37,12 +37,14 @@ const allowedViews = [
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
+import interFont from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 ---
 <!doctype html>
 <html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="preload" as="font" type="font/woff2" href={interFont} crossorigin />
 		<title>Account</title>
 		<!-- Apply the saved theme before paint to avoid a light/dark flash.
 		     Mirrors next-themes' storage key/behavior so the island hydrates

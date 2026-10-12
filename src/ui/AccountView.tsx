@@ -33,7 +33,8 @@ import { themePlugin } from "@better-auth-ui/heroui/plugins/theme";
 import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
-import { adminPlugin } from "@better-auth-ui/heroui/plugins";
+// Deep import: the "/plugins" barrel pulls every plugin (and libphonenumber-js, 65 KB gzip) into the bundle.
+import { adminPlugin } from "@better-auth-ui/heroui/plugins/admin";
 import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";

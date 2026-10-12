@@ -1,61 +1,68 @@
-/** Statistics chart (area), as in the template. Client only: apexcharts needs `window`. */
-import * as React from "react";
-import { Skeleton } from "@heroui/react";
+/**
+ * Statistics chart: stacked area, two series over 14 days, as in the template.
+ *
+ * Plain SVG instead of apexcharts: that library is 1.6 MB raw (370 KB gzip) and
+ * loaded on the landing page for a chart of 28 numbers. This is ~2 KB, renders
+ * on the server too (no client-only mount, no layout shift) and follows the
+ * HeroUI theme through CSS variables.
+ */
+import { dailyCounts, DAYS } from "./chart-data.js";
 import type { Entry } from "./data.js";
 
-const Chart = React.lazy(() => import("react-apexcharts"));
-const DAYS = 14;
+const W = 800;
+const H = 400;
+const PAD = { l: 36, r: 12, t: 12, b: 28 };
 
-/** Count entries per local day for the last DAYS days, split by status. */
-function series(entries: Entry[]) {
-	const days = Array.from({ length: DAYS }, (_, i) => {
-		const d = new Date();
-		d.setHours(0, 0, 0, 0);
-		d.setDate(d.getDate() - (DAYS - 1 - i));
-		return d;
-	});
-	const key = (d: Date) => d.toDateString();
-	const ok = new Map<string, number>();
-	const bad = new Map<string, number>();
-	for (const e of entries) {
-		const m = e.status === "failed" ? bad : ok;
-		const k = key(new Date(e.createdAt));
-		m.set(k, (m.get(k) ?? 0) + 1);
-	}
-	return {
-		categories: days.map((d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" })),
-		series: [
-			{ name: "Successful", data: days.map((d) => ok.get(key(d)) ?? 0) },
-			{ name: "Failed", data: days.map((d) => bad.get(key(d)) ?? 0) },
-		],
-	};
-}
-
-export function Steam({ entries, loading = false }: { entries: Entry[]; loading?: boolean }) {
-	const [mounted, setMounted] = React.useState(false);
-	React.useEffect(() => setMounted(true), []);
-	const s = React.useMemo(() => series(entries), [entries]);
-	// Text and grid colours come from CSS (auth.css `.apexcharts-*`), so light/dark follow the theme.
-	const options = {
-		chart: { type: "area" as const, animations: { easing: "linear" as const, speed: 300 }, stacked: true, toolbar: { show: false }, background: "transparent" },
-		xaxis: { categories: s.categories },
-		tooltip: { enabled: false },
-		grid: { show: true, strokeDashArray: 0, position: "back" as const },
-		stroke: { curve: "smooth" as const },
-		dataLabels: { enabled: false },
-		legend: { show: false },
-		markers: { size: 0 },
-		colors: ["#17c964", "#006fee"],
-	};
+export function Steam({ entries }: { entries: Entry[] }) {
+	const { days, ok, bad } = dailyCounts(entries);
+	const stacked = ok.map((v, i) => v + (bad[i] ?? 0));
+	const max = Math.max(4, ...stacked);
+	// Round the axis up to a "nice" step so the grid lines read well.
+	const step = Math.ceil(max / 4);
+	const top = step * 4;
+	const x = (i: number) => PAD.l + (i * (W - PAD.l - PAD.r)) / (DAYS - 1);
+	const y = (v: number) => H - PAD.b - (v * (H - PAD.t - PAD.b)) / top;
+	const line = (vs: number[]) => vs.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+	const area = (upper: number[], lower: number[]) =>
+		`${line(upper)} ${lower
+			.map((v, i) => [v, i] as const)
+			.reverse()
+			.map(([v, i]) => `L${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+			.join(" ")} Z`;
+	const zero = ok.map(() => 0);
 	return (
-		<div className="z-20 w-full" style={{ minHeight: 425 }}>
-			{mounted && !loading ? (
-				<React.Suspense fallback={<Skeleton className="h-[425px] w-full rounded-xl" />}>
-					<Chart options={options} series={s.series} type="area" height={425} />
-				</React.Suspense>
-			) : (
-				<Skeleton className="h-[425px] w-full rounded-xl" />
-			)}
+		<div className="z-20 w-full">
+			<svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Events per day, last 14 days">
+				{[0, 1, 2, 3, 4].map((n) => (
+					<g key={n}>
+						<line x1={PAD.l} x2={W - PAD.r} y1={y(n * step)} y2={y(n * step)} stroke="var(--border)" />
+						<text x={PAD.l - 6} y={y(n * step) + 4} textAnchor="end" fontSize="11" fill="var(--muted)">
+							{n * step}
+						</text>
+					</g>
+				))}
+				{days.map((d, i) =>
+					i % 2 === 0 ? (
+						<text key={d.toISOString()} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">
+							{d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+						</text>
+					) : null,
+				)}
+				<path d={area(ok, zero)} fill="#17c964" fillOpacity="0.35" />
+				<path d={line(ok)} fill="none" stroke="#17c964" strokeWidth="2" strokeLinejoin="round" />
+				<path d={area(stacked, ok)} fill="#006fee" fillOpacity="0.35" />
+				<path d={line(stacked)} fill="none" stroke="#006fee" strokeWidth="2" strokeLinejoin="round" />
+			</svg>
+			<p className="mt-2 flex justify-center gap-4 text-xs text-muted">
+				<span>
+					<span className="mr-1 inline-block size-2 rounded-full bg-[#17c964]" />
+					Successful
+				</span>
+				<span>
+					<span className="mr-1 inline-block size-2 rounded-full bg-[#006fee]" />
+					Failed
+				</span>
+			</p>
 		</div>
 	);
 }

@@ -85,15 +85,3 @@ body {
 .settings-bare .tabs__list-container {
 	display: none;
 }
-
-/* Dashboard chart: text and grid follow the HeroUI theme (apexcharts draws SVG). */
-.apexcharts-text,
-.apexcharts-legend-text {
-	fill: var(--muted) !important;
-	color: var(--muted) !important;
-}
-.apexcharts-gridline,
-.apexcharts-xaxis-tick,
-.apexcharts-xaxis line {
-	stroke: var(--border);
-}

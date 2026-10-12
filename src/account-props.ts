@@ -25,28 +25,44 @@ import {
 export const ROLE_ADMIN = 50;
 
 export async function accountProps(role: number | undefined) {
-	const siteSettings = await getSiteSettings().catch(() => null);
-	const billing = await billingEnabled();
+	// Every flag is its own settings read; run them together instead of one after another.
+	const [siteSettings, accent, billing, social, twoFactor, org, teams, apiKey, passkey, oidc, audit, emailOtp, multiSession, admin] =
+		await Promise.all([
+			getSiteSettings().catch(() => null),
+			accentColor(),
+			billingEnabled(),
+			configuredSocialProviders(),
+			twoFactorEnabled(),
+			orgEnabled(),
+			teamsEnabled(),
+			apiKeyEnabled(),
+			passkeyEnabled(),
+			oidcProviderEnabled(),
+			auditLogEnabled(),
+			emailOtpEnabled(),
+			multiSessionEnabled(),
+			adminEnabled(),
+		]);
 	return {
-		accent: await accentColor(),
+		accent,
 		props: {
 			siteName: siteSettings?.title || "Account",
 			tagline: siteSettings?.tagline ?? "",
 			logoUrl: siteSettings?.logo?.url ?? null,
-			socialProviders: await configuredSocialProviders(),
-			twoFactorEnabled: await twoFactorEnabled(),
-			orgEnabled: await orgEnabled(),
-			teamsEnabled: await teamsEnabled(),
-			apiKeyEnabled: await apiKeyEnabled(),
-			passkeyEnabled: await passkeyEnabled(),
+			socialProviders: social,
+			twoFactorEnabled: twoFactor,
+			orgEnabled: org,
+			teamsEnabled: teams,
+			apiKeyEnabled: apiKey,
+			passkeyEnabled: passkey,
 			billingEnabled: billing,
-			oidcProviderEnabled: await oidcProviderEnabled(),
-			auditLogEnabled: await auditLogEnabled(),
-			emailOtpEnabled: await emailOtpEnabled(),
-			multiSessionEnabled: await multiSessionEnabled(),
+			oidcProviderEnabled: oidc,
+			auditLogEnabled: audit,
+			emailOtpEnabled: emailOtp,
+			multiSessionEnabled: multiSession,
 			planPriceIds: billing ? planPriceIds() : {},
 			isEmdashAdmin: (role ?? 0) >= ROLE_ADMIN,
-			adminEnabled: await adminEnabled(),
+			adminEnabled: admin,
 		},
 	};
 }

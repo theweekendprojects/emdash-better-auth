@@ -22,12 +22,14 @@ if ((user.role ?? 0) < ROLE_ADMIN) {
 	return new Response("Forbidden", { status: 403 });
 }
 const { accent, props } = await accountProps(user.role);
+import interFont from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 ---
 <!doctype html>
 <html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="preload" as="font" type="font/woff2" href={interFont} crossorigin />
 		<title>Users admin</title>
 		<script is:inline>
 			(() => {
