@@ -50,8 +50,8 @@ export function Steam({ entries }: { entries: Entry[] }) {
 				)}
 				<path d={area(ok, zero)} fill="#17c964" fillOpacity="0.35" />
 				<path d={line(ok)} fill="none" stroke="#17c964" strokeWidth="2" strokeLinejoin="round" />
-				<path d={area(stacked, ok)} fill="#006fee" fillOpacity="0.35" />
-				<path d={line(stacked)} fill="none" stroke="#006fee" strokeWidth="2" strokeLinejoin="round" />
+				<path d={area(stacked, ok)} style={{ fill: "var(--accent)" }} fillOpacity="0.35" />
+				<path d={line(stacked)} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" />
 			</svg>
 			<p className="mt-2 flex justify-center gap-4 text-xs text-muted">
 				<span>
@@ -59,7 +59,7 @@ export function Steam({ entries }: { entries: Entry[] }) {
 					Successful
 				</span>
 				<span>
-					<span className="mr-1 inline-block size-2 rounded-full bg-[#006fee]" />
+					<span className="mr-1 inline-block size-2 rounded-full bg-accent" />
 					Failed
 				</span>
 			</p>
