@@ -206,18 +206,18 @@ export function Accounts() {
 					<a href="/account/home" className="text-foreground no-underline">
 						<span>Home</span>
 					</a>
-					<span> / </span>{" "}
+					<span aria-hidden="true" className="px-1 text-muted">/</span>
 				</li>
 				<li className="flex gap-2">
 					<UsersIcon />
 					<span>Users</span>
-					<span> / </span>{" "}
+					<span aria-hidden="true" className="px-1 text-muted">/</span>
 				</li>
 				<li className="flex gap-2">
 					<span>List</span>
 				</li>
 			</ul>
-			<h3 className="text-xl font-semibold">All Accounts</h3>
+			<h1 className="text-xl font-semibold">All Accounts</h1>
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div className="flex flex-wrap items-center gap-3 md:flex-nowrap">
 					<TextField aria-label="Search users" value={search} onChange={setSearch}>

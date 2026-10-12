@@ -47,7 +47,7 @@ function BrandBlock({ name, logoUrl, tagline }: { name: string; logoUrl?: string
 				</div>
 			)}
 			<div className="flex flex-col">
-				<h3 className="m-0 whitespace-nowrap text-xl font-medium text-foreground">{name}</h3>
+				<span className="whitespace-nowrap text-xl font-medium text-foreground">{name}</span>
 				{tagline ? <span className="max-w-28 truncate text-xs font-medium text-muted">{tagline}</span> : null}
 			</div>
 		</div>

@@ -3,6 +3,7 @@
  * existing Better Auth client; nothing here talks to a new endpoint.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useListOrganizations, useListUserInvitations } from "@better-auth-ui/react/plugins/organization";
 import { authClient } from "../../client.js";
 
 export interface Entry {
@@ -23,19 +24,14 @@ export const useSessions = () =>
 export const useAccounts = () =>
 	useQuery({ queryKey: ["dash", "accounts"], queryFn: async () => data<unknown[]>(await c.listAccounts(), []) });
 
+// biome-ignore lint/suspicious/noExplicitAny: the hooks are generic over the client type; we only read plain data.
+type Hook = (client: any, options: { enabled: boolean }) => unknown;
+// Better Auth UI's own hooks: same query keys as its Organizations/Notifications cards, so one request serves both.
 export const useOrgs = (enabled: boolean) =>
-	useQuery({
-		queryKey: ["dash", "orgs"],
-		enabled,
-		queryFn: async () => data<Array<{ id: string; name: string; slug: string; logo?: string | null }>>(await c.organization.list(), []),
-	});
+	(useListOrganizations as Hook)(authClient, { enabled }) as { data?: Array<{ id: string; name: string; slug: string; logo?: string | null }>; isLoading: boolean };
 
 export const useInvites = (enabled: boolean) =>
-	useQuery({
-		queryKey: ["dash", "invites"],
-		enabled,
-		queryFn: async () => data<Array<{ id: string; organizationName?: string; role?: string }>>(await c.organization.listUserInvitations(), []),
-	});
+	(useListUserInvitations as Hook)(authClient, { enabled }) as { data?: Array<{ id: string; organizationName?: string; role?: string }>; isLoading: boolean };
 
 /** Newest audit entries; the endpoint scopes to the session user (all users for admins). */
 export const useAudit = (enabled: boolean, limit = 100) =>

@@ -110,7 +110,7 @@ export function Navbar(props: {
 					{props.userMenu}
 				</div>
 			</header>
-			{props.children}
+			<main className="flex-1 pb-20">{props.children}</main>
 		</div>
 	);
 }

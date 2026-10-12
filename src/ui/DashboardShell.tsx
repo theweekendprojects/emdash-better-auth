@@ -60,13 +60,13 @@ function PageFrame({ title, wide, children }: { title: string; wide?: boolean; c
 						<a href="/account/home" className="text-foreground no-underline">
 							<span>Home</span>
 						</a>
-						<span> / </span>{" "}
+						<span aria-hidden="true" className="px-1 text-muted">/</span>
 					</li>
 					<li className="flex gap-2">
 						<span>{title}</span>
 					</li>
 				</ul>
-				<h3 className="text-xl font-semibold">{title}</h3>
+				<h1 className="text-xl font-semibold">{title}</h1>
 				{children}
 			</div>
 		</div>
