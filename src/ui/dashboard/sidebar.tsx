@@ -46,9 +46,10 @@ function BrandBlock({ name, logoUrl, tagline }: { name: string; logoUrl?: string
 					{name.slice(0, 1).toUpperCase()}
 				</div>
 			)}
-			<div className="flex flex-col">
-				<span className="whitespace-nowrap text-xl font-medium text-foreground">{name}</span>
-				{tagline ? <span className="max-w-28 truncate text-xs font-medium text-muted">{tagline}</span> : null}
+			{/* Long names and taglines wrap (two lines at most) instead of being cut off; the full text is the tooltip. */}
+			<div className="flex min-w-0 max-w-44 flex-col">
+				<span title={name} className="line-clamp-2 break-words text-xl font-medium leading-tight text-foreground">{name}</span>
+				{tagline ? <span title={tagline} className="line-clamp-2 break-words text-xs font-medium leading-snug text-muted">{tagline}</span> : null}
 			</div>
 		</div>
 	);
