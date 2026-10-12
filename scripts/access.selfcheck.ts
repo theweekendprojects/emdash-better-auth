@@ -38,4 +38,6 @@ check("wall: data endpoints", [wallClass("/_emdash/api/search"), wallClass("/_em
 check("wall: sign-in, account and admin stay open", [wallClass("/auth/sign-in"), wallClass("/api/auth/get-session"), wallClass("/account/security"), wallClass("/_emdash/admin"), wallClass("/_emdash/api/content/posts"), wallClass("/_astro/x.js"), wallClass("/login")], ["open", "open", "open", "open", "open", "open", "open"]);
 check("wall: static files stay open", [wallClass("/favicon.ico"), wallClass("/img/a.png")], ["open", "open"]);
 check("wall: a prefix is not a match", [wallClass("/authors"), wallClass("/accounting")], ["page", "page"]);
+check("empty pattern is ignored", compileUrlPattern("x", ""), null);
+check("convention pattern", matchUrlPattern([compileUrlPattern("projects", "/projects/{slug}")!], "/projects/a/"), { collection: "projects", slug: "a" });
 process.exit(failed ? 1 : 0);

@@ -285,7 +285,7 @@ integrations: [react(), emdash({ /* ... */ }), betterAuthAccess()],   // list it
   `Cache-Control: private, no-store`.
 - **HTML lists** (home, `/posts/`, tags) still show the *title* of a protected entry (a teaser). To hide them from lists,
   call `filterEntries` in the theme (below).
-- The entry is found through the collection's URL pattern (must contain `{slug}`), cached 30 s per host.
+- The entry is found through the collection's URL pattern (must contain `{slug}`), cached 30 s per host. A collection with no pattern is assumed to live at `/<collection>/<slug>`; if your theme uses other addresses (for example pages at `/<slug>`), set the URL pattern on that content type in EmDash, otherwise those entries are **not** gated.
 - Cost: about 20 to 30 ms on a public entry page.
 - Switching **Members-only and premium content** off in settings makes everything public again; the field values stay.
 

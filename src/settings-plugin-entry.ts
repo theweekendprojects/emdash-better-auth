@@ -57,7 +57,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.12.0";
+export const SETTINGS_PLUGIN_VERSION = "0.12.1";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -442,7 +442,7 @@ function buildSettingsPage(
 		},
 		{
 			type: "context",
-			text: "Members-only and premium content: authors pick Public, Members or Premium in an 'Access' dropdown on each post or page. The button above adds that dropdown to every content type that has pages (it skips those that already have it).",
+			text: "Members-only and premium content: authors pick Public, Members or Premium in an 'Access' dropdown on each post or page. The button above adds that dropdown to every content type that has pages (it skips those that already have it). Pages are found by the type's URL pattern, or `/<type>/<slug>` when none is set; if your theme uses other addresses, set the URL pattern on the type in EmDash.",
 		},
 		{
 			type: "context",
@@ -613,7 +613,7 @@ async function addAccessField(): Promise<string[]> {
 	const registry = new SchemaRegistry(await getDb());
 	const added: string[] = [];
 	for (const collection of await registry.listCollections()) {
-		if (!collection.urlPattern) continue;
+		if (!collection.urlPattern && collection.routable === false) continue;
 		if (await registry.getField(collection.slug, "access")) continue;
 		await registry.createField(collection.slug, {
 			slug: "access",

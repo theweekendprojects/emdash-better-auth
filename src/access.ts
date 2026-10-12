@@ -67,6 +67,7 @@ export interface UrlPattern {
 }
 /** A collection URL pattern such as `/posts/{slug}` as a regex. Patterns without `{slug}` cannot name an entry. */
 export function compileUrlPattern(collection: string, pattern: string): UrlPattern | null {
+	if (!pattern) return null;
 	const names: string[] = [];
 	const body = pattern
 		.replace(/[.*+?^$()|[\]\\]/g, "\\$&")

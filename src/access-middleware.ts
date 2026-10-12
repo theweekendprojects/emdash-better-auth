@@ -34,7 +34,8 @@ async function patternsFor(host: string): Promise<UrlPattern[]> {
 	const collections = await new SchemaRegistry(await getDb()).listCollections();
 	const patterns: UrlPattern[] = [];
 	for (const c of collections) {
-		const compiled = c.urlPattern ? compileUrlPattern(c.slug, c.urlPattern) : null;
+		// No URL pattern set (many themes route by file): assume the usual `/<collection>/<slug>`.
+		const compiled = compileUrlPattern(c.slug, c.urlPattern || (c.routable === false ? "" : `/${c.slug}/{slug}`));
 		if (compiled) patterns.push(compiled);
 	}
 	patternCache.set(host, { at: Date.now(), patterns });

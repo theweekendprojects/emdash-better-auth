@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-10-12
+### Fixed
+- **Content access did nothing on sites whose collections have no URL pattern** (many themes route by file, so EmDash has no pattern
+  stored). Such collections are now matched as `/<collection>/<slug>`, and the "Add the Access field" button also covers them. If
+  your theme uses other addresses, set the URL pattern on the content type.
+
 ## [0.12.0] - 2026-10-12
 ### Added
 - **Account dashboard.** `/account/*`, `/admin`, `/organization` and `/audit-log` now render one sidebar app (HeroUI v3, ported
