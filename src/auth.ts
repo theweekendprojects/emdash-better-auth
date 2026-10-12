@@ -30,6 +30,7 @@ import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 import { PLAN_DEFINITIONS, toStripePlans, type PlanPriceIds } from "./billing-plans.js";
 import type { GenericOAuthProviderConfig } from "./settings.js";
+import { sessionsToDelete } from "./session-cap.js";
 
 /**
  * EmDash email pipeline interface, loosely typed to avoid importing emdash internals.
@@ -389,14 +390,16 @@ export function createBetterAuth(
 					after: async (session: { userId: string }, ctx?: unknown) => {
 						// biome-ignore lint/suspicious/noExplicitAny: the hook context is typed per Better Auth build.
 						const c = (ctx as any)?.context;
-						if (!c?.adapter) return;
-						const rows: Array<{ token: string }> = await c.adapter.findMany({
+						if (!c?.adapter || !(session as unknown as { token?: string }).token) return;
+						const rows: Array<{ token: string; createdAt: string | Date }> = await c.adapter.findMany({
 							model: "session",
 							where: [{ field: "userId", value: session.userId }],
-							sortBy: { field: "createdAt", direction: "desc" },
 							limit: 1000,
 						});
-						for (const old of rows.slice(MAX_SESSIONS_PER_USER)) await c.internalAdapter.deleteSession(old.token);
+						// Sorted here, not by the adapter, and the session just created is never a candidate.
+						for (const token of sessionsToDelete(rows, (session as unknown as { token: string }).token, MAX_SESSIONS_PER_USER)) {
+							await c.internalAdapter.deleteSession(token);
+						}
 					},
 				},
 			},
