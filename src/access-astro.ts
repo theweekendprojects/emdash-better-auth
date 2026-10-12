@@ -61,7 +61,9 @@ export async function gateEntry(Astro: AstroGlobal, entry: Entry | null | undefi
 	const viewer = await viewerFor(Astro, access === "premium");
 	const decision = decide(access, viewer);
 	if (decision === "allow") return null;
-	const here = Astro.url.pathname + Astro.url.search;
+	// The address the visitor typed, not Astro.url: a host that rewrites to a theme route shows the internal path there.
+	const original = new URL(Astro.request.url);
+	const here = original.pathname + original.search;
 	if (decision === "login") {
 		const res = Astro.redirect(`/auth/sign-in?redirect=${encodeURIComponent(here)}`);
 		res.headers.set("Cache-Control", "private, no-store");
