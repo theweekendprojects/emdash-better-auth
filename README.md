@@ -5,8 +5,9 @@
 ### Full authentication for [EmDash](https://emdashcms.com), powered by [Better Auth](https://better-auth.com)
 
 Email/password + social login, passwordless, 2FA, passkeys, organizations, an
-OIDC provider, Stripe billing, and audit logging — added to an EmDash site in
-**one line of config**, with **no database migrations**.
+OIDC provider, Stripe billing, audit logging, a full account dashboard, and
+**members-only / premium content with an optional site-wide sign-in wall** —
+added to an EmDash site in **one line of config**, with **no database migrations**.
 
 [![npm](https://img.shields.io/npm/v/emdash-better-auth?color=cb3837&logo=npm)](https://www.npmjs.com/package/emdash-better-auth)
 [![license](https://img.shields.io/npm/l/emdash-better-auth?color=blue)](./LICENSE)
@@ -40,6 +41,21 @@ second user store, no `auth_*` tables, no migration files.
 | ⚙️ **Admin settings page** | Toggle every feature, set the canonical URL, and manage secrets from the admin UI — no redeploy. |
 | ✉️ **Email verification** | On by default: blocks bot signups, re-sends on blocked login, auto-signs-in on click. |
 | 🧰 **The Better Auth suite** | Social login, passwordless, 2FA, passkeys, API keys, organizations, OIDC provider, Stripe billing, audit log — all opt-in. |
+| 🖥️ **Account dashboard** | One sidebar app for every signed-in user: profile, security, sessions and activity, plus Users and audit pages for admins. Menu follows the user's role. |
+| 🔒 **Members-only & premium content** | A per-post "who can read this" dropdown. One extra line in `astro.config` gates pages, search, RSS and sitemaps — no theme edits. |
+| 🏢 **Intranet mode** | One switch puts the whole site (pages, search, uploaded files) behind sign-in. |
+
+## What is what
+
+The package is one repo with five cooperating parts. You register the first two; the rest come with them.
+
+| Part | You add it with | What it does |
+| --- | --- | --- |
+| **Auth provider** | `authProviders: [betterAuthProvider()]` | The engine: the Better Auth API at `/api/auth`, the pages under `/auth`, `/login`, `/signup`, `/account`, and the sign-in session bridge to EmDash. |
+| **Settings plugin** | `plugins: [betterAuthSettingsPlugin()]` | The **Better Auth** page in the EmDash admin sidebar: every feature switch, credentials, and the "Add the Access field" button. Optional, but it is how you configure everything without a redeploy. |
+| **Account dashboard** | comes with the provider | The signed-in area at `/account/*` (and `/admin`, `/organization`, `/audit-log`) in one sidebar layout. |
+| **Content access** | `integrations: [..., betterAuthAccess()]` | Optional. Middleware that gates members-only and premium entries and the site-wide sign-in wall. |
+| **UI extension point** | `vite: { plugins: [betterAuthUi(...)] }` | Optional. Add your own Better Auth UI settings tabs. |
 
 ## Quickstart
 
@@ -95,7 +111,7 @@ All injected for you — don't create your own `login.astro` / `signup.astro` /
 | `/api/auth/[...all]` | Better Auth API (sign-in, callbacks, get-session, sign-out, …) |
 | `/auth/[...path]` | Sign-in, sign-up, forgot/reset password, verify email, sign-out |
 | `/login`, `/signup` | Friendly aliases |
-| `/account/[...path]` | Each user's own profile + security settings (login-gated) |
+| `/account/[...path]` | The signed-in dashboard: Home (staff), profile, security, sessions & activity, API keys, connected apps, OAuth clients, billing, Users (admin). Login-gated. |
 | `/admin/[...path]` | User management — only when *admin* is enabled, admins only |
 | `/organization/[...path]` | Org / team management — only when *organizations* is enabled |
 | `/audit-log` | Site-wide auth event log — only when *audit logging* is enabled, admins only |
@@ -162,7 +178,8 @@ Feature toggles (all **off** by default except email verification):
 | Feature | Default | What it adds |
 | --- | --- | --- |
 | Email verification (+ resend, auto sign-in) | **on** | Blocks unverified login. |
-| Allow new sign-ups | **on** | Turn off to make the site invite-only: every account-creating path answers `403 SIGN_UP_DISABLED`; existing users still sign in and admins can still add users. || Social sign-in | off | Google, GitHub, Facebook, X, Cloudflare — per provider. |
+| Allow new sign-ups | **on** | Turn off to make the site invite-only: every account-creating path answers `403 SIGN_UP_DISABLED`; existing users still sign in and admins can still add users. |
+| Social sign-in | off | Google, GitHub, Facebook, X, Cloudflare — per provider. |
 | Two-factor (TOTP) | off | Authenticator-app 2FA + backup codes. |
 | Passkeys (WebAuthn) | off | Passwordless biometric / security-key sign-in. |
 | API keys | off | User-created programmatic keys (stored hashed). |
@@ -176,6 +193,12 @@ Feature toggles (all **off** by default except email verification):
 | Breached-password check (HIBP) | off | Reject passwords found in known breaches. |
 | Audit logging (+ retention) | off | `/audit-log` — auth events with IP, UA, severity. |
 | Stripe billing | off | Subscription billing + a Billing tab per account. |
+| Let users delete their own account | off | A Delete account card on the profile page. Refused while the user still owns an organization. |
+| Sessions kept per user | 25 (`0` = unlimited) | Newest N sessions are kept per user, so the "where you are signed in" list stays complete. A number field, not a toggle. |
+| Members-only and premium content | **on** | Master switch for the `access` field rules below. Off = every entry is public and the premium controls disappear. |
+| Require sign-in to view the site | off | Intranet mode, see [below](#intranet-mode-require-sign-in-to-view-the-site). |
+
+The page also has one button, **Add the Access field to my content types**, see [Members-only and premium content](#members-only-and-premium-content).
 
 ### Social sign-in
 
@@ -208,6 +231,108 @@ and set its key (e.g. `RESEND_API_KEY`) as a Worker secret.
 > verification* off in the settings page. In dev, EmDash's console provider logs
 > the link to the terminal. Password reset fails quietly (never crashes) when no
 > provider is set.
+
+## Account dashboard and roles
+
+After sign-in, users land in one sidebar app. The menu is built from the features that are switched on and from the
+user's role, so a customer never sees developer pages.
+
+| Group | Pages | Who sees it |
+| --- | --- | --- |
+| Home | Dashboard cards, statistics, latest users | Staff (EmDash role 20+) |
+| Workspace | Content editor link, plus tabs your own Better Auth UI plugins add (see [Extending the UI](#extending-the-ui-with-your-own-better-auth-ui-plugins)), Organizations, Active organization | Content editor: staff. Others: everyone signed in, when the feature is on |
+| Account | Profile, Security (password, linked accounts, 2FA, passkeys), Sessions & activity, API keys, Connected apps, OAuth clients, Billing | Everyone; API keys, Connected apps and OAuth clients: staff only |
+| Administration | Users (search, add, CSV export, delete, Make premium), User management, Audit log | Admins (role 50) |
+
+EmDash roles: subscriber `10` (every sign-up), contributor `20`, author `30`, editor `40`, admin `50`. A subscriber is sent
+to the first workspace page after sign-in (or the profile). Pages a role may not see answer 404/403; the menu is a
+convenience, the server still enforces access.
+
+**Sessions & activity** shows each device and IP (Cloudflare's `cf-connecting-ip` is used first), with a sign-out per
+session, and the recent sign-ins and failed attempts when audit logging is on.
+
+## Members-only and premium content
+
+Mark individual posts or pages so only signed-in readers, or only premium readers, can open them. No EmDash core change
+and no theme edits.
+
+**1. The field.** Each entry carries an `access` select field with the values `public` (default), `members`,
+`premium`. Authors set it in the editor sidebar ("Who can read this"). Add the field to your content types once:
+EmDash admin → **Better Auth** → **Add the Access field to my content types** (skips types that already have it, safe to
+click twice). Theme seed files can also declare it.
+
+**2. The switch-on line.**
+
+```js
+// astro.config.mjs
+import { betterAuthAccess } from "emdash-better-auth/access-integration";
+
+integrations: [react(), emdash({ /* ... */ }), betterAuthAccess()],   // list it after emdash()
+```
+
+**3. What readers get.**
+
+| Reader | `members` entry | `premium` entry |
+| --- | --- | --- |
+| Signed out | redirect to `/auth/sign-in?redirect=<page>`, back to the page after sign-in | same |
+| Signed in | readable | `403` paywall page (title and teaser only), "Upgrade" button |
+| Premium user | readable | readable |
+| Staff (role 20+) | everything | everything |
+
+- **Premium** is a flag on the user (`premium`), switched by an admin with **Make premium** on the Users page, or set
+  by your own billing code through the admin API. It is not a Stripe feature by itself.
+- **Search, RSS and sitemaps** drop entries the reader may not open. Pages that depend on who is looking are sent
+  `Cache-Control: private, no-store`.
+- **HTML lists** (home, `/posts/`, tags) still show the *title* of a protected entry (a teaser). To hide them from lists,
+  call `filterEntries` in the theme (below).
+- The entry is found through the collection's URL pattern (must contain `{slug}`), cached 30 s per host.
+- Cost: about 20 to 30 ms on a public entry page.
+- Switching **Members-only and premium content** off in settings makes everything public again; the field values stay.
+
+**Theme helpers (optional).** Only needed to hide protected entries from HTML lists, or when you cannot use the
+integration:
+
+```ts
+import { filterEntries, gateEntry, isLocked } from "emdash-better-auth/access";
+
+const { entry } = await getEmDashEntry("posts", slug);
+const blocked = await gateEntry(Astro, entry);   // before rendering
+if (blocked) return blocked;
+const visible = await filterEntries(Astro, entries);   // in lists, feeds, tag pages
+```
+
+If a theme calls them as well as the integration, both agree; nothing is checked wrongly twice.
+
+## Intranet mode: "Require sign-in to view the site"
+
+For internal documentation. Settings → **Require sign-in to view the site** (needs `betterAuthAccess()`). When on:
+
+- Signed-out visitors are redirected from every themed page (pages, lists, RSS, sitemaps) to `/auth/sign-in?redirect=<page>`.
+- `/_emdash/api/search`, search suggest, comments and **uploaded files** (`/_emdash/api/media/file/*`, so images and PDFs)
+  answer `401`. Signed-in readers get uploaded files with `private, max-age=3600`: the browser keeps them, no shared cache does.
+- Left open: `/auth`, `/api`, `/account`, `/admin`, `/organization`, the EmDash admin and its own APIs, built assets.
+
+Read this before relying on it:
+
+- **"Signed in" means any account.** Turn *Allow new sign-ups* **off** and create the accounts yourself, otherwise a
+  stranger can register and read everything.
+- Files in your site's `public/` folder are served by Cloudflare's static-assets layer without running your Worker, so
+  the wall cannot cover them. Keep internal files in the media library.
+- Pages that were cached publicly before you switched it on can be served from the CDN for their cache time (an hour on
+  many themes). Purge the cache when enabling it on a site that was public.
+- Settings are cached 10 s per site, so a switch takes up to about 10 s to apply.
+
+## Security notes
+
+- Email codes and magic-link tokens are stored **hashed**, not in plain text.
+- API keys are stored hashed. Optional breached-password check (HIBP) sends only the first 5 characters of the password's
+  SHA-1 hash.
+- The sign-in form cannot submit natively before React has loaded (that would put the password in the URL); the page
+  blocks such a submit.
+- Account deletion is off by default and refused while the user owns an organization.
+- Secrets saved in the admin settings page are stored unencrypted in the database; see the Gotchas below.
+- Content access runs in middleware; it fails open only if the entry cannot be resolved (then the theme answers on its
+  own). Unknown `access` values are treated as `members`.
 
 ## Extending the UI with your own Better Auth UI plugins
 
@@ -292,6 +417,19 @@ Without `betterAuthUi()` the list is empty and nothing changes.
 | `./route`, `./auth`, `./adapter`, `./settings-plugin` | Lower-level pieces (injected automatically) |
 | `./pages/*` | The injected Astro pages |
 | `./admin` | "Continue with EmDash" button for EmDash's admin login |
+| `./vite` | `betterAuthUi({ plugins })` Vite plugin: your own Better Auth UI plugins, plus the source patches this package needs |
+| `./ui-plugins` | The (empty by default) list of Better Auth UI plugins the views register |
+| `./access-integration` | `betterAuthAccess()` Astro integration: content access and the sign-in wall |
+| `./access-middleware` | The middleware that integration registers (do not import it yourself) |
+| `./access` | Theme helpers: `gateEntry`, `filterEntries`, `isLocked`, `markPrivate`, `entryAccess`, `decide`, `listed` |
+
+## Upgrading to 0.12
+
+- New files and dependencies (`@fontsource-variable/inter`) come with the package; run your package manager's install.
+- The account area is now one dashboard app. `/admin`, `/audit-log` and `/organization` render inside it; nothing to change.
+- New settings default to the old behaviour: members-only content on (it only acts on entries that have an `access`
+  field), sign-in wall off, delete account off, 25 sessions kept per user.
+- Optional: add `betterAuthAccess()` to `integrations` to use content access; see above.
 
 ## License
 

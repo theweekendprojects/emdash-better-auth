@@ -5,6 +5,30 @@ All notable changes to this project are documented here. The format is based on
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.12.0] - 2026-10-12
+### Added
+- **Account dashboard.** `/account/*`, `/admin`, `/organization` and `/audit-log` now render one sidebar app (HeroUI v3, ported
+  from the nextui-dashboard-template layout) with Home (cards, statistics, latest users), Users (search, add, CSV, delete),
+  Sessions & activity (devices, IPs, sign-in history), and separate pages for Security, API keys, Connected apps and OAuth
+  clients. The menu follows the enabled features and the user's role (subscriber, staff, admin). Loading states are skeletons.
+- **Members-only and premium content.** An `access` select field (`public` / `members` / `premium`) and a `premium` user
+  flag. New `betterAuthAccess()` Astro integration (`emdash-better-auth/access-integration`) adds middleware that gates entry
+  pages (sign-in redirect, 403 paywall), and filters the search API, RSS and sitemaps, with no theme edits. Theme helpers
+  `gateEntry`, `filterEntries`, `isLocked` in `emdash-better-auth/access`.
+- **Settings:** *Members-only and premium content* (default on), *Require sign-in to view the site* (intranet mode: redirects
+  pages, `401` for search and uploaded files; default off), *Let users delete their own account* (default off), *Sessions kept
+  per user* (default 25). A button **Add the Access field to my content types**.
+- Sign-in page offers passkey, magic link and email code when those features are on.
+### Changed
+- Email codes and magic-link tokens are stored hashed.
+- The client IP comes from `cf-connecting-ip` first (it was always empty behind Cloudflare).
+- New dependency `@fontsource-variable/inter`; the large charting dependency was not adopted (a small SVG chart is used).
+### Fixed
+- The organization settings form opened with empty Name and Slug (Vite source patch for an upstream form reset, with a
+  self-check that fails if the upstream code changes).
+- Clicking Sign In before the page's JavaScript loaded submitted the form natively and put the password in the address bar.
+- Accessibility: contrast in dark mode, missing `h1`/`main`, nested interactive tooltips, skip-to-content link.
 ## [0.11.0] - 2026-10-10
 ### Added
 - **"Allow new sign-ups" setting** (Settings, off switch for public registration; default on, so nothing changes for existing

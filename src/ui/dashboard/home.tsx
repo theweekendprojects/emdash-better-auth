@@ -3,7 +3,7 @@
  * Port of the nextui-dashboard-template home page (MIT) to HeroUI v3, with the
  * demo numbers replaced by data from the Better Auth client.
  */
-import { Avatar, AvatarGroup, Card, Skeleton } from "@heroui/react";
+import { Avatar, Card, Skeleton } from "@heroui/react";
 import { authClient } from "../../client.js";
 import * as React from "react";
 import { Steam } from "./chart.js";
@@ -173,7 +173,8 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 									<span className="text-center text-xs">
 										{orgEnabled ? "The organizations you belong to." : "Your profile at a glance."}
 									</span>
-									<AvatarGroup>
+									{/* A plain stack: HeroUI's AvatarGroup only exists from 3.2.5 on, and the declared range starts at 3.2.4. */}
+									<div className="flex -space-x-3 [&>*]:ring-2 [&>*]:ring-background">
 										{orgEnabled && orgs.isLoading ? (
 											<Skeleton className="h-10 w-28 rounded-full" />
 										) : orgEnabled && nOrgs ? (
@@ -189,7 +190,7 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 												<Avatar.Fallback>{initial(name)}</Avatar.Fallback>
 											</Avatar>
 										)}
-									</AvatarGroup>
+									</div>
 								</div>
 							</Card.Content>
 						</Card>
