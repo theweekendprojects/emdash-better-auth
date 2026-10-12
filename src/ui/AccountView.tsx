@@ -248,7 +248,7 @@ export default function AccountView({
 					// email OTP is a deliberate follow-up.
 					plugins={[
 						// Plugins from `emdash-better-auth/ui-plugins` first: their tabs
-						// lead the sidebar (e.g. a host's "My sites").
+						// lead the sidebar (a host's own pages).
 						...extraUiPlugins,
 						themePlugin({ useTheme }),
 						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),

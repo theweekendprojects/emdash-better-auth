@@ -243,6 +243,8 @@ export interface BetterAuthOptions {
 	 * `auditLogEnabled`. Default 365.
 	 */
 	auditLogRetentionDays?: number;
+	/** Keep only this many newest sessions per user; 0 or unset = keep all. */
+	maxSessionsPerUser?: number;
 	/**
 	 * Whether Stripe subscription billing is enabled. Default false. The
 	 * `stripe()` plugin is only registered when this is true AND a secret key is
@@ -389,20 +391,21 @@ export function createBetterAuth(
 		databaseHooks: {
 			session: {
 				create: {
-					// Keep the newest MAX_SESSIONS_PER_USER sessions per user. Better Auth lists at most 100
+					// Keep the newest `maxSessionsPerUser` sessions per user (setting; 0 = off). Better Auth lists at most 100
 					// sessions in no useful order, so an account with more never saw its newest ones, and
 					// old sessions are an attack surface nobody reviews.
 					after: async (session: { userId: string }, ctx?: unknown) => {
 						// biome-ignore lint/suspicious/noExplicitAny: the hook context is typed per Better Auth build.
 						const c = (ctx as any)?.context;
-						if (!c?.adapter || !(session as unknown as { token?: string }).token) return;
+						const max = options.maxSessionsPerUser ?? 0;
+						if (max <= 0 || !c?.adapter || !(session as unknown as { token?: string }).token) return;
 						const rows: Array<{ token: string; createdAt: string | Date }> = await c.adapter.findMany({
 							model: "session",
 							where: [{ field: "userId", value: session.userId }],
 							limit: 1000,
 						});
 						// Sorted here, not by the adapter, and the session just created is never a candidate.
-						for (const token of sessionsToDelete(rows, (session as unknown as { token: string }).token, MAX_SESSIONS_PER_USER)) {
+						for (const token of sessionsToDelete(rows, (session as unknown as { token: string }).token, max)) {
 							await c.internalAdapter.deleteSession(token);
 						}
 					},
@@ -660,6 +663,8 @@ export function createBetterAuth(
 			...(options.magicLinkEnabled
 				? [
 						magicLink({
+							// Single-use tokens are stored as a hash, so a database read cannot sign anyone in.
+							storeToken: "hashed",
 							sendMagicLink: async ({ email, url }) => {
 								if (!emailPipeline) {
 									console.warn(
@@ -687,6 +692,8 @@ export function createBetterAuth(
 			...(options.emailOtpEnabled
 				? [
 						emailOTP({
+							// Codes are stored as a hash, so a database read does not reveal live codes.
+							storeOTP: "hashed",
 							sendVerificationOTP: async ({ email, otp, type }) => {
 								if (!emailPipeline) {
 									console.warn(
@@ -787,6 +794,4 @@ export function createBetterAuth(
 	return auth;
 }
 
-/** Sessions kept per user; the oldest are deleted when a new one is created. */
-const MAX_SESSIONS_PER_USER = 25;
 export type BetterAuthInstance = ReturnType<typeof createBetterAuth>;

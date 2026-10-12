@@ -4,7 +4,7 @@
  *
  * Menu hierarchy (a group is hidden when it has nothing in it):
  *   Home
- *   Workspace       plugin pages (My sites, Organizations ...), Active organization
+ *   Workspace       plugin pages (a host's own pages, Organizations ...), Active organization
  *   Account         Profile, Security, Sessions & activity, API keys, Connected apps,
  *                   OAuth clients, Billing
  *   Administration  Users, User management, Audit log        (admins only)
@@ -227,7 +227,7 @@ export function DashboardShell({
 	} else if (path === "api-keys" || path === "connected-apps") {
 		body = frame(<div className="flex flex-col gap-4 md:gap-6">{cardsOf(plugins, (id) => OWN_PAGE[id] === path)}</div>);
 	} else {
-		// A plugin's own settings tab (organizations, billing, oauth-clients, My sites ...).
+		// A plugin's own settings tab (organizations, billing, oauth-clients, a host's own pages ...).
 		body = frame(
 			<div className="settings-bare">
 				<Settings path={path} />

@@ -106,6 +106,7 @@ export const SETTINGS_KEYS = {
 	deleteAccountEnabled: "deleteAccountEnabled",
 	auditLogEnabled: "auditLogEnabled",
 	auditLogRetentionDays: "auditLogRetentionDays",
+	maxSessionsPerUser: "maxSessionsPerUser",
 	billingEnabled: "billingEnabled",
 	stripeSecretKey: "stripeSecretKey",
 	stripeWebhookSecret: "stripeWebhookSecret",
@@ -143,6 +144,8 @@ export const SETTINGS_DEFAULTS = {
 	// raise it; 0 = keep forever. Operators should verify against their own
 	// compliance obligations.
 	auditLogRetentionDays: 365,
+	// Newest sessions kept per user (the oldest are deleted at sign-in). 0 = keep all.
+	maxSessionsPerUser: 25,
 	billingEnabled: false,
 } as const;
 
@@ -192,7 +195,7 @@ const TEXT_KEYS: readonly string[] = [
  * undefined, and DELETE the key (silently resetting it to the default on every
  * save). Handled by their own coerce-and-store branch in writeKvSettings.
  */
-const NUMBER_KEYS: readonly string[] = [SETTINGS_KEYS.auditLogRetentionDays];
+const NUMBER_KEYS: readonly string[] = [SETTINGS_KEYS.auditLogRetentionDays, SETTINGS_KEYS.maxSessionsPerUser];
 
 /**
  * Read every saved setting from plugin kv into a flat `{ field: value }` map.
@@ -426,6 +429,8 @@ export interface ResolvedAuthSettings {
 	 * Negative/invalid saved values fall back to the default.
 	 */
 	auditLogRetentionDays: number;
+	/** Newest sessions kept per user; 0 = unlimited. */
+	maxSessionsPerUser: number;
 	/**
 	 * Generic OAuth provider configs (from env JSON). Only populated when
 	 * genericOAuthEnabled and the env var parses to a non-empty array. These are
@@ -603,6 +608,10 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.auditLogRetentionDays],
 		SETTINGS_DEFAULTS.auditLogRetentionDays,
 	);
+	const maxSessionsPerUser = coerceNonNegativeInt(
+		saved[SETTINGS_KEYS.maxSessionsPerUser],
+		SETTINGS_DEFAULTS.maxSessionsPerUser,
+	);
 	// Generic OAuth: the toggle enables the plugin, but it does nothing without
 	// provider configs (operator config from env). Force the flag false when no
 	// provider resolves, so the UI status + the registered plugin agree ("on but
@@ -683,6 +692,7 @@ export function resolveSettings(
 		deleteAccountEnabled,
 		auditLogEnabled,
 		auditLogRetentionDays,
+		maxSessionsPerUser,
 		billingEnabled,
 		stripeSecretKey,
 		stripeWebhookSecret,

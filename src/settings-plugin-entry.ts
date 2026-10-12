@@ -339,6 +339,13 @@ function buildSettingsPage(
 					min: 0,
 					condition: cond(SETTINGS_KEYS.auditLogEnabled),
 				},
+				{
+					type: "number_input",
+					action_id: SETTINGS_KEYS.maxSessionsPerUser,
+					label: "Sessions kept per user (0 = unlimited)",
+					initial_value: num(saved[SETTINGS_KEYS.maxSessionsPerUser], 25),
+					min: 0,
+				},
 				// --- Subscription billing (Stripe) --------------------------------
 				{
 					type: "toggle",

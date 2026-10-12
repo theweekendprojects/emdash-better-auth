@@ -299,6 +299,7 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		// Audit logging + its retention window (both from settings).
 		auditLogEnabled: settings.auditLogEnabled,
 		auditLogRetentionDays: settings.auditLogRetentionDays,
+		maxSessionsPerUser: settings.maxSessionsPerUser,
 		// Stripe subscription billing. Enabled only when the flag is on and
 		// the keys + at least one plan price id resolve (buildStripePlugins
 		// enforces that); price ids come from env, keyed by plan id.
