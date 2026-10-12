@@ -63,6 +63,7 @@ export interface AdminUser {
 	role?: string | null;
 	banned?: boolean | null;
 	emailVerified?: boolean | null;
+	premium?: boolean | null;
 	createdAt?: string | Date;
 }
 

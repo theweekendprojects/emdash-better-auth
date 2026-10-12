@@ -118,6 +118,10 @@
     "./vite": {
       "import": "./src/vite.ts",
       "default": "./src/vite.ts"
+    },
+    "./access": {
+      "import": "./src/access-astro.ts",
+      "default": "./src/access-astro.ts"
     }
   },
   "files": [

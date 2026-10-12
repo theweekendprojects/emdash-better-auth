@@ -494,6 +494,21 @@ export async function rebridgeSession(Astro: AstroGlobal): Promise<Response | nu
 }
 
 /**
+ * The Better Auth user of this request, including extra fields such as `premium`, or
+ * null when signed out. Used by content access checks; never throws.
+ */
+export async function getAuthUser(Astro: AstroGlobal): Promise<Record<string, unknown> | null> {
+	try {
+		return await withEmDashRuntime(async (runtime) => {
+			const { auth } = await createAuthForRequest(Astro.request, Astro.site, runtime);
+			const result = await auth.api.getSession({ headers: Astro.request.headers });
+			return (result?.user as Record<string, unknown> | undefined) ?? null;
+		});
+	} catch {
+		return null;
+	}
+}
+/**
  * Login gate for the plugin's server-rendered pages (/account, /admin,
  * /audit-log, /organization). Returns a redirect `Response` the page must
  * return, or `null` when `Astro.locals.user` is set and the page may render.

@@ -132,6 +132,8 @@ const ADDITIONAL_DATA_FIELDS = new Set<string>([
 	// createCustomerOnSignUp is on). A user field with no `users` column, so it
 	// rides users.data JSON like the others.
 	"stripeCustomerId",
+	// content access: premium readers (see access.ts). Set by an admin or a billing hook.
+	"premium",
 	// anonymous plugin: marks a guest user. A user field with no `users` column,
 	// so it rides users.data JSON. Routed here so a guest create/read round-trips
 	// and the username create hook can detect it.

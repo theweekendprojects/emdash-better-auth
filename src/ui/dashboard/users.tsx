@@ -44,6 +44,10 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 		await admin.removeUser({ userId: u.id });
 		await qc.invalidateQueries({ queryKey: ["dash", "users"] });
 	};
+	const setPremium = async (u: AdminUser) => {
+		await admin.updateUser({ userId: u.id, data: { premium: !u.premium } });
+		await qc.invalidateQueries({ queryKey: ["dash", "users"] });
+	};
 	return (
 		<div className="flex w-full flex-col gap-4">
 			<div className="overflow-x-auto rounded-2xl bg-surface p-4 shadow-md">
@@ -53,16 +57,17 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 							<th className="rounded-l-lg bg-default px-3 py-3 font-semibold">Name</th>
 							<th className="bg-default px-3 py-3 font-semibold">Role</th>
 							<th className="bg-default px-3 py-3 font-semibold">Status</th>
+							<th className="bg-default px-3 py-3 font-semibold">Plan</th>
 							<th className="rounded-r-lg bg-default px-3 py-3 text-center font-semibold">
 								<span className="sr-only">Actions</span>
 							</th>
 						</tr>
 					</thead>
 					<tbody>
-						{loading && users.length === 0 ? <SkeletonRows cols={4} rows={5} /> : null}
+						{loading && users.length === 0 ? <SkeletonRows cols={5} rows={5} /> : null}
 						{users.length === 0 && !loading ? (
 							<tr>
-								<td colSpan={4} className="px-3 py-6 text-center text-muted">
+								<td colSpan={5} className="px-3 py-6 text-center text-muted">
 									{denied ? "You need an administrator account to see users." : "No users found."}
 								</td>
 							</tr>
@@ -90,7 +95,15 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 										</Chip>
 									</td>
 									<td className="px-3 py-3">
+										<Chip size="sm" variant={u.premium ? "primary" : "soft"} color={u.premium ? "accent" : "default"}>
+											<span className="text-xs">{u.premium ? "Premium" : "Free"}</span>
+										</Chip>
+									</td>
+									<td className="px-3 py-3">
 										<div className="flex items-center justify-center gap-4">
+											<button type="button" onClick={() => setPremium(u)} className="cursor-pointer rounded-full border border-border bg-transparent px-2.5 py-1 text-xs text-foreground">
+												{u.premium ? "Remove premium" : "Make premium"}
+											</button>
 											<IconButton label="Details" onClick={() => window.location.assign("/admin")}>
 												<EyeIcon size={20} fill="#979797" />
 											</IconButton>

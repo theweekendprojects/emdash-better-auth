@@ -556,6 +556,8 @@ export function createBetterAuth(
 			// are NOT listed — the username plugin owns those fields.
 			additionalFields: {
 				bio: { type: "string", required: false, input: true },
+				// Premium reader: unlocks `access: premium` entries. input:false = users cannot set it themselves.
+				premium: { type: "boolean", required: false, input: false, defaultValue: false },
 			},
 			...(options.deleteAccountEnabled
 				? {
