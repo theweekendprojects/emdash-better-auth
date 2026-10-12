@@ -15,6 +15,7 @@ import { Organization } from "@better-auth-ui/heroui/plugins/organization";
 import { useAuth } from "@better-auth-ui/react";
 import type * as React from "react";
 import { AuditLogTable } from "./AuditLogView.js";
+import { Activity } from "./dashboard/activity.js";
 import { Home } from "./dashboard/home.js";
 import { HouseIcon } from "./dashboard/icons/breadcrumb/house-icon.js";
 import { AccountsIcon } from "./dashboard/icons/sidebar/accounts-icon.js";
@@ -129,7 +130,7 @@ export function DashboardShell({
 	const groups: NavGroup[] = [
 		{ items: [item("home", "Home")] },
 		...(main.length ? [{ title: "Main Menu", items: main }] : []),
-		{ title: "General", items: [item("account", "Account"), item("security", "Security")] },
+		{ title: "General", items: [item("account", "Account"), item("security", "Security"), item("activity", "Activity")] },
 	];
 	const all = groups.flatMap((g) => g.items);
 	const title = all.find((i) => i.active)?.title ?? humanize(path);
@@ -159,6 +160,12 @@ export function DashboardShell({
 		);
 	} else if (path === "home") {
 		body = <Home orgEnabled={orgEnabled} auditLogEnabled={auditLogEnabled} isAdmin={isAdmin} />;
+	} else if (path === "activity") {
+		body = (
+			<PageFrame title={title} wide>
+				<Activity auditLogEnabled={auditLogEnabled} />
+			</PageFrame>
+		);
 	} else if (path === "users") {
 		body = <Accounts />;
 	} else {
@@ -167,6 +174,11 @@ export function DashboardShell({
 				<div className="settings-bare">
 					<Settings path={path} />
 				</div>
+				{path === "security" ? (
+					<a href={`${base}/activity`} className="rounded-2xl bg-surface p-4 text-sm text-foreground no-underline shadow-md">
+						Sign-in history, devices and failed attempts: <span className="text-accent">open Activity</span>
+					</a>
+				) : null}
 				{children}
 			</PageFrame>
 		);

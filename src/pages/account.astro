@@ -29,6 +29,7 @@ const allowedViews = [
 	...knownViews,
 	"home",
 	"users",
+	"activity",
 	...(flags.props.orgEnabled ? ["organizations"] : []),
 	...(flags.props.billingEnabled ? ["billing"] : []),
 	...(flags.props.oidcProviderEnabled ? ["oauth-clients"] : []),

@@ -11,7 +11,17 @@ export interface Entry {
 	userId: string | null;
 	action: string;
 	status: "success" | "failed";
+	ipAddress?: string | null;
+	userAgent?: string | null;
 	createdAt: string;
+}
+
+export interface SessionRow {
+	token: string;
+	ipAddress?: string | null;
+	userAgent?: string | null;
+	createdAt: string;
+	expiresAt: string;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: the client's plugin methods are typed per build; we only read plain data.
@@ -19,7 +29,7 @@ const c = authClient as any;
 const data = <T,>(r: { data?: T | null } | undefined, fallback: T): T => r?.data ?? fallback;
 
 export const useSessions = () =>
-	useQuery({ queryKey: ["dash", "sessions"], queryFn: async () => data<unknown[]>(await c.listSessions(), []) });
+	useQuery({ queryKey: ["dash", "sessions"], queryFn: async () => data<SessionRow[]>(await c.listSessions(), []) });
 
 export const useAccounts = () =>
 	useQuery({ queryKey: ["dash", "accounts"], queryFn: async () => data<unknown[]>(await c.listAccounts(), []) });

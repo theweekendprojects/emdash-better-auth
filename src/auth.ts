@@ -723,6 +723,9 @@ export function createBetterAuth(
 			username(),
 		],
 		advanced: {
+			// Cloudflare sends the client address in cf-connecting-ip; the default (x-forwarded-for)
+			// is missing there, so sessions and audit entries had no IP.
+			ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] },
 			// D1 has no native joins config need; keep defaults. Ensure we don't
 			// try to use database-generated ids (our adapter makes ULIDs).
 			database: {

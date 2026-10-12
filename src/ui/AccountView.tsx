@@ -38,7 +38,6 @@ import { adminPlugin } from "@better-auth-ui/heroui/plugins/admin";
 import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
-import { AuditLogTable } from "./AuditLogView.js";
 import { DashboardShell } from "./DashboardShell.js";
 import { emailOtpPlugin } from "@better-auth-ui/heroui/plugins/email-otp";
 import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
@@ -323,15 +322,6 @@ export default function AccountView({
 						adminEnabled={adminEnabled}
 						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
 					>
-						{/* Per-user "Recent activity": the user's own auth events, on the
-						    account page only. The list endpoint scopes to the session
-						    user, so this never leaks other users' rows. */}
-						{auditLogEnabled && path === "account" && (
-							<div className="mt-6">
-								<h2 className="text-base font-semibold mb-2">Recent activity</h2>
-								<AuditLogTable mode="self" pageSize={10} hideFilter />
-							</div>
-						)}
 					</DashboardShell>
 
 					<Toast.Provider />
