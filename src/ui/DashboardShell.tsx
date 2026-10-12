@@ -47,14 +47,16 @@ import { TableRaceBoundary } from "./race-boundary.js";
 export type Section = "account" | "admin" | "audit" | "organization";
 
 /** Plugin settings tabs that belong under "Account"; every other tab goes under "Workspace". */
-const ACCOUNT_TABS = new Set(["billing", "oauth-clients"]);
+const ACCOUNT_TABS = new Set(["billing", "oauthClients"]);
+/** Menu titles for known plugin tabs whose view name is camelCase. */
+const TAB_TITLES: Record<string, string> = { oauthClients: "OAuth clients", organizations: "Organizations", billing: "Billing" };
 /** Plugins whose security cards get their own page instead of the Security page. */
 const OWN_PAGE: Record<string, string> = { apiKey: "api-keys", oauthProvider: "connected-apps", deleteUser: "account" };
 
 function iconFor(view: string): React.ReactNode {
 	if (/org|team/.test(view)) return <CustomersIcon />;
 	if (/billing|plan|pay/.test(view)) return <PaymentsIcon />;
-	if (/key|oauth-clients|dev/.test(view)) return <DevIcon />;
+	if (/key|oauth|dev/i.test(view)) return <DevIcon />;
 	if (/site|project/.test(view)) return <ProductsIcon />;
 	if (view === "home") return <HomeIcon />;
 	if (view === "users") return <AccountsIcon />;
@@ -63,7 +65,7 @@ function iconFor(view: string): React.ReactNode {
 	if (view === "connected-apps") return <FilterIcon />;
 	return <ReportsIcon />;
 }
-const humanize = (s: string) => s.replace(/[-_]/g, " ").replace(/^./, (c) => c.toUpperCase());
+const humanize = (s: string) => s.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 /** Breadcrumb (Home / Group / Page) + title, as on the template's Accounts page. */
 function PageFrame({ title, group, wide, children }: { title: string; group?: string; wide?: boolean; children: React.ReactNode }) {
@@ -154,7 +156,7 @@ export function DashboardShell({
 	// biome-ignore lint/suspicious/noExplicitAny: see Plugin.
 	const tabs = plugins.flatMap((p) => (p.settingsTabs ?? []).map((t: any) => ({ p, t })));
 	const tabItem = ({ p, t }: { p: Plugin; t: { view: string; label: unknown } }) =>
-		item(t.view, typeof t.label === "string" ? t.label : humanize(t.view), p.viewPaths?.settings?.[t.view] ?? t.view);
+		item(t.view, TAB_TITLES[t.view] ?? (typeof t.label === "string" ? t.label : humanize(t.view)), p.viewPaths?.settings?.[t.view] ?? t.view);
 
 	const workspace: NavItem[] = [
 		...tabs.filter(({ t }: { t: { view: string } }) => !ACCOUNT_TABS.has(t.view)).map(tabItem),
