@@ -44,6 +44,22 @@ export function listed(access: Access, viewer: Viewer | null): boolean {
 export function hiddenFromFeed(access: Access | undefined, viewer: Viewer | null): boolean {
 	return access !== undefined && access !== "public" && decide(access, viewer) !== "allow";
 }
+/**
+ * How the sign-in wall treats a path (`siteLoginRequired`).
+ *  open  never walled: sign-in and account pages, admin and auth APIs, built assets
+ *  api   data a visitor could fetch directly (search, uploaded files, comments): 401 when signed out
+ *  page  everything the theme renders: redirect to sign-in when signed out
+ */
+export type WallClass = "open" | "api" | "page";
+const WALLED_API = /^\/(?:_emdash\/api\/(?:search(?:\/suggest)?|media\/file\/.+|comments(?:\/.*)?)|_image)$/;
+const OPEN = /^\/(?:_emdash|_astro|api|auth|login|signup|account|organization|admin|audit-log|sites|\.well-known)(?:\/|$)/;
+export function wallClass(path: string): WallClass {
+	if (WALLED_API.test(path)) return "api";
+	if (OPEN.test(path)) return "open";
+	// A file (image, font, script) next to the theme; sitemaps and feeds are pages.
+	if (/\.[a-z0-9]{1,5}$/i.test(path) && !/\.xml$/.test(path)) return "open";
+	return "page";
+}
 export interface UrlPattern {
 	collection: string;
 	re: RegExp;

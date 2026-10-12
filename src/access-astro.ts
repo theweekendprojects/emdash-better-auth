@@ -39,6 +39,11 @@ async function viewerBase(Astro: AccessContext): Promise<{ role: number; premium
 	return { role: ba.role === "admin" ? 50 : 10, premium: ba.premium === true };
 }
 
+/** Anyone signed in (EmDash or Better Auth). Used by the sign-in wall. */
+export async function isSignedIn(Astro: AccessContext): Promise<boolean> {
+	return (await viewerBase(Astro)) !== null;
+}
+
 export async function viewerFor(Astro: AccessContext, needPremium: boolean): Promise<Viewer | null> {
 	const base = await viewerBase(Astro);
 	if (!base) return null;

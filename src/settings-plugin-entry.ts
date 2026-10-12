@@ -38,7 +38,8 @@
  * emdash-smtp stores its API key. See settings.ts for the full tradeoff note.
  */
 
-import { definePlugin } from "emdash";
+import { definePlugin, invalidateSchemaObjectCache, SchemaRegistry } from "emdash";
+import { getDb } from "emdash/runtime";
 
 import {
 	EDIT_SECRETS_FLAG,
@@ -59,6 +60,8 @@ export const SETTINGS_PLUGIN_VERSION = "0.9.3";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
+/** Adds the `access` field (public / members / premium) to every collection that has pages. */
+const ADD_ACCESS_FIELD_ACTION_ID = "add_access_field";
 /** One save action per social provider form, e.g. `save_social:google`. */
 function socialSaveActionId(providerId: string): string {
 	return `save_social:${providerId}`;
@@ -319,6 +322,14 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.siteLoginRequired,
+					label: "Require sign-in to view the site",
+					description:
+						"For intranets and internal docs: visitors who are not signed in are sent to the sign-in page, and search and uploaded files (images, PDFs) answer 401. Turn sign-up off (above) and create the accounts yourself, otherwise anyone can register and read. Files in the site's public folder are served by the host and stay open.",
+					initial_value: bool(saved[SETTINGS_KEYS.siteLoginRequired]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.genericOAuthEnabled,
 					label: "Enable extra OAuth / OIDC providers",
 					description:
@@ -422,6 +433,16 @@ function buildSettingsPage(
 		{
 			type: "context",
 			text: "Security: secret fields are stored in the database (masked here, not encrypted at rest) — the same as other EmDash plugins. For the strongest posture on the session signing key, leave 'Better Auth secret' blank and keep BETTER_AUTH_SECRET as a Worker secret.",
+		},
+		{
+			type: "form",
+			block_id: "add-access-field",
+			fields: [],
+			submit: { label: "Add the Access field to my content types", action_id: ADD_ACCESS_FIELD_ACTION_ID },
+		},
+		{
+			type: "context",
+			text: "Members-only and premium content: authors pick Public, Members or Premium in an 'Access' dropdown on each post or page. The button above adds that dropdown to every content type that has pages (it skips those that already have it).",
 		},
 		{
 			type: "context",
@@ -587,6 +608,25 @@ function buildSettingsPage(
 	return toast ? { blocks, toast } : { blocks };
 }
 
+/** Collections that have a URL pattern and no `access` field get one. Returns the collection slugs changed. */
+async function addAccessField(): Promise<string[]> {
+	const registry = new SchemaRegistry(await getDb());
+	const added: string[] = [];
+	for (const collection of await registry.listCollections()) {
+		if (!collection.urlPattern) continue;
+		if (await registry.getField(collection.slug, "access")) continue;
+		await registry.createField(collection.slug, {
+			slug: "access",
+			label: "Who can read this",
+			type: "select",
+			validation: { options: ["public", "members", "premium"] },
+			defaultValue: "public",
+		} as never);
+		added.push(collection.slug);
+	}
+	if (added.length) invalidateSchemaObjectCache();
+	return added;
+}
 /**
  * Native-format factory. EmDash calls this and expects a `ResolvedPlugin`.
  * Declares the sidebar admin page and the interaction handler backing it.
@@ -653,6 +693,18 @@ export function createPlugin() {
 						return buildSettingsPage(saved, { message: label, type: "success" });
 					}
 
+					if (interaction.type === "form_submit" && interaction.action_id === ADD_ACCESS_FIELD_ACTION_ID) {
+						const saved = await readKvSettings(routeCtx.kv);
+						try {
+							const added = await addAccessField();
+							return buildSettingsPage(saved, {
+								message: added.length ? `Access field added to: ${added.join(", ")}.` : "Every content type that has pages already has the Access field.",
+								type: "success",
+							});
+						} catch (error) {
+							return buildSettingsPage(saved, { message: `Could not add the field: ${error instanceof Error ? error.message : "unknown error"}`, type: "error" });
+						}
+					}
 					// page_load (and any other interaction) -> render current state.
 					const saved = await readKvSettings(routeCtx.kv);
 					return buildSettingsPage(saved);

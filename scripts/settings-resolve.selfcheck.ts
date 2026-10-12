@@ -240,4 +240,9 @@ import { resolveSettings } from "../src/settings.js";
 	equal(resolveSettings({ contentAccessEnabled: false }, {}).contentAccessEnabled, false);
 	equal(resolveSettings({ contentAccessEnabled: "false" }, {}).contentAccessEnabled, false);
 }
+// Sign-in wall: off unless switched on.
+{
+	equal(resolveSettings({}, {}).siteLoginRequired, false);
+	equal(resolveSettings({ siteLoginRequired: "true" }, {}).siteLoginRequired, true);
+}
 console.log("settings-resolve self-check: all cases passed");

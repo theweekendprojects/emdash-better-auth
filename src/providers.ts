@@ -119,6 +119,17 @@ export async function contentAccessEnabled(): Promise<boolean> {
 	}
 	return resolveSettings(saved, {}).contentAccessEnabled;
 }
+/** Content access switches for the middleware, read together. Never throws; defaults: access on, wall off. */
+export async function accessSettings(): Promise<{ contentAccess: boolean; siteLogin: boolean }> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable: keep the defaults.
+	}
+	const s = resolveSettings(saved, {});
+	return { contentAccess: s.contentAccessEnabled, siteLogin: s.siteLoginRequired };
+}
 export async function apiKeyEnabled(): Promise<boolean> {
 	let saved: Record<string, unknown> = {};
 	try {

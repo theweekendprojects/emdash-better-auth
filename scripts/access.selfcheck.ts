@@ -1,5 +1,5 @@
 /** Checks for the content access rules: `node --no-warnings scripts/access.selfcheck.ts` */
-import { compileUrlPattern, decide, entryAccess, hiddenFromFeed, listed, matchUrlPattern, type Viewer } from "../src/access.ts";
+import { compileUrlPattern, decide, entryAccess, hiddenFromFeed, listed, matchUrlPattern, type Viewer, wallClass } from "../src/access.ts";
 
 let failed = 0;
 const check = (name: string, got: unknown, want: unknown) => {
@@ -33,4 +33,9 @@ check("slug in second position", matchUrlPattern(pats, "/docs/guides/intro"), { 
 check("list page is not an entry", matchUrlPattern(pats, "/posts"), null);
 check("no prefix match", matchUrlPattern(pats, "/posts/a/b"), null);
 check("dot in a pattern is literal", matchUrlPattern([compileUrlPattern("f", "/f.html/{slug}")!], "/fxhtml/a"), null);
+check("wall: theme pages", [wallClass("/"), wallClass("/posts/a"), wallClass("/rss.xml"), wallClass("/sitemap-posts.xml")], ["page", "page", "page", "page"]);
+check("wall: data endpoints", [wallClass("/_emdash/api/search"), wallClass("/_emdash/api/search/suggest"), wallClass("/_emdash/api/media/file/01ABC.png"), wallClass("/_emdash/api/comments/posts/x"), wallClass("/_image")], ["api", "api", "api", "api", "api"]);
+check("wall: sign-in, account and admin stay open", [wallClass("/auth/sign-in"), wallClass("/api/auth/get-session"), wallClass("/account/security"), wallClass("/_emdash/admin"), wallClass("/_emdash/api/content/posts"), wallClass("/_astro/x.js"), wallClass("/login")], ["open", "open", "open", "open", "open", "open", "open"]);
+check("wall: static files stay open", [wallClass("/favicon.ico"), wallClass("/img/a.png")], ["open", "open"]);
+check("wall: a prefix is not a match", [wallClass("/authors"), wallClass("/accounting")], ["page", "page"]);
 process.exit(failed ? 1 : 0);

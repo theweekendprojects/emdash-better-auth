@@ -105,6 +105,7 @@ export const SETTINGS_KEYS = {
 	hibpEnabled: "hibpEnabled",
 	deleteAccountEnabled: "deleteAccountEnabled",
 	contentAccessEnabled: "contentAccessEnabled",
+	siteLoginRequired: "siteLoginRequired",
 	auditLogEnabled: "auditLogEnabled",
 	auditLogRetentionDays: "auditLogRetentionDays",
 	maxSessionsPerUser: "maxSessionsPerUser",
@@ -140,6 +141,8 @@ export const SETTINGS_DEFAULTS = {
 	deleteAccountEnabled: false,
 	// On: an `access` field on a collection gates its entries. Off: every entry is public.
 	contentAccessEnabled: true,
+	// Off: the public site is open. On: only signed-in visitors see pages, search and uploaded files.
+	siteLoginRequired: false,
 	auditLogEnabled: false,
 	// Audit-log retention in days. 365 = the PCI DSS 12-month baseline (the
 	// shortest mandatory fixed period; also inside GDPR's practical 1–3yr range)
@@ -173,6 +176,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.hibpEnabled,
 	SETTINGS_KEYS.deleteAccountEnabled,
 	SETTINGS_KEYS.contentAccessEnabled,
+	SETTINGS_KEYS.siteLoginRequired,
 	SETTINGS_KEYS.auditLogEnabled,
 	SETTINGS_KEYS.billingEnabled,
 ] as const;
@@ -428,6 +432,8 @@ export interface ResolvedAuthSettings {
 	deleteAccountEnabled: boolean;
 	/** Members-only and premium entries (the `access` field) are enforced by the theme helpers. */
 	contentAccessEnabled: boolean;
+	/** The whole public site, search and uploaded files need a signed-in visitor. */
+	siteLoginRequired: boolean;
 	/** Audit logging enabled (captures auth events to plugin storage). */
 	auditLogEnabled: boolean;
 	/**
@@ -610,6 +616,10 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.contentAccessEnabled],
 		SETTINGS_DEFAULTS.contentAccessEnabled,
 	);
+	const siteLoginRequired = coerceBool(
+		saved[SETTINGS_KEYS.siteLoginRequired],
+		SETTINGS_DEFAULTS.siteLoginRequired,
+	);
 	const auditLogEnabled = coerceBool(
 		saved[SETTINGS_KEYS.auditLogEnabled],
 		SETTINGS_DEFAULTS.auditLogEnabled,
@@ -701,6 +711,7 @@ export function resolveSettings(
 		hibpEnabled,
 		deleteAccountEnabled,
 		contentAccessEnabled,
+		siteLoginRequired,
 		auditLogEnabled,
 		auditLogRetentionDays,
 		maxSessionsPerUser,
