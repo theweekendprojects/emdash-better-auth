@@ -85,3 +85,10 @@ body {
 .settings-bare .tabs__list-container {
 	display: none;
 }
+
+/* Links and accent text on dark surfaces: the default accent (#0066cc) is 3.2:1 on near-black, under the 4.5:1 minimum.
+   Lighten it toward white in dark mode only; the accent itself (buttons, focus rings) is untouched. */
+.dark .text-accent,
+.dark a[data-slot="link"] {
+	color: color-mix(in oklab, var(--accent) 55%, white);
+}

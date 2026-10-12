@@ -22,7 +22,8 @@ type Tone = "primary" | "default" | "success";
 const TONE: Record<Tone, { card: string; text: string; muted: string }> = {
 	primary: { card: "bg-accent", text: "text-white", muted: "text-white" },
 	default: { card: "bg-surface", text: "text-foreground", muted: "text-foreground" },
-	success: { card: "bg-success", text: "text-white", muted: "text-white" },
+	// Dark text: white on this green is under 2:1 contrast.
+	success: { card: "bg-success", text: "text-black", muted: "text-black" },
 };
 
 interface Stat {
@@ -155,7 +156,7 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 					</div>
 					{auditLogEnabled ? (
 						<div className="flex h-full flex-col gap-2">
-							<h3 className="text-xl font-semibold">Statistics</h3>
+							<h2 className="text-xl font-semibold">Statistics</h2>
 							<div className="w-full rounded-2xl bg-surface p-6 shadow-lg">
 								{audit.isLoading ? <Skeleton className="h-[300px] w-full rounded-xl" /> : <Steam entries={entries} />}
 							</div>
@@ -163,7 +164,7 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 					) : null}
 				</div>
 				<div className="mt-4 flex w-full flex-col gap-2 xl:max-w-md">
-					<h3 className="text-xl font-semibold">Section</h3>
+					<h2 className="text-xl font-semibold">Section</h2>
 					<div className="flex flex-col justify-center gap-4 md:flex-col md:flex-nowrap">
 						<Card className="w-full rounded-xl bg-surface px-4 py-6 shadow-md">
 							<Card.Content className="gap-6 py-5">
@@ -235,7 +236,7 @@ export function Home({ orgEnabled, auditLogEnabled, isAdmin }: HomeFlags) {
 			{isAdmin ? (
 				<div className="mx-auto flex w-full max-w-[90rem] flex-col justify-center gap-3 px-4 py-5 lg:px-0">
 					<div className="flex flex-wrap justify-between">
-						<h3 className="text-center text-xl font-semibold">Latest Users</h3>
+						<h2 className="text-center text-xl font-semibold">Latest Users</h2>
 						<a href="/account/users" className="cursor-pointer text-accent no-underline">
 							View All
 						</a>

@@ -119,6 +119,7 @@ export function DashboardShell({
 	auditLogEnabled = false,
 	adminEnabled = false,
 	isAdmin = false,
+	role = 0,
 	feedbackUrl,
 	helpUrl,
 }: {
@@ -132,6 +133,8 @@ export function DashboardShell({
 	auditLogEnabled?: boolean;
 	adminEnabled?: boolean;
 	isAdmin?: boolean;
+	/** EmDash role level; 20 and above is staff (writes content). */
+	role?: number;
 	feedbackUrl?: string;
 	helpUrl?: string;
 }) {
@@ -142,6 +145,7 @@ export function DashboardShell({
 		socialProviders?: unknown[];
 	};
 	const base = basePaths?.settings ?? "/account";
+	const staff = role >= 20;
 	const hasCards = (id: string) => plugins.some((p) => p.id === id && p.securityCards?.length);
 
 	const item = (view: string, title: string, seg = view): NavItem => ({
@@ -159,6 +163,7 @@ export function DashboardShell({
 		item(t.view, TAB_TITLES[t.view] ?? (typeof t.label === "string" ? t.label : humanize(t.view)), p.viewPaths?.settings?.[t.view] ?? t.view);
 
 	const workspace: NavItem[] = [
+		...(staff ? [{ title: "Content editor", href: "/_emdash/admin", icon: <ProductsIcon />, active: false }] : []),
 		...tabs.filter(({ t }: { t: { view: string } }) => !ACCOUNT_TABS.has(t.view)).map(tabItem),
 		...fixed(orgEnabled, "Active organization", "/organization", <BalanceIcon />, "organization"),
 	];
@@ -166,9 +171,9 @@ export function DashboardShell({
 		item("account", "Profile"),
 		item("security", "Security"),
 		item("activity", "Sessions & activity"),
-		...(hasCards("apiKey") ? [item("api-keys", "API keys")] : []),
-		...(hasCards("oauthProvider") ? [item("connected-apps", "Connected apps")] : []),
-		...tabs.filter(({ t }: { t: { view: string } }) => ACCOUNT_TABS.has(t.view)).map(tabItem),
+		...(staff && hasCards("apiKey") ? [item("api-keys", "API keys")] : []),
+		...(staff && hasCards("oauthProvider") ? [item("connected-apps", "Connected apps")] : []),
+		...tabs.filter(({ t, p }: { t: { view: string }; p: Plugin }) => ACCOUNT_TABS.has(t.view) && (staff || p.id !== "oauthProvider")).map(tabItem),
 	];
 	const administration: NavItem[] = isAdmin
 		? [
@@ -178,7 +183,7 @@ export function DashboardShell({
 			]
 		: [];
 	const groups: NavGroup[] = [
-		{ items: [item("home", "Home")] },
+		...(staff ? [{ items: [item("home", "Home")] }] : []),
 		...(workspace.length ? [{ title: "Workspace", items: workspace }] : []),
 		{ title: "Account", items: account },
 		...(administration.length ? [{ title: "Administration", items: administration }] : []),

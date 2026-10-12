@@ -13,7 +13,7 @@
  * site's themed content pages are untouched.
  */
 import { viewPaths } from "@better-auth-ui/core";
-import { accountProps } from "../account-props.ts";
+import { accountProps, ROLE_ADMIN, ROLE_STAFF } from "../account-props.ts";
 import { requireUser } from "../route.ts";
 import { extraViews } from "../ui-plugin-views.ts";
 import AccountView from "../ui/AccountView.tsx";
@@ -25,22 +25,33 @@ if (gate) return gate;
 const flags = await accountProps(Astro.locals.user.role);
 const accent = flags.accent;
 const knownViews = Object.values(viewPaths.settings) as string[];
+const role = Astro.locals.user.role ?? 0;
+const staff = role >= ROLE_STAFF;
+// Rights by EmDash role: subscribers (readers, commenters) get their profile, security and
+// activity plus whatever workspace the site gives them; contributors and above also get the
+// dashboard and the developer pages; only admins get user management.
+const staffViews = [
+	"home",
+	...(flags.props.apiKeyEnabled ? ["api-keys"] : []),
+	...(flags.props.oidcProviderEnabled ? ["connected-apps", "oauth-clients"] : []),
+];
 const allowedViews = [
 	...knownViews,
-	"home",
-	"users",
 	"activity",
-	...(flags.props.apiKeyEnabled ? ["api-keys"] : []),
-	...(flags.props.oidcProviderEnabled ? ["connected-apps"] : []),
+	...(role >= ROLE_ADMIN ? ["users"] : []),
+	...(staff ? staffViews : []),
 	...(flags.props.orgEnabled ? ["organizations"] : []),
 	...(flags.props.billingEnabled ? ["billing"] : []),
-	...(flags.props.oidcProviderEnabled ? ["oauth-clients"] : []),
 	...extraViews("settings"),
 ];
+// Landing: the dashboard for staff; for subscribers the first workspace page, else the profile.
+if (view === "home" && !staff) {
+	const first = extraViews("settings")[0] ?? (flags.props.orgEnabled ? "organizations" : "account");
+	return Astro.redirect(`/account/${first}${Astro.url.search}`);
+}
 if (!allowedViews.includes(view)) {
 	return new Response("Not found", { status: 404 });
 }
-import interFont from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 ---
 <!doctype html>
 <html lang="en" class="antialiased" style={`--emdash-accent: ${accent}`}>

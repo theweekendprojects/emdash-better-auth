@@ -24,6 +24,8 @@ import {
 
 /** EmDash ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). */
 export const ROLE_ADMIN = 50;
+/** CONTRIBUTOR and above write content in the EmDash editor; they get the dashboard, the editor link and developer pages. */
+export const ROLE_STAFF = 20;
 
 export async function accountProps(role: number | undefined) {
 	// Every flag is its own settings read; run them together instead of one after another.
@@ -63,6 +65,7 @@ export async function accountProps(role: number | undefined) {
 			emailOtpEnabled: emailOtp,
 			multiSessionEnabled: multiSession,
 			planPriceIds: billing ? planPriceIds() : {},
+			role: role ?? 0,
 			isEmdashAdmin: (role ?? 0) >= ROLE_ADMIN,
 			adminEnabled: admin,
 			deleteAccountEnabled: deleteAccount,

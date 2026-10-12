@@ -85,6 +85,8 @@ export interface AccountViewProps {
 	 * this, it's cosmetic only here (EmDash's own admin area re-checks role).
 	 */
 	isEmdashAdmin?: boolean;
+	/** EmDash role level of the signed-in user (10 subscriber ... 50 admin); decides which pages the menu offers. */
+	role?: number;
 	/** Where to send the user after a successful auth. Defaults to "/account". */
 	redirectTo?: string;
 	/** Social providers to show. Empty by default (email/password only). */
@@ -190,6 +192,7 @@ export default function AccountView({
 	multiSessionEnabled = false,
 	planPriceIds = {},
 	isEmdashAdmin = false,
+	role = 0,
 }: AccountViewProps) {
 	const queryClient = getQueryClient();
 
@@ -324,6 +327,7 @@ export default function AccountView({
 						orgEnabled={orgEnabled}
 						auditLogEnabled={auditLogEnabled}
 						isAdmin={isEmdashAdmin}
+						role={role}
 						adminEnabled={adminEnabled}
 						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
 					>

@@ -231,6 +231,18 @@ export interface AuthViewProps {
 	multiSessionEnabled?: boolean;
 }
 
+/** Page heading for assistive tech (the visible card has its own title). */
+const PAGE_TITLES: Record<string, string> = {
+	"sign-in": "Sign in",
+	"sign-up": "Create an account",
+	"forgot-password": "Reset your password",
+	"reset-password": "Choose a new password",
+	"verify-email": "Verify your email",
+	"magic-link": "Sign in with a magic link",
+	"email-otp": "Sign in with an email code",
+	"two-factor": "Two-factor authentication",
+};
+
 export default function AuthView({
 	path,
 	redirectTo = "/",
@@ -326,6 +338,7 @@ export default function AuthView({
 									<span className="text-base font-semibold">{siteName}</span>
 								)}
 							</Link>
+							<h1 className="sr-only">{PAGE_TITLES[path] ?? "Sign in"}</h1>
 							<Auth path={path} />
 							{path === "sign-in" && <EmDashLoginButton redirectTo={redirectTo} />}
 							{path === "sign-in" && anonymousEnabled && (

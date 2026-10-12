@@ -1,5 +1,5 @@
 /** Sidebar. Port of the nextui-dashboard-template sidebar (MIT) to HeroUI v3. */
-import { Avatar, Dropdown, Tooltip } from "@heroui/react";
+import { Avatar, Dropdown } from "@heroui/react";
 import * as React from "react";
 import { FilterIcon } from "./icons/sidebar/filter-icon.js";
 import { SettingsIcon } from "./icons/sidebar/settings-icon.js";
@@ -141,33 +141,18 @@ export function Sidebar(props: {
 					</nav>
 					{props.settingsHref ? (
 						<div className="flex items-center justify-center gap-6 px-8 pb-4 pt-6 [@media(max-height:800px)]:hidden">
-							<Tooltip>
-								<Tooltip.Trigger>
-									<a href={props.settingsHref} aria-label="Settings" className="max-w-fit">
-										<SettingsIcon />
-									</a>
-								</Tooltip.Trigger>
-								<Tooltip.Content>Settings</Tooltip.Content>
-							</Tooltip>
-							<Tooltip>
-								<Tooltip.Trigger>
-									<a href={`${props.settingsHref.replace(/\/[^/]*$/, "")}/security`} aria-label="Security" className="max-w-fit">
-										<FilterIcon />
-									</a>
-								</Tooltip.Trigger>
-								<Tooltip.Content>Security</Tooltip.Content>
-							</Tooltip>
-							<Tooltip>
-								<Tooltip.Trigger>
-									<a href={props.settingsHref} aria-label="Profile">
-										<Avatar size="sm">
-											{session?.user?.image ? <Avatar.Image src={session.user.image} alt="" /> : null}
-											<Avatar.Fallback>{(session?.user?.name || session?.user?.email || "?").slice(0, 1).toUpperCase()}</Avatar.Fallback>
-										</Avatar>
-									</a>
-								</Tooltip.Trigger>
-								<Tooltip.Content>Profile</Tooltip.Content>
-							</Tooltip>
+							<a href={props.settingsHref} aria-label="Profile settings" title="Profile settings" className="max-w-fit">
+								<SettingsIcon />
+							</a>
+							<a href={`${props.settingsHref.replace(/\/[^/]*$/, "")}/security`} aria-label="Security" title="Security" className="max-w-fit">
+								<FilterIcon />
+							</a>
+							<a href={props.settingsHref} aria-label="Your profile" title="Your profile">
+								<Avatar size="sm">
+									{session?.user?.image ? <Avatar.Image src={session.user.image} alt="" /> : null}
+									<Avatar.Fallback>{(session?.user?.name || session?.user?.email || "?").slice(0, 1).toUpperCase()}</Avatar.Fallback>
+								</Avatar>
+							</a>
 						</div>
 					) : null}
 				</div>

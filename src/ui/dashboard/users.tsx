@@ -6,7 +6,7 @@
  * A plain <table>: HeroUI v3's Table is a react-aria collection and throws when
  * server-rendered (see the note in AuditLogView.tsx).
  */
-import { Avatar, Button, Chip, Input, Label, Modal, TextField, Tooltip } from "@heroui/react";
+import { Avatar, Button, Chip, Input, Label, Modal, TextField } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { authClient } from "../../client.js";
@@ -31,14 +31,9 @@ const STATUS_COLOR = { active: "success", banned: "danger", unverified: "warning
 
 function IconButton(props: { label: string; onClick: () => void; children: React.ReactNode }) {
 	return (
-		<Tooltip>
-			<Tooltip.Trigger>
-				<button type="button" aria-label={props.label} onClick={props.onClick} className="cursor-pointer border-none bg-transparent p-0">
-					{props.children}
-				</button>
-			</Tooltip.Trigger>
-			<Tooltip.Content>{props.label}</Tooltip.Content>
-		</Tooltip>
+		<button type="button" aria-label={props.label} title={props.label} onClick={props.onClick} className="cursor-pointer border-none bg-transparent p-0">
+			{props.children}
+		</button>
 	);
 }
 

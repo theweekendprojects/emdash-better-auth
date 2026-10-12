@@ -37,7 +37,7 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
 								key={h}
 								className={`bg-default px-3 py-3 font-semibold ${i === 0 ? "rounded-l-lg" : ""} ${i === head.length - 1 ? "rounded-r-lg" : ""}`}
 							>
-								{h}
+								{h === "Actions" ? <span className="sr-only">Actions</span> : h}
 							</th>
 						))}
 					</tr>
@@ -69,7 +69,7 @@ function Sessions() {
 				<h2 className="text-lg font-semibold">Where you are signed in</h2>
 				<p className="text-sm text-muted">Sign out any device you do not recognise.</p>
 			</div>
-			<Table head={["Device", "IP address", "Signed in", ""]}>
+			<Table head={["Device", "IP address", "Signed in", "Actions"]}>
 				{sessions.isLoading ? <SkeletonRows cols={4} rows={4} /> : null}
 				{!sessions.isLoading && rows.length === 0 ? (
 					<tr>
