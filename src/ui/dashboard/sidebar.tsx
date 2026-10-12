@@ -25,7 +25,7 @@ function SidebarItem({ icon, title, active, href }: NavItem) {
 	return (
 		<a href={href} className="max-w-full text-foreground no-underline" onClick={() => open && toggle()}>
 			<div
-				className={`flex h-full min-h-[44px] w-full cursor-pointer items-center gap-2 rounded-xl px-3.5 transition-all duration-150 active:scale-[0.98] ${
+				className={`flex h-full min-h-[40px] w-full cursor-pointer items-center gap-2 rounded-xl px-3.5 transition-all duration-150 active:scale-[0.98] ${
 					active ? "bg-accent-soft [&_svg_path]:fill-accent" : "hover:bg-default"
 				}`}
 			>
@@ -129,9 +129,9 @@ export function Sidebar(props: {
 					<Brand {...props.brand} orgEnabled={props.orgEnabled} />
 				</div>
 				<div className="flex h-full flex-col justify-between">
-					<nav aria-label="Main" className="mt-9 flex flex-col gap-6 px-2">
+					<nav aria-label="Main" className="mt-6 flex min-h-0 flex-col gap-4 px-2">
 						{groups.map((g, n) => (
-							<div key={g.title ?? n} className="flex flex-col gap-2">
+							<div key={g.title ?? n} className="flex flex-col gap-1">
 								{g.title ? <span className="text-xs font-normal text-muted">{g.title}</span> : null}
 								{g.items.map((i) => (
 									<SidebarItem key={i.href} {...i} />
@@ -140,7 +140,7 @@ export function Sidebar(props: {
 						))}
 					</nav>
 					{props.settingsHref ? (
-						<div className="flex items-center justify-center gap-6 px-8 pb-8 pt-16 md:pb-0 md:pt-10">
+						<div className="flex items-center justify-center gap-6 px-8 pb-4 pt-6">
 							<Tooltip>
 								<Tooltip.Trigger>
 									<a href={props.settingsHref} aria-label="Settings" className="max-w-fit">

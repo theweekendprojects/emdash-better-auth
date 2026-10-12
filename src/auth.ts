@@ -224,6 +224,8 @@ export interface BetterAuthOptions {
 	 * leaves the Worker). No storage, no UI.
 	 */
 	hibpEnabled?: boolean;
+	/** Users may delete their own account (refused while they own an organization). */
+	deleteAccountEnabled?: boolean;
 	/**
 	 * Whether audit logging is enabled. Default false. When true, the
 	 * `better-auth-audit-logs` plugin is registered to capture auth events
@@ -365,7 +367,10 @@ export function createBetterAuth(
 		}
 	})();
 
-	return betterAuth({
+	// Set right after construction; read lazily by hooks that need the database context.
+	// biome-ignore lint/suspicious/noExplicitAny: the context type is generated per Better Auth build.
+	let authRef: { $context: Promise<any> } | undefined;
+	const auth = betterAuth({
 		baseURL: options.baseURL,
 		secret: options.secret,
 		trustedOrigins: options.trustedOrigins,
@@ -549,6 +554,29 @@ export function createBetterAuth(
 			additionalFields: {
 				bio: { type: "string", required: false, input: true },
 			},
+			...(options.deleteAccountEnabled
+				? {
+						deleteUser: {
+							enabled: true,
+							// Never orphan an organization (a hosted site): its owner must delete or hand it over first.
+							beforeDelete: async (user: { id: string }) => {
+								const ctx = await authRef?.$context;
+								if (!ctx) return;
+								const owned: unknown[] = await ctx.adapter.findMany({
+									model: "member",
+									where: [
+										{ field: "userId", value: user.id },
+										{ field: "role", value: "owner" },
+									],
+									limit: 1,
+								});
+								if (owned.length) {
+									throw new APIError("BAD_REQUEST", { code: "OWNS_ORGANIZATIONS", message: "You still own an organization. Delete it or hand it over first." });
+								}
+							},
+						},
+					}
+				: {}),
 		},
 		// account / session / verification live in schemaless plugin storage,
 		// so we keep Better-Auth's native field names (no column mapping) and
@@ -755,6 +783,8 @@ export function createBetterAuth(
 			},
 		},
 	});
+	authRef = auth;
+	return auth;
 }
 
 /** Sessions kept per user; the oldest are deleted when a new one is created. */

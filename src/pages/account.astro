@@ -30,6 +30,8 @@ const allowedViews = [
 	"home",
 	"users",
 	"activity",
+	...(flags.props.apiKeyEnabled ? ["api-keys"] : []),
+	...(flags.props.oidcProviderEnabled ? ["connected-apps"] : []),
 	...(flags.props.orgEnabled ? ["organizations"] : []),
 	...(flags.props.billingEnabled ? ["billing"] : []),
 	...(flags.props.oidcProviderEnabled ? ["oauth-clients"] : []),

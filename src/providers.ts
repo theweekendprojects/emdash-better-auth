@@ -100,6 +100,15 @@ export async function twoFactorEnabled(): Promise<boolean> {
  * so the account "API Keys" card only renders when the backend `apiKey()`
  * plugin is actually registered. Never throws — degrades to the default (off).
  */
+export async function deleteAccountEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	return resolveSettings(saved, {}).deleteAccountEnabled;
+}
 export async function apiKeyEnabled(): Promise<boolean> {
 	let saved: Record<string, unknown> = {};
 	try {

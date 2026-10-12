@@ -11,6 +11,7 @@ import {
 	auditLogEnabled,
 	billingEnabled,
 	configuredSocialProviders,
+	deleteAccountEnabled,
 	emailOtpEnabled,
 	multiSessionEnabled,
 	oidcProviderEnabled,
@@ -26,7 +27,7 @@ export const ROLE_ADMIN = 50;
 
 export async function accountProps(role: number | undefined) {
 	// Every flag is its own settings read; run them together instead of one after another.
-	const [siteSettings, accent, billing, social, twoFactor, org, teams, apiKey, passkey, oidc, audit, emailOtp, multiSession, admin] =
+	const [siteSettings, accent, billing, social, twoFactor, org, teams, apiKey, passkey, oidc, audit, emailOtp, multiSession, admin, deleteAccount] =
 		await Promise.all([
 			getSiteSettings().catch(() => null),
 			accentColor(),
@@ -42,6 +43,7 @@ export async function accountProps(role: number | undefined) {
 			emailOtpEnabled(),
 			multiSessionEnabled(),
 			adminEnabled(),
+			deleteAccountEnabled(),
 		]);
 	return {
 		accent,
@@ -63,6 +65,7 @@ export async function accountProps(role: number | undefined) {
 			planPriceIds: billing ? planPriceIds() : {},
 			isEmdashAdmin: (role ?? 0) >= ROLE_ADMIN,
 			adminEnabled: admin,
+			deleteAccountEnabled: deleteAccount,
 		},
 	};
 }

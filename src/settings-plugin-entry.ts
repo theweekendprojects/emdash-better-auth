@@ -303,6 +303,14 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.deleteAccountEnabled,
+					label: "Let users delete their own account",
+					description:
+						"Adds a Delete account card to the Profile page. Deleting is refused while the user still owns an organization, so nothing is orphaned.",
+					initial_value: bool(saved[SETTINGS_KEYS.deleteAccountEnabled]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.genericOAuthEnabled,
 					label: "Enable extra OAuth / OIDC providers",
 					description:

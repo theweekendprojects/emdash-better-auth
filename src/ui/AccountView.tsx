@@ -34,6 +34,7 @@ import { usernamePlugin } from "@better-auth-ui/heroui/plugins/username";
 import { twoFactorPlugin } from "@better-auth-ui/heroui/plugins/two-factor";
 import { organizationPlugin } from "@better-auth-ui/heroui/plugins/organization";
 // Deep import: the "/plugins" barrel pulls every plugin (and libphonenumber-js, 65 KB gzip) into the bundle.
+import { deleteUserPlugin } from "@better-auth-ui/heroui/plugins/delete-user";
 import { adminPlugin } from "@better-auth-ui/heroui/plugins/admin";
 import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
@@ -71,6 +72,8 @@ export interface AccountViewProps {
 	section?: "account" | "admin" | "audit" | "organization";
 	/** Teams inside organizations (mirrors `teamsEnabled`). */
 	teamsEnabled?: boolean;
+	/** Show the Delete account card (mirrors `deleteAccountEnabled`). */
+	deleteAccountEnabled?: boolean;
 	/**
 	 * Whether the signed-in user is an EmDash admin (role >= 50). When true, a
 	 * "EmDash Admin" entry is added to the UserButton dropdown so admins can
@@ -169,6 +172,7 @@ export default function AccountView({
 	path = "account",
 	section = "account",
 	teamsEnabled = false,
+	deleteAccountEnabled = false,
 	redirectTo = "/account",
 	socialProviders = [],
 	siteName = "Account",
@@ -277,6 +281,7 @@ export default function AccountView({
 						// settings. Multi-session: account switcher in the UserButton.
 						// Each only when its site flag is on, matching the backend.
 						...(adminEnabled && isEmdashAdmin ? [adminPlugin()] : []),
+						...(deleteAccountEnabled ? [deleteUserPlugin()] : []),
 						...(emailOtpEnabled ? [emailOtpPlugin()] : []),
 						...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 						// Adds the "Billing" tab (pricing, checkout, portal, cancel).

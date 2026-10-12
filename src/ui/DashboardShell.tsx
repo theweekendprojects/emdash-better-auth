@@ -2,15 +2,24 @@
  * Every signed-in page (account, admin, audit log, organization) inside the
  * admin layout (see ./dashboard).
  *
- * No new registry: the menu is built from what Better Auth UI already knows.
- * Every plugin that declares `settingsTabs` (organizations, billing, API keys,
- * OAuth clients, and any plugin from `emdash-better-auth/ui-plugins`) gets an
- * entry under "Main Menu" by itself, next to the fixed admin pages. Page bodies
- * are Better Auth UI's own components, so each panel stays upstream code and
- * needs no maintenance when it changes; the Settings tab row is hidden by CSS
- * (`.settings-bare`, see auth.css) because the sidebar replaces it.
+ * Menu hierarchy (a group is hidden when it has nothing in it):
+ *   Home
+ *   Workspace       plugin pages (My sites, Organizations ...), Active organization
+ *   Account         Profile, Security, Sessions & activity, API keys, Connected apps,
+ *                   OAuth clients, Billing
+ *   Administration  Users, User management, Audit log        (admins only)
+ *
+ * No hand-kept list of features: a page exists when its Better Auth UI plugin is
+ * registered (that follows the site's feature switches). The page bodies are
+ * Better Auth UI's own cards, composed here by plugin id:
+ *   Security         password, linked accounts, two-factor, passkeys, wallets and any
+ *                    card from a plugin we do not know (so new plugins still show up)
+ *   API keys         the api-key plugin's cards
+ *   Connected apps   the oauth-provider plugin's cards
+ *   Profile          account settings + the delete-account card
+ * Plugin settings tabs (`settingsTabs`) get their own entry as well.
  */
-import { Admin, Settings } from "@better-auth-ui/heroui";
+import { Admin, AccountSettings, ChangePassword, LinkedAccounts, Settings } from "@better-auth-ui/heroui";
 import { Organization } from "@better-auth-ui/heroui/plugins/organization";
 import { useAuth } from "@better-auth-ui/react";
 import type * as React from "react";
@@ -23,6 +32,7 @@ import { BalanceIcon } from "./dashboard/icons/sidebar/balance-icon.js";
 import { ChangeLogIcon } from "./dashboard/icons/sidebar/changelog-icon.js";
 import { CustomersIcon } from "./dashboard/icons/sidebar/customers-icon.js";
 import { DevIcon } from "./dashboard/icons/sidebar/dev-icon.js";
+import { FilterIcon } from "./dashboard/icons/sidebar/filter-icon.js";
 import { HomeIcon } from "./dashboard/icons/sidebar/home-icon.js";
 import { PaymentsIcon } from "./dashboard/icons/sidebar/payments-icon.js";
 import { ProductsIcon } from "./dashboard/icons/sidebar/products-icon.js";
@@ -36,33 +46,45 @@ import { TableRaceBoundary } from "./race-boundary.js";
 
 export type Section = "account" | "admin" | "audit" | "organization";
 
-/** Icon by settings view name; unknown plugin views get a neutral one. */
+/** Plugin settings tabs that belong under "Account"; every other tab goes under "Workspace". */
+const ACCOUNT_TABS = new Set(["billing", "oauth-clients"]);
+/** Plugins whose security cards get their own page instead of the Security page. */
+const OWN_PAGE: Record<string, string> = { apiKey: "api-keys", oauthProvider: "connected-apps", deleteUser: "account" };
+
 function iconFor(view: string): React.ReactNode {
 	if (/org|team/.test(view)) return <CustomersIcon />;
 	if (/billing|plan|pay/.test(view)) return <PaymentsIcon />;
-	if (/key|oauth|client|dev/.test(view)) return <DevIcon />;
+	if (/key|oauth-clients|dev/.test(view)) return <DevIcon />;
 	if (/site|project/.test(view)) return <ProductsIcon />;
 	if (view === "home") return <HomeIcon />;
 	if (view === "users") return <AccountsIcon />;
 	if (view === "account") return <ViewIcon />;
 	if (view === "security") return <SettingsIcon />;
+	if (view === "connected-apps") return <FilterIcon />;
 	return <ReportsIcon />;
 }
 const humanize = (s: string) => s.replace(/[-_]/g, " ").replace(/^./, (c) => c.toUpperCase());
 
-/** Breadcrumb + title, as on the template's Accounts page. */
-function PageFrame({ title, wide, children }: { title: string; wide?: boolean; children: React.ReactNode }) {
+/** Breadcrumb (Home / Group / Page) + title, as on the template's Accounts page. */
+function PageFrame({ title, group, wide, children }: { title: string; group?: string; wide?: boolean; children: React.ReactNode }) {
+	const sep = <span aria-hidden="true" className="px-1 text-muted">/</span>;
 	return (
 		<div className="h-full px-4 py-6 lg:px-6">
 			<div className={`mx-auto flex w-full flex-col gap-4 ${wide ? "max-w-5xl" : "max-w-3xl"}`}>
-				<ul className="flex">
+				<ul className="flex flex-wrap">
 					<li className="flex gap-2">
 						<HouseIcon />
 						<a href="/account/home" className="text-foreground no-underline">
 							<span>Home</span>
 						</a>
-						<span aria-hidden="true" className="px-1 text-muted">/</span>
+						{sep}
 					</li>
+					{group ? (
+						<li className="flex gap-2">
+							<span className="text-muted">{group}</span>
+							{sep}
+						</li>
+					) : null}
 					<li className="flex gap-2">
 						<span>{title}</span>
 					</li>
@@ -72,6 +94,18 @@ function PageFrame({ title, wide, children }: { title: string; wide?: boolean; c
 			</div>
 		</div>
 	);
+}
+
+/** Card components registered by plugins, picked by plugin id. */
+// biome-ignore lint/suspicious/noExplicitAny: plugin shapes are typed per plugin; we only read id/securityCards.
+type Plugin = any;
+function cardsOf(plugins: Plugin[], pick: (id: string) => boolean): React.ReactNode[] {
+	return plugins
+		.filter((p) => pick(p.id))
+		.flatMap((p) =>
+			// biome-ignore lint/suspicious/noExplicitAny: card components take the Card variant prop.
+			(p.securityCards ?? []).map((Card: any, i: number) => <Card key={`${p.id}-${i}`} />),
+		);
 }
 
 export function DashboardShell({
@@ -85,7 +119,6 @@ export function DashboardShell({
 	isAdmin = false,
 	feedbackUrl,
 	helpUrl,
-	children,
 }: {
 	path: string;
 	section?: Section;
@@ -99,11 +132,16 @@ export function DashboardShell({
 	isAdmin?: boolean;
 	feedbackUrl?: string;
 	helpUrl?: string;
-	children?: React.ReactNode;
 }) {
-	// biome-ignore lint/suspicious/noExplicitAny: plugin shapes are typed per plugin; we only read settingsTabs/viewPaths.
-	const { basePaths, plugins } = useAuth() as any;
-	const base: string = basePaths?.settings ?? "/account";
+	const { basePaths, plugins = [], emailAndPassword, socialProviders } = useAuth() as {
+		basePaths?: { settings?: string };
+		plugins?: Plugin[];
+		emailAndPassword?: { enabled?: boolean };
+		socialProviders?: unknown[];
+	};
+	const base = basePaths?.settings ?? "/account";
+	const hasCards = (id: string) => plugins.some((p) => p.id === id && p.securityCards?.length);
+
 	const item = (view: string, title: string, seg = view): NavItem => ({
 		title,
 		href: `${base}/${seg}`,
@@ -112,75 +150,86 @@ export function DashboardShell({
 	});
 	const fixed = (on: boolean, title: string, href: string, icon: React.ReactNode, sec: Section): NavItem[] =>
 		on ? [{ title, href, icon, active: section === sec }] : [];
-	const tabs: NavItem[] =
-		// biome-ignore lint/suspicious/noExplicitAny: see above.
-		(plugins ?? []).flatMap((p: any) =>
-			// biome-ignore lint/suspicious/noExplicitAny: see above.
-			(p.settingsTabs ?? []).map((t: any) =>
-				item(t.view, typeof t.label === "string" ? t.label : humanize(t.view), p.viewPaths?.settings?.[t.view] ?? t.view),
-			),
-		);
-	const main: NavItem[] = [
-		...tabs,
+
+	// biome-ignore lint/suspicious/noExplicitAny: see Plugin.
+	const tabs = plugins.flatMap((p) => (p.settingsTabs ?? []).map((t: any) => ({ p, t })));
+	const tabItem = ({ p, t }: { p: Plugin; t: { view: string; label: unknown } }) =>
+		item(t.view, typeof t.label === "string" ? t.label : humanize(t.view), p.viewPaths?.settings?.[t.view] ?? t.view);
+
+	const workspace: NavItem[] = [
+		...tabs.filter(({ t }: { t: { view: string } }) => !ACCOUNT_TABS.has(t.view)).map(tabItem),
 		...fixed(orgEnabled, "Active organization", "/organization", <BalanceIcon />, "organization"),
-		...(isAdmin ? [item("users", "Users")] : []),
-		...fixed(isAdmin && adminEnabled, "Roles & sessions", "/admin", <DevIcon />, "admin"),
-		...fixed(isAdmin && auditLogEnabled, "Audit log", "/audit-log", <ChangeLogIcon />, "audit"),
 	];
+	const account: NavItem[] = [
+		item("account", "Profile"),
+		item("security", "Security"),
+		item("activity", "Sessions & activity"),
+		...(hasCards("apiKey") ? [item("api-keys", "API keys")] : []),
+		...(hasCards("oauthProvider") ? [item("connected-apps", "Connected apps")] : []),
+		...tabs.filter(({ t }: { t: { view: string } }) => ACCOUNT_TABS.has(t.view)).map(tabItem),
+	];
+	const administration: NavItem[] = isAdmin
+		? [
+				item("users", "Users"),
+				...fixed(adminEnabled, "User management", "/admin", <DevIcon />, "admin"),
+				...fixed(auditLogEnabled, "Audit log", "/audit-log", <ChangeLogIcon />, "audit"),
+			]
+		: [];
 	const groups: NavGroup[] = [
 		{ items: [item("home", "Home")] },
-		...(main.length ? [{ title: "Main Menu", items: main }] : []),
-		{ title: "General", items: [item("account", "Account"), item("security", "Security"), item("activity", "Activity")] },
+		...(workspace.length ? [{ title: "Workspace", items: workspace }] : []),
+		{ title: "Account", items: account },
+		...(administration.length ? [{ title: "Administration", items: administration }] : []),
 	];
-	const all = groups.flatMap((g) => g.items);
-	const title = all.find((i) => i.active)?.title ?? humanize(path);
+	const where = (title: string) => groups.find((g) => g.items.some((i) => i.title === title))?.title;
+	const current = groups.flatMap((g) => g.items).find((i) => i.active);
+	const title = current?.title ?? humanize(path);
+	const group = current ? where(current.title) : undefined;
+	const frame = (body: React.ReactNode, wide?: boolean) => (
+		<PageFrame title={title} group={group} wide={wide}>
+			{body}
+		</PageFrame>
+	);
 
 	let body: React.ReactNode;
 	if (section === "admin") {
-		body = (
-			<PageFrame title={title} wide>
-				<div className="admin-view">
-					<Admin view={path} />
-				</div>
-			</PageFrame>
-		);
+		body = frame(<div className="admin-view"><Admin view={path} /></div>, true);
 	} else if (section === "audit") {
-		body = (
-			<PageFrame title={title} wide>
-				<AuditLogTable mode="admin" />
-			</PageFrame>
-		);
+		body = frame(<AuditLogTable mode="admin" />, true);
 	} else if (section === "organization") {
-		body = (
-			<PageFrame title={title} wide>
-				<TableRaceBoundary>
-					<Organization view={path} />
-				</TableRaceBoundary>
-			</PageFrame>
-		);
+		body = frame(<TableRaceBoundary><Organization view={path} /></TableRaceBoundary>, true);
 	} else if (path === "home") {
 		body = <Home orgEnabled={orgEnabled} auditLogEnabled={auditLogEnabled} isAdmin={isAdmin} />;
-	} else if (path === "activity") {
-		body = (
-			<PageFrame title={title} wide>
-				<Activity auditLogEnabled={auditLogEnabled} />
-			</PageFrame>
-		);
 	} else if (path === "users") {
 		body = <Accounts />;
+	} else if (path === "activity") {
+		body = frame(<Activity auditLogEnabled={auditLogEnabled} />, true);
+	} else if (path === "account") {
+		body = frame(
+			<div className="flex flex-col gap-4 md:gap-6">
+				<AccountSettings />
+				{cardsOf(plugins, (id) => OWN_PAGE[id] === "account")}
+			</div>,
+		);
+	} else if (path === "security") {
+		body = frame(
+			<div className="flex flex-col gap-4 md:gap-6">
+				{emailAndPassword?.enabled ? <ChangePassword /> : null}
+				{socialProviders?.length ? <LinkedAccounts /> : null}
+				{cardsOf(plugins, (id) => !OWN_PAGE[id])}
+				<a href={`${base}/activity`} className="rounded-2xl bg-surface p-4 text-sm text-foreground no-underline shadow-md">
+					Devices you are signed in on and your sign-in history: <span className="text-accent">open Sessions & activity</span>
+				</a>
+			</div>,
+		);
+	} else if (path === "api-keys" || path === "connected-apps") {
+		body = frame(<div className="flex flex-col gap-4 md:gap-6">{cardsOf(plugins, (id) => OWN_PAGE[id] === path)}</div>);
 	} else {
-		body = (
-			<PageFrame title={title}>
-				<div className="settings-bare">
-					<Settings path={path} />
-				</div>
-				{path === "security" ? (
-					<a href={`${base}/activity`} className="rounded-2xl bg-surface p-4 text-sm text-foreground no-underline shadow-md">
-						Sign-in history, devices and failed attempts: <span className="text-accent">open Activity</span>
-					</a>
-				) : null}
-				{children}
-			</PageFrame>
+		// A plugin's own settings tab (organizations, billing, oauth-clients, My sites ...).
+		body = frame(
+			<div className="settings-bare">
+				<Settings path={path} />
+			</div>,
 		);
 	}
 	return (

@@ -295,6 +295,7 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		multiSessionEnabled: settings.multiSessionEnabled,
 		genericOAuthConfig: settings.genericOAuthEnabled ? settings.genericOAuthConfig : [],
 		hibpEnabled: settings.hibpEnabled,
+		deleteAccountEnabled: settings.deleteAccountEnabled,
 		// Audit logging + its retention window (both from settings).
 		auditLogEnabled: settings.auditLogEnabled,
 		auditLogRetentionDays: settings.auditLogRetentionDays,

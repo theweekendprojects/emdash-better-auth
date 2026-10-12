@@ -103,6 +103,7 @@ export const SETTINGS_KEYS = {
 	multiSessionEnabled: "multiSessionEnabled",
 	genericOAuthEnabled: "genericOAuthEnabled",
 	hibpEnabled: "hibpEnabled",
+	deleteAccountEnabled: "deleteAccountEnabled",
 	auditLogEnabled: "auditLogEnabled",
 	auditLogRetentionDays: "auditLogRetentionDays",
 	billingEnabled: "billingEnabled",
@@ -134,6 +135,7 @@ export const SETTINGS_DEFAULTS = {
 	multiSessionEnabled: false,
 	genericOAuthEnabled: false,
 	hibpEnabled: false,
+	deleteAccountEnabled: false,
 	auditLogEnabled: false,
 	// Audit-log retention in days. 365 = the PCI DSS 12-month baseline (the
 	// shortest mandatory fixed period; also inside GDPR's practical 1–3yr range)
@@ -163,6 +165,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.multiSessionEnabled,
 	SETTINGS_KEYS.genericOAuthEnabled,
 	SETTINGS_KEYS.hibpEnabled,
+	SETTINGS_KEYS.deleteAccountEnabled,
 	SETTINGS_KEYS.auditLogEnabled,
 	SETTINGS_KEYS.billingEnabled,
 ] as const;
@@ -414,6 +417,8 @@ export interface ResolvedAuthSettings {
 	 * known breaches at sign-up / password change.
 	 */
 	hibpEnabled: boolean;
+	/** Let users delete their own account (blocked while they still own an organization). */
+	deleteAccountEnabled: boolean;
 	/** Audit logging enabled (captures auth events to plugin storage). */
 	auditLogEnabled: boolean;
 	/**
@@ -586,6 +591,10 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.hibpEnabled],
 		SETTINGS_DEFAULTS.hibpEnabled,
 	);
+	const deleteAccountEnabled = coerceBool(
+		saved[SETTINGS_KEYS.deleteAccountEnabled],
+		SETTINGS_DEFAULTS.deleteAccountEnabled,
+	);
 	const auditLogEnabled = coerceBool(
 		saved[SETTINGS_KEYS.auditLogEnabled],
 		SETTINGS_DEFAULTS.auditLogEnabled,
@@ -671,6 +680,7 @@ export function resolveSettings(
 		genericOAuthEnabled,
 		genericOAuthConfig,
 		hibpEnabled,
+		deleteAccountEnabled,
 		auditLogEnabled,
 		auditLogRetentionDays,
 		billingEnabled,
