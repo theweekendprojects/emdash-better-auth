@@ -381,6 +381,25 @@ export function createBetterAuth(
 		// that runs before the user row is written. `displayUsername` is NOT
 		// required — the plugin derives it from `username` when omitted.
 		databaseHooks: {
+			session: {
+				create: {
+					// Keep the newest MAX_SESSIONS_PER_USER sessions per user. Better Auth lists at most 100
+					// sessions in no useful order, so an account with more never saw its newest ones, and
+					// old sessions are an attack surface nobody reviews.
+					after: async (session: { userId: string }, ctx?: unknown) => {
+						// biome-ignore lint/suspicious/noExplicitAny: the hook context is typed per Better Auth build.
+						const c = (ctx as any)?.context;
+						if (!c?.adapter) return;
+						const rows: Array<{ token: string }> = await c.adapter.findMany({
+							model: "session",
+							where: [{ field: "userId", value: session.userId }],
+							sortBy: { field: "createdAt", direction: "desc" },
+							limit: 1000,
+						});
+						for (const old of rows.slice(MAX_SESSIONS_PER_USER)) await c.internalAdapter.deleteSession(old.token);
+					},
+				},
+			},
 			user: {
 				create: {
 					before: async (user: Record<string, unknown>, ctx?: { path?: string } | null) => {
@@ -735,4 +754,6 @@ export function createBetterAuth(
 	});
 }
 
+/** Sessions kept per user; the oldest are deleted when a new one is created. */
+const MAX_SESSIONS_PER_USER = 25;
 export type BetterAuthInstance = ReturnType<typeof createBetterAuth>;
