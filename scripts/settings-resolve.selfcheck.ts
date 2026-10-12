@@ -234,4 +234,10 @@ import { resolveSettings } from "../src/settings.js";
 	equal(resolveSettings({ signUpEnabled: "false" }, {}).signUpEnabled, false);
 	equal(resolveSettings({ signUpEnabled: true }, {}).signUpEnabled, true);
 }
+// Content access: on unless switched off.
+{
+	equal(resolveSettings({}, {}).contentAccessEnabled, true);
+	equal(resolveSettings({ contentAccessEnabled: false }, {}).contentAccessEnabled, false);
+	equal(resolveSettings({ contentAccessEnabled: "false" }, {}).contentAccessEnabled, false);
+}
 console.log("settings-resolve self-check: all cases passed");

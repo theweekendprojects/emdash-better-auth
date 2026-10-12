@@ -15,6 +15,7 @@
  */
 import type { AstroGlobal } from "astro";
 import { type Access, decide, entryAccess, listed, STAFF_ROLE, type Viewer } from "./access.ts";
+import { contentAccessEnabled } from "./providers.ts";
 import { getAuthUser } from "./route.ts";
 
 export { type Access, decide, entryAccess, listed } from "./access.ts";
@@ -56,7 +57,7 @@ export interface GateOptions {
 /** Returns a Response to send instead of the page, or null when the viewer may read the entry. */
 export async function gateEntry(Astro: AstroGlobal, entry: Entry | null | undefined, options: GateOptions = {}): Promise<Response | null> {
 	const access = entryAccess(entry);
-	if (access === "public") return null;
+	if (access === "public" || !(await contentAccessEnabled())) return null;
 	markPrivate(Astro);
 	const viewer = await viewerFor(Astro, access === "premium");
 	const decision = decide(access, viewer);
@@ -79,7 +80,7 @@ export async function gateEntry(Astro: AstroGlobal, entry: Entry | null | undefi
 /** Entries the viewer may see in a list, feed or tag page. Members-only entries disappear for others. */
 export async function filterEntries<T extends Entry>(Astro: AstroGlobal, entries: T[]): Promise<T[]> {
 	const levels = entries.map((e) => entryAccess(e));
-	if (levels.every((l: Access) => l === "public")) return entries;
+	if (levels.every((l: Access) => l === "public") || !(await contentAccessEnabled())) return entries;
 	markPrivate(Astro);
 	const viewer = await viewerFor(Astro, false);
 	return entries.filter((_, i) => listed(levels[i] as Access, viewer));
@@ -88,6 +89,6 @@ export async function filterEntries<T extends Entry>(Astro: AstroGlobal, entries
 /** True for entries a list should show with a lock (premium the viewer cannot open). */
 export async function isLocked(Astro: AstroGlobal, entry: Entry): Promise<boolean> {
 	const access = entryAccess(entry);
-	if (access === "public") return false;
+	if (access === "public" || !(await contentAccessEnabled())) return false;
 	return decide(access, await viewerFor(Astro, access === "premium")) !== "allow";
 }

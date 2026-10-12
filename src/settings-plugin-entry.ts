@@ -311,6 +311,14 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.contentAccessEnabled,
+					label: "Members-only and premium content",
+					description:
+						"Entries whose Access field is Members or Premium are hidden or locked for readers who are not signed in (or not premium). Turn off to treat every entry as public. Only collections that have an Access field are affected.",
+					initial_value: saved[SETTINGS_KEYS.contentAccessEnabled] === undefined ? true : bool(saved[SETTINGS_KEYS.contentAccessEnabled]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.genericOAuthEnabled,
 					label: "Enable extra OAuth / OIDC providers",
 					description:

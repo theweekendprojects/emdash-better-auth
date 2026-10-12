@@ -37,8 +37,11 @@ function IconButton(props: { label: string; onClick: () => void; children: React
 	);
 }
 
+/** False when members-only/premium content is switched off: the Plan column and Make premium button go away. */
+export const ContentAccessContext = React.createContext(true);
 export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loading?: boolean; denied?: boolean }) {
 	const qc = useQueryClient();
+	const contentAccess = React.useContext(ContentAccessContext);
 	const remove = async (u: AdminUser) => {
 		if (!window.confirm(`Delete ${u.email}? This cannot be undone.`)) return;
 		await admin.removeUser({ userId: u.id });
@@ -57,7 +60,7 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 							<th className="rounded-l-lg bg-default px-3 py-3 font-semibold">Name</th>
 							<th className="bg-default px-3 py-3 font-semibold">Role</th>
 							<th className="bg-default px-3 py-3 font-semibold">Status</th>
-							<th className="bg-default px-3 py-3 font-semibold">Plan</th>
+							{contentAccess ? <th className="bg-default px-3 py-3 font-semibold">Plan</th> : null}
 							<th className="rounded-r-lg bg-default px-3 py-3 text-center font-semibold">
 								<span className="sr-only">Actions</span>
 							</th>
@@ -94,16 +97,20 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 											<span className="text-xs capitalize">{s}</span>
 										</Chip>
 									</td>
-									<td className="px-3 py-3">
-										<Chip size="sm" variant={u.premium ? "primary" : "soft"} color={u.premium ? "accent" : "default"}>
-											<span className="text-xs">{u.premium ? "Premium" : "Free"}</span>
-										</Chip>
-									</td>
+									{contentAccess ? (
+										<td className="px-3 py-3">
+											<Chip size="sm" variant={u.premium ? "primary" : "soft"} color={u.premium ? "accent" : "default"}>
+												<span className="text-xs">{u.premium ? "Premium" : "Free"}</span>
+											</Chip>
+										</td>
+									) : null}
 									<td className="px-3 py-3">
 										<div className="flex items-center justify-center gap-4">
-											<button type="button" onClick={() => setPremium(u)} className="cursor-pointer rounded-full border border-border bg-transparent px-2.5 py-1 text-xs text-foreground">
-												{u.premium ? "Remove premium" : "Make premium"}
-											</button>
+											{contentAccess ? (
+												<button type="button" onClick={() => setPremium(u)} className="cursor-pointer rounded-full border border-border bg-transparent px-2.5 py-1 text-xs text-foreground">
+													{u.premium ? "Remove premium" : "Make premium"}
+												</button>
+											) : null}
 											<IconButton label="Details" onClick={() => window.location.assign("/admin")}>
 												<EyeIcon size={20} fill="#979797" />
 											</IconButton>

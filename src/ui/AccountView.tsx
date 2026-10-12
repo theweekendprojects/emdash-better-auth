@@ -40,6 +40,7 @@ import { apiKeyPlugin } from "@better-auth-ui/heroui/plugins/api-key";
 import { passkeyPlugin } from "@better-auth-ui/heroui/plugins/passkey";
 import { oauthProviderPlugin } from "@better-auth-ui/heroui/plugins/oauth-provider";
 import { DashboardShell } from "./DashboardShell.js";
+import { ContentAccessContext } from "./dashboard/users.js";
 import { emailOtpPlugin } from "@better-auth-ui/heroui/plugins/email-otp";
 import { multiSessionPlugin } from "@better-auth-ui/heroui/plugins/multi-session";
 import { billingPlugin } from "@better-auth-ui/heroui/plugins/billing";
@@ -74,6 +75,8 @@ export interface AccountViewProps {
 	teamsEnabled?: boolean;
 	/** Show the Delete account card (mirrors `deleteAccountEnabled`). */
 	deleteAccountEnabled?: boolean;
+	/** Show premium controls on the Users page (mirrors `contentAccessEnabled`). */
+	contentAccessEnabled?: boolean;
 	/**
 	 * Whether the signed-in user is an EmDash admin (role >= 50). When true, a
 	 * "EmDash Admin" entry is added to the UserButton dropdown so admins can
@@ -175,6 +178,7 @@ export default function AccountView({
 	section = "account",
 	teamsEnabled = false,
 	deleteAccountEnabled = false,
+	contentAccessEnabled = true,
 	redirectTo = "/account",
 	socialProviders = [],
 	siteName = "Account",
@@ -320,6 +324,7 @@ export default function AccountView({
 						else window.location.href = to;
 					}}
 				>
+					<ContentAccessContext.Provider value={contentAccessEnabled}>
 					<DashboardShell
 						path={path}
 						section={section}
@@ -332,6 +337,7 @@ export default function AccountView({
 						userMenu={<UserButton size="icon" placement="bottom end" links={adminLinks} />}
 					>
 					</DashboardShell>
+					</ContentAccessContext.Provider>
 
 					<Toast.Provider />
 				</AuthProvider>

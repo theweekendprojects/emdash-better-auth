@@ -104,6 +104,7 @@ export const SETTINGS_KEYS = {
 	genericOAuthEnabled: "genericOAuthEnabled",
 	hibpEnabled: "hibpEnabled",
 	deleteAccountEnabled: "deleteAccountEnabled",
+	contentAccessEnabled: "contentAccessEnabled",
 	auditLogEnabled: "auditLogEnabled",
 	auditLogRetentionDays: "auditLogRetentionDays",
 	maxSessionsPerUser: "maxSessionsPerUser",
@@ -137,6 +138,8 @@ export const SETTINGS_DEFAULTS = {
 	genericOAuthEnabled: false,
 	hibpEnabled: false,
 	deleteAccountEnabled: false,
+	// On: an `access` field on a collection gates its entries. Off: every entry is public.
+	contentAccessEnabled: true,
 	auditLogEnabled: false,
 	// Audit-log retention in days. 365 = the PCI DSS 12-month baseline (the
 	// shortest mandatory fixed period; also inside GDPR's practical 1–3yr range)
@@ -169,6 +172,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.genericOAuthEnabled,
 	SETTINGS_KEYS.hibpEnabled,
 	SETTINGS_KEYS.deleteAccountEnabled,
+	SETTINGS_KEYS.contentAccessEnabled,
 	SETTINGS_KEYS.auditLogEnabled,
 	SETTINGS_KEYS.billingEnabled,
 ] as const;
@@ -422,6 +426,8 @@ export interface ResolvedAuthSettings {
 	hibpEnabled: boolean;
 	/** Let users delete their own account (blocked while they still own an organization). */
 	deleteAccountEnabled: boolean;
+	/** Members-only and premium entries (the `access` field) are enforced by the theme helpers. */
+	contentAccessEnabled: boolean;
 	/** Audit logging enabled (captures auth events to plugin storage). */
 	auditLogEnabled: boolean;
 	/**
@@ -600,6 +606,10 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.deleteAccountEnabled],
 		SETTINGS_DEFAULTS.deleteAccountEnabled,
 	);
+	const contentAccessEnabled = coerceBool(
+		saved[SETTINGS_KEYS.contentAccessEnabled],
+		SETTINGS_DEFAULTS.contentAccessEnabled,
+	);
 	const auditLogEnabled = coerceBool(
 		saved[SETTINGS_KEYS.auditLogEnabled],
 		SETTINGS_DEFAULTS.auditLogEnabled,
@@ -690,6 +700,7 @@ export function resolveSettings(
 		genericOAuthConfig,
 		hibpEnabled,
 		deleteAccountEnabled,
+		contentAccessEnabled,
 		auditLogEnabled,
 		auditLogRetentionDays,
 		maxSessionsPerUser,

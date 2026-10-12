@@ -109,6 +109,16 @@ export async function deleteAccountEnabled(): Promise<boolean> {
 	}
 	return resolveSettings(saved, {}).deleteAccountEnabled;
 }
+/** Content access (`access` field) on or off. Default on; never throws. */
+export async function contentAccessEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable: keep the default (on), so protected entries stay protected.
+	}
+	return resolveSettings(saved, {}).contentAccessEnabled;
+}
 export async function apiKeyEnabled(): Promise<boolean> {
 	let saved: Record<string, unknown> = {};
 	try {
