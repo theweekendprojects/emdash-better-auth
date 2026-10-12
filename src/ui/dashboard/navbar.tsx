@@ -84,7 +84,7 @@ export function Navbar(props: {
 					<SearchField fullWidth aria-label="Search menu" value={query} onChange={setQuery}>
 						<SearchField.Group>
 							<SearchField.SearchIcon />
-							<SearchField.Input placeholder="Search..." />
+							<SearchField.Input placeholder="Search pages..." />
 							<SearchField.ClearButton />
 						</SearchField.Group>
 					</SearchField>
@@ -110,7 +110,7 @@ export function Navbar(props: {
 					{props.userMenu}
 				</div>
 			</header>
-			<main className="flex-1 pb-20">{props.children}</main>
+			<main id="content" tabIndex={-1} className="flex-1 pb-20 outline-none">{props.children}</main>
 		</div>
 	);
 }

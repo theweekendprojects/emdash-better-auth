@@ -55,6 +55,12 @@ export function DashboardLayout(props: DashboardLayoutProps) {
 	}, []);
 	return (
 		<LayoutContext.Provider value={{ open, toggle, query, setQuery }}>
+			<a
+				href="#content"
+				className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[300] focus:rounded-lg focus:bg-background focus:px-3 focus:py-2 focus:text-foreground"
+			>
+				Skip to content
+			</a>
 			<section className="flex">
 				<Sidebar brand={props.brand} groups={props.groups} settingsHref={props.settingsHref} orgEnabled={props.orgEnabled} />
 				<Navbar userMenu={props.userMenu} feedbackUrl={props.feedbackUrl} helpUrl={props.helpUrl} siteUrl={props.siteUrl} orgEnabled={props.orgEnabled}>
