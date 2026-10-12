@@ -9,8 +9,8 @@
 import { dailyCounts, DAYS } from "./chart-data.js";
 import type { Entry } from "./data.js";
 
-const W = 800;
-const H = 400;
+const W = 520;
+const H = 300;
 const PAD = { l: 36, r: 12, t: 12, b: 28 };
 
 export function Steam({ entries }: { entries: Entry[] }) {

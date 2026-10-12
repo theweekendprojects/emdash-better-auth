@@ -45,7 +45,7 @@ export const useAudit = (enabled: boolean, limit = 100) =>
 		queryFn: async (): Promise<Entry[]> => {
 			const res = await authClient.$fetch(`/audit-log/list?limit=${limit}&offset=0`, { method: "GET" });
 			// Reads (list-/get-) would include the dashboard's own calls; show only real events.
-			return ((res as { data?: { entries?: Entry[] } }).data?.entries ?? []).filter((e) => !/^(list|get)-/.test(e.action));
+			return ((res as { data?: { entries?: Entry[] } }).data?.entries ?? []).filter((e) => !/(^|:)(list|get)-/.test(e.action));
 		},
 	});
 
