@@ -8,7 +8,7 @@
  */
 
 import { equal } from "./assert.js";
-import { resolveSettings } from "../src/settings.js";
+import { flagValue, resolveSettings } from "../src/settings.js";
 
 // 1. All flags default to false when nothing is saved.
 {
@@ -244,5 +244,15 @@ import { resolveSettings } from "../src/settings.js";
 {
 	equal(resolveSettings({}, {}).siteLoginRequired, false);
 	equal(resolveSettings({ siteLoginRequired: "true" }, {}).siteLoginRequired, true);
+}
+// The settings page must show the effective value: unset default-on switches show ON (a Save writes what is shown).
+{
+	equal(flagValue({}, "signUpEnabled"), true);
+	equal(flagValue({}, "requireEmailVerification"), true);
+	equal(flagValue({}, "contentAccessEnabled"), true);
+	equal(flagValue({}, "twoFactorEnabled"), false);
+	equal(flagValue({ signUpEnabled: false }, "signUpEnabled"), false);
+	equal(flagValue({ signUpEnabled: "false" }, "signUpEnabled"), false);
+	equal(flagValue({ twoFactorEnabled: "true" }, "twoFactorEnabled"), true);
 }
 console.log("settings-resolve self-check: all cases passed");

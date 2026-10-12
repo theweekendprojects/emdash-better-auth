@@ -500,6 +500,15 @@ const PLACEHOLDER_SECRET = "PASTE_YOUR_CLIENT_SECRET_HERE";
  * Coerce a stored/env setting into a boolean, tolerating the string values
  * EmDash's form persistence may produce ("true"/"false"/"1"/"0").
  */
+/**
+ * What a toggle on the settings page must show: the saved value, or the built-in default when nothing is saved.
+ * Showing "off" for an unset default-on switch (sign-ups, email verification) made the first Save write `false`
+ * and silently turn them off.
+ */
+export function flagValue(saved: Record<string, unknown>, key: string): boolean {
+	const fallback = (SETTINGS_DEFAULTS as Record<string, unknown>)[key] === true;
+	return coerceBool(saved[key], fallback);
+}
 function coerceBool(value: unknown, fallback: boolean): boolean {
 	if (typeof value === "boolean") return value;
 	if (typeof value === "string") {

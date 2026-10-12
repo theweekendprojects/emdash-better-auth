@@ -48,6 +48,7 @@ import {
 	SETTINGS_PLUGIN_ID,
 	SOCIAL_PROVIDERS,
 	editSocialFlag,
+	flagValue,
 	providerClientIdKey,
 	providerClientSecretKey,
 	readKvSettings,
@@ -89,7 +90,6 @@ function buildSettingsPage(
 	saved: Record<string, unknown>,
 	toast?: AdminPage["toast"],
 ): AdminPage {
-	const bool = (v: unknown) => v === true || v === "true" || v === "1" || v === "on";
 	const str = (v: unknown) => (typeof v === "string" ? v : "");
 	const hasVal = (v: unknown) => typeof v === "string" && v.trim() !== "";
 	// Coerce a stored value (saved as a string by the form, or a number) to a
@@ -171,7 +171,7 @@ function buildSettingsPage(
 					label: "Allow new sign-ups",
 					description:
 						"Let visitors create their own account (email, social, magic link). Turn off to keep this site invite-only: existing users can still sign in, and administrators can still add users.",
-					initial_value: bool(saved[SETTINGS_KEYS.signUpEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.signUpEnabled),
 				},
 				// --- Email verification -------------------------------------------
 				{
@@ -180,14 +180,14 @@ function buildSettingsPage(
 					label: "Require email verification",
 					description:
 						"Block unverified accounts from signing in. Needs a working email provider (Settings → Email).",
-					initial_value: bool(saved[SETTINGS_KEYS.requireEmailVerification]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.requireEmailVerification),
 				},
 				{
 					type: "toggle",
 					action_id: SETTINGS_KEYS.sendOnSignIn,
 					label: "Re-send verification on sign-in",
 					description: "Re-send the link when an unverified user tries to log in.",
-					initial_value: bool(saved[SETTINGS_KEYS.sendOnSignIn]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.sendOnSignIn),
 					// Only meaningful when verification is required — hide otherwise.
 					condition: cond(SETTINGS_KEYS.requireEmailVerification),
 				},
@@ -196,7 +196,7 @@ function buildSettingsPage(
 					action_id: SETTINGS_KEYS.autoSignInAfterVerification,
 					label: "Auto sign-in after verification",
 					description: "Log the user in immediately when they click the verification link.",
-					initial_value: bool(saved[SETTINGS_KEYS.autoSignInAfterVerification]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.autoSignInAfterVerification),
 					condition: cond(SETTINGS_KEYS.requireEmailVerification),
 				},
 				// --- Feature plugins ----------------------------------------------
@@ -206,7 +206,7 @@ function buildSettingsPage(
 					label: "Enable two-factor authentication (TOTP)",
 					description:
 						"Allow users to enable TOTP 2FA via their account settings. When enabled, users can enroll with an authenticator app and use backup codes for recovery.",
-					initial_value: bool(saved[SETTINGS_KEYS.twoFactorEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.twoFactorEnabled),
 				},
 				{
 					type: "toggle",
@@ -214,7 +214,7 @@ function buildSettingsPage(
 					label: "Enable passkey sign-in (WebAuthn)",
 					description:
 						"Allow passwordless sign-in with device biometrics or security keys (Touch ID, Face ID, Windows Hello). Users register and manage passkeys from their account settings; the login page shows a 'Sign in with a passkey' button.",
-					initial_value: bool(saved[SETTINGS_KEYS.passkeyEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.passkeyEnabled),
 				},
 				{
 					type: "toggle",
@@ -222,7 +222,7 @@ function buildSettingsPage(
 					label: "Enable API keys",
 					description:
 						"Let users create, copy, and revoke programmatic API keys from an account security card. Keys are stored hashed; the raw key is shown only once at creation.",
-					initial_value: bool(saved[SETTINGS_KEYS.apiKeyEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.apiKeyEnabled),
 				},
 				{
 					type: "toggle",
@@ -230,7 +230,7 @@ function buildSettingsPage(
 					label: "Enable admin user management",
 					description:
 						"Registers the Better Auth admin plugin: create users, ban/unban, impersonate, and assign an auth role. Stored alongside each EmDash user; does not change EmDash's own role levels.",
-					initial_value: bool(saved[SETTINGS_KEYS.adminEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.adminEnabled),
 				},
 				{
 					type: "toggle",
@@ -238,14 +238,14 @@ function buildSettingsPage(
 					label: "Enable organizations (multi-tenancy)",
 					description:
 						"Registers the Better Auth organization plugin: users can create organizations, invite members, and switch between them. No database migration required.",
-					initial_value: bool(saved[SETTINGS_KEYS.orgEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.orgEnabled),
 				},
 				{
 					type: "toggle",
 					action_id: SETTINGS_KEYS.teamsEnabled,
 					label: "Enable organization teams",
 					description: "Adds teams within each organization.",
-					initial_value: bool(saved[SETTINGS_KEYS.teamsEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.teamsEnabled),
 					// Teams only matter with orgs on — show the toggle only then
 					// (replaces the old always-visible "has no effect" caveat).
 					condition: cond(SETTINGS_KEYS.orgEnabled),
@@ -259,7 +259,7 @@ function buildSettingsPage(
 						"Turn this site into an OpenID Connect provider so other applications can let users 'Sign in with " +
 						"this site'. Registers the JWT + OAuth provider plugins; discovery is served at /api/auth/.well-known/openid-configuration. " +
 						"Users manage authorized apps from their account; OAuth clients are created from the account 'OAuth clients' tab.",
-					initial_value: bool(saved[SETTINGS_KEYS.oidcProviderEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.oidcProviderEnabled),
 				},
 				// --- Passwordless sign-in -----------------------------------------
 				{
@@ -268,7 +268,7 @@ function buildSettingsPage(
 					label: "Enable magic-link sign-in",
 					description:
 						"Passwordless sign-in: the user enters their email and receives a one-click sign-in link. Needs a working email provider (Settings → Email).",
-					initial_value: bool(saved[SETTINGS_KEYS.magicLinkEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.magicLinkEnabled),
 				},
 				{
 					type: "toggle",
@@ -276,7 +276,7 @@ function buildSettingsPage(
 					label: "Enable email one-time codes (OTP)",
 					description:
 						"Passwordless sign-in, email verification, and password reset via a short code emailed to the user. Needs a working email provider (Settings → Email).",
-					initial_value: bool(saved[SETTINGS_KEYS.emailOtpEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.emailOtpEnabled),
 				},
 				{
 					type: "toggle",
@@ -284,7 +284,7 @@ function buildSettingsPage(
 					label: "Enable guest (anonymous) sessions",
 					description:
 						"Show a 'Continue as guest' button so visitors can get an authenticated session without signing up, then link a real account later. Guest users have no username until they claim one.",
-					initial_value: bool(saved[SETTINGS_KEYS.anonymousEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.anonymousEnabled),
 				},
 				// --- Sessions -----------------------------------------------------
 				{
@@ -293,7 +293,7 @@ function buildSettingsPage(
 					label: "Enable multiple accounts per browser",
 					description:
 						"Let a browser stay signed in to several accounts at once and switch between them from the user menu. The admin session always follows the active account.",
-					initial_value: bool(saved[SETTINGS_KEYS.multiSessionEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.multiSessionEnabled),
 				},
 				// --- Security -----------------------------------------------------
 				{
@@ -302,7 +302,7 @@ function buildSettingsPage(
 					label: "Reject breached passwords (Have I Been Pwned)",
 					description:
 						"Block passwords found in known data breaches at sign-up and password change. Only the first 5 characters of the password's SHA-1 hash are sent to the HIBP range API — the password itself never leaves the server.",
-					initial_value: bool(saved[SETTINGS_KEYS.hibpEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.hibpEnabled),
 				},
 				{
 					type: "toggle",
@@ -310,7 +310,7 @@ function buildSettingsPage(
 					label: "Let users delete their own account",
 					description:
 						"Adds a Delete account card to the Profile page. Deleting is refused while the user still owns an organization, so nothing is orphaned.",
-					initial_value: bool(saved[SETTINGS_KEYS.deleteAccountEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.deleteAccountEnabled),
 				},
 				{
 					type: "toggle",
@@ -318,7 +318,7 @@ function buildSettingsPage(
 					label: "Members-only and premium content",
 					description:
 						"Entries whose Access field is Members or Premium are hidden or locked for readers who are not signed in (or not premium). Turn off to treat every entry as public. Only collections that have an Access field are affected.",
-					initial_value: saved[SETTINGS_KEYS.contentAccessEnabled] === undefined ? true : bool(saved[SETTINGS_KEYS.contentAccessEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.contentAccessEnabled),
 				},
 				{
 					type: "toggle",
@@ -326,7 +326,7 @@ function buildSettingsPage(
 					label: "Require sign-in to view the site",
 					description:
 						"For intranets and internal docs: visitors who are not signed in are sent to the sign-in page, and search and uploaded files (images, PDFs) answer 401. Turn sign-up off (above) and create the accounts yourself, otherwise anyone can register and read. Files in the site's public folder are served by the host and stay open.",
-					initial_value: bool(saved[SETTINGS_KEYS.siteLoginRequired]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.siteLoginRequired),
 				},
 				{
 					type: "toggle",
@@ -334,7 +334,7 @@ function buildSettingsPage(
 					label: "Enable extra OAuth / OIDC providers",
 					description:
 						"Register additional sign-in providers (Keycloak, Okta, Auth0, Microsoft Entra, …) defined in the GENERIC_OAUTH_CONFIG Worker env var (a JSON array). Has no effect until at least one provider is configured there.",
-					initial_value: bool(saved[SETTINGS_KEYS.genericOAuthEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.genericOAuthEnabled),
 				},
 				// --- Audit log ----------------------------------------------------
 				{
@@ -343,7 +343,7 @@ function buildSettingsPage(
 					label: "Enable audit logging",
 					description:
 						"Record auth events (sign-in/up, password & email changes, 2FA, admin ban/impersonate) with IP, user-agent, and inferred severity. Admins see a site-wide log at /audit-log; each user sees their own 'Recent activity' in their account. Writes are non-blocking and PII is redacted.",
-					initial_value: bool(saved[SETTINGS_KEYS.auditLogEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.auditLogEnabled),
 				},
 				// Retention only matters when audit logging is on. Uses a live
 				// `condition` (shows/hides instantly as the toggle flips, no Save
@@ -372,7 +372,7 @@ function buildSettingsPage(
 					label: "Enable subscription billing (Stripe)",
 					description:
 						"Registers the Better Auth Stripe plugin and adds a Billing tab to each user's account. Requires the Stripe secret key and webhook secret below, plus plans configured in the site's auth config.",
-					initial_value: bool(saved[SETTINGS_KEYS.billingEnabled]),
+					initial_value: flagValue(saved, SETTINGS_KEYS.billingEnabled),
 				},
 				// --- Branding (non-sensitive, always editable) --------------------
 				{
@@ -460,7 +460,7 @@ function buildSettingsPage(
 		// Retention guidance — the number_input field has no description slot, so
 		// the compliance context lives here. Only shown when the field is (i.e.
 		// when audit logging is on), so it never dangles without its field.
-		...(bool(saved[SETTINGS_KEYS.auditLogEnabled])
+		...(flagValue(saved, SETTINGS_KEYS.auditLogEnabled)
 			? [
 					{
 						type: "context",
@@ -475,17 +475,17 @@ function buildSettingsPage(
 	// (billing needs Stripe keys + plan price ids; teams need orgs). The toggle
 	// shows ON but the feature stays off, which is confusing. Surface the gap.
 	const statusWarnings: string[] = [];
-	if (bool(saved[SETTINGS_KEYS.billingEnabled]) && !hasVal(saved[SETTINGS_KEYS.stripeSecretKey])) {
+	if (flagValue(saved, SETTINGS_KEYS.billingEnabled) && !hasVal(saved[SETTINGS_KEYS.stripeSecretKey])) {
 		statusWarnings.push(
 			"Billing is enabled but no Stripe secret key is set (here or via STRIPE_SECRET_KEY) — billing stays inactive until it is, plus a webhook secret and at least one plan price id.",
 		);
 	}
-	if (bool(saved[SETTINGS_KEYS.teamsEnabled]) && !bool(saved[SETTINGS_KEYS.orgEnabled])) {
+	if (flagValue(saved, SETTINGS_KEYS.teamsEnabled) && !flagValue(saved, SETTINGS_KEYS.orgEnabled)) {
 		statusWarnings.push(
 			"Organization teams is enabled but organizations is off — teams has no effect until you also enable organizations.",
 		);
 	}
-	if (bool(saved[SETTINGS_KEYS.genericOAuthEnabled])) {
+	if (flagValue(saved, SETTINGS_KEYS.genericOAuthEnabled)) {
 		statusWarnings.push(
 			"Extra OAuth / OIDC providers is enabled — it does nothing until the GENERIC_OAUTH_CONFIG Worker env var contains at least one provider (a JSON array with providerId + clientId).",
 		);
@@ -527,9 +527,9 @@ function buildSettingsPage(
 			uiLink("/auth/sign-in", "Sign-in page"),
 			// These only resolve when their feature is on (the routes 404
 			// otherwise), so only offer them then.
-			...(bool(saved[SETTINGS_KEYS.adminEnabled]) ? [uiLink("/admin", "Manage users")] : []),
-			...(bool(saved[SETTINGS_KEYS.orgEnabled]) ? [uiLink("/organization", "Organization")] : []),
-			...(bool(saved[SETTINGS_KEYS.auditLogEnabled]) ? [uiLink("/audit-log", "Audit log")] : []),
+			...(flagValue(saved, SETTINGS_KEYS.adminEnabled) ? [uiLink("/admin", "Manage users")] : []),
+			...(flagValue(saved, SETTINGS_KEYS.orgEnabled) ? [uiLink("/organization", "Organization")] : []),
+			...(flagValue(saved, SETTINGS_KEYS.auditLogEnabled) ? [uiLink("/audit-log", "Audit log")] : []),
 		],
 	});
 

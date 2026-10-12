@@ -25,6 +25,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The client IP comes from `cf-connecting-ip` first (it was always empty behind Cloudflare).
 - New dependency `@fontsource-variable/inter`; the large charting dependency was not adopted (a small SVG chart is used).
 ### Fixed
+- **Saving the settings page could silently turn off email verification and sign-ups.** Toggles that are on by default
+  (Allow new sign-ups, Require email verification, re-send on sign-in, auto sign-in) showed OFF while nothing was saved, and
+  the first Save wrote that "off" to the database. The page now shows the effective value (saved value, else the built-in
+  default). If you saved the settings page on an earlier version, check those four switches.
 - The organization settings form opened with empty Name and Slug (Vite source patch for an upstream form reset, with a
   self-check that fails if the upstream code changes).
 - Clicking Sign In before the page's JavaScript loaded submitted the form natively and put the password in the address bar.
