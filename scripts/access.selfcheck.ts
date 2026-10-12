@@ -40,4 +40,6 @@ check("wall: static files stay open", [wallClass("/favicon.ico"), wallClass("/im
 check("wall: a prefix is not a match", [wallClass("/authors"), wallClass("/accounting")], ["page", "page"]);
 check("empty pattern is ignored", compileUrlPattern("x", ""), null);
 check("convention pattern", matchUrlPattern([compileUrlPattern("projects", "/projects/{slug}")!], "/projects/a/"), { collection: "projects", slug: "a" });
+check("doubled slash still matches (feed links)", matchUrlPattern(pats, "//posts/a"), { collection: "posts", slug: "a" });
+check("doubled slash inside", matchUrlPattern(pats, "/posts//a"), { collection: "posts", slug: "a" });
 process.exit(failed ? 1 : 0);

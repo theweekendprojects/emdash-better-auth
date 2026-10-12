@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-10-12
+### Fixed
+- RSS and sitemap items whose link has a doubled slash (`https://site//posts/a`, from a feed that joins a base URL ending in `/`)
+  were not recognised, so protected entries stayed in the feed. Paths are now matched with repeated slashes collapsed.
+
 ## [0.12.1] - 2026-10-12
 ### Fixed
 - **Content access did nothing on sites whose collections have no URL pattern** (many themes route by file, so EmDash has no pattern

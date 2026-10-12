@@ -78,9 +78,11 @@ export function compileUrlPattern(collection: string, pattern: string): UrlPatte
 	const slugAt = names.indexOf("slug");
 	return slugAt < 0 ? null : { collection, re: new RegExp(`^${body}/?$`), slugAt };
 }
+/** Doubled slashes (`//posts/a`, seen in feeds that join a base URL ending in `/`) must still match. */
+export const cleanPath = (path: string): string => path.replace(/\/{2,}/g, "/");
 export function matchUrlPattern(patterns: UrlPattern[], path: string): { collection: string; slug: string } | null {
 	for (const p of patterns) {
-		const m = p.re.exec(path);
+		const m = p.re.exec(cleanPath(path));
 		if (m?.[p.slugAt + 1]) return { collection: p.collection, slug: decodeURIComponent(m[p.slugAt + 1]!) };
 	}
 	return null;
