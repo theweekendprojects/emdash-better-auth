@@ -1,5 +1,5 @@
 /** Checks for the content access rules: `node --no-warnings scripts/access.selfcheck.ts` */
-import { decide, entryAccess, listed, type Viewer } from "../src/access.ts";
+import { compileUrlPattern, decide, entryAccess, hiddenFromFeed, listed, matchUrlPattern, type Viewer } from "../src/access.ts";
 
 let failed = 0;
 const check = (name: string, got: unknown, want: unknown) => {
@@ -24,4 +24,13 @@ check("staff see everything", [decide("members", staff), decide("premium", staff
 check("members posts are hidden from anonymous lists", listed("members", null), false);
 check("members posts are listed for users", listed("members", sub), true);
 check("premium posts are always listed (teaser)", [listed("premium", null), listed("premium", sub)], [true, true]);
+check("feeds hide premium from non-premium", [hiddenFromFeed("premium", sub), hiddenFromFeed("premium", paid), hiddenFromFeed("members", null), hiddenFromFeed("public", null), hiddenFromFeed(undefined, null)], [true, false, true, false, false]);
+const pats = [compileUrlPattern("posts", "/posts/{slug}"), compileUrlPattern("docs", "/docs/{category}/{slug}"), compileUrlPattern("x", "/x/{id}")].filter((p) => p !== null);
+check("pattern without {slug} is ignored", pats.length, 2);
+check("matches /posts/a", matchUrlPattern(pats, "/posts/a"), { collection: "posts", slug: "a" });
+check("matches trailing slash", matchUrlPattern(pats, "/posts/a/"), { collection: "posts", slug: "a" });
+check("slug in second position", matchUrlPattern(pats, "/docs/guides/intro"), { collection: "docs", slug: "intro" });
+check("list page is not an entry", matchUrlPattern(pats, "/posts"), null);
+check("no prefix match", matchUrlPattern(pats, "/posts/a/b"), null);
+check("dot in a pattern is literal", matchUrlPattern([compileUrlPattern("f", "/f.html/{slug}")!], "/fxhtml/a"), null);
 process.exit(failed ? 1 : 0);

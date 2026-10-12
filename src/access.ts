@@ -40,3 +40,31 @@ export function decide(access: Access, viewer: Viewer | null): Decision {
 export function listed(access: Access, viewer: Viewer | null): boolean {
 	return access === "premium" ? true : decide(access, viewer) === "allow";
 }
+/** Hidden from search and feeds: anything the reader could not open (premium too, unlike lists). */
+export function hiddenFromFeed(access: Access | undefined, viewer: Viewer | null): boolean {
+	return access !== undefined && access !== "public" && decide(access, viewer) !== "allow";
+}
+export interface UrlPattern {
+	collection: string;
+	re: RegExp;
+	slugAt: number;
+}
+/** A collection URL pattern such as `/posts/{slug}` as a regex. Patterns without `{slug}` cannot name an entry. */
+export function compileUrlPattern(collection: string, pattern: string): UrlPattern | null {
+	const names: string[] = [];
+	const body = pattern
+		.replace(/[.*+?^$()|[\]\\]/g, "\\$&")
+		.replace(/\{(\w+)\}/g, (_m, n: string) => {
+			names.push(n);
+			return "([^/]+)";
+		});
+	const slugAt = names.indexOf("slug");
+	return slugAt < 0 ? null : { collection, re: new RegExp(`^${body}/?$`), slugAt };
+}
+export function matchUrlPattern(patterns: UrlPattern[], path: string): { collection: string; slug: string } | null {
+	for (const p of patterns) {
+		const m = p.re.exec(path);
+		if (m?.[p.slugAt + 1]) return { collection: p.collection, slug: decodeURIComponent(m[p.slugAt + 1]!) };
+	}
+	return null;
+}

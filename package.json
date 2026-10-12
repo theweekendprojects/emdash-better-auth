@@ -122,6 +122,14 @@
     "./access": {
       "import": "./src/access-astro.ts",
       "default": "./src/access-astro.ts"
+    },
+    "./access-integration": {
+      "import": "./src/access-integration.ts",
+      "default": "./src/access-integration.ts"
+    },
+    "./access-middleware": {
+      "import": "./src/access-middleware.ts",
+      "default": "./src/access-middleware.ts"
     }
   },
   "files": [

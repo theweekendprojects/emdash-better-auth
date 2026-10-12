@@ -497,7 +497,7 @@ export async function rebridgeSession(Astro: AstroGlobal): Promise<Response | nu
  * The Better Auth user of this request, including extra fields such as `premium`, or
  * null when signed out. Used by content access checks; never throws.
  */
-export async function getAuthUser(Astro: AstroGlobal): Promise<Record<string, unknown> | null> {
+export async function getAuthUser(Astro: Pick<AstroGlobal, "request" | "site">): Promise<Record<string, unknown> | null> {
 	try {
 		return await withEmDashRuntime(async (runtime) => {
 			const { auth } = await createAuthForRequest(Astro.request, Astro.site, runtime);
