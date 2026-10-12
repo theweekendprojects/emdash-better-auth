@@ -17,6 +17,7 @@ import { accountProps, ROLE_ADMIN, ROLE_STAFF } from "../account-props.ts";
 import { requireUser } from "../route.ts";
 import { extraViews } from "../ui-plugin-views.ts";
 import AccountView from "../ui/AccountView.tsx";
+import interFont from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 
 const { path } = Astro.params;
 const view = path && path !== "" ? path : "home";
