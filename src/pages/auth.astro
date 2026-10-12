@@ -163,5 +163,13 @@ const logoUrl = await siteLogoUrl();
 			multiSessionEnabled={isMultiSessionEnabled}
 			client:load
 		/>
+		<script is:inline>
+			// The form is server-rendered before React attaches. A click in that gap would submit it natively as a GET
+			// and put the password in the address bar. This listener runs after React's own (bubble phase), so a
+			// handled submit is already prevented and only the premature one is stopped.
+			document.addEventListener("submit", (e) => {
+				if (!e.defaultPrevented) e.preventDefault();
+			});
+		</script>
 	</body>
 </html>
