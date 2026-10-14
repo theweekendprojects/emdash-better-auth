@@ -365,6 +365,15 @@ Every view this package renders (sign-in, account, admin, organization, audit lo
 `/account` and `/auth` pages allow the view paths the plugins declare under `viewPaths.settings` / `viewPaths.auth`.
 Without `betterAuthUi()` the list is empty and nothing changes.
 
+A tab lands in the dashboard sidebar automatically: its `view` id decides the group (Account vs Workspace), and the
+component renders inside the same shell (sidebar, top bar, auth context) as the built-in pages. The tab's own route is
+served under `/account/<view>`.
+
+**Scope.** This extends *this* dashboard (`/account/*`), and the extender must be a **Better Auth UI plugin** (the
+shape above: `viewPaths` + `settingsTabs`/components), wired at the host's build time. It is a different surface from
+EmDash's own admin at `/_emdash/admin`, which ordinary EmDash plugins extend with their own `adminPages`. A plugin
+cannot inject a page into this dashboard at runtime, and an EmDash plugin page does not appear here.
+
 ## Gotchas
 
 - **Browser autofill on secret fields.** A password manager may fill the Better
