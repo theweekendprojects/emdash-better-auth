@@ -25,7 +25,7 @@ function SidebarItem({ icon, title, active, href }: NavItem) {
 	return (
 		<a href={href} className="max-w-full text-foreground no-underline" onClick={() => open && toggle()}>
 			<div
-				className={`flex h-full min-h-[36px] w-full cursor-pointer items-center gap-2 rounded-xl px-3.5 transition-all duration-150 active:scale-[0.98] ${
+				className={`flex h-full min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-3.5 transition-all duration-150 active:scale-[0.98] ${
 					active ? "bg-accent text-accent-foreground [&_svg_path]:fill-accent-foreground" : "hover:bg-default"
 				}`}
 			>

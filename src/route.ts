@@ -164,6 +164,10 @@ function readEnvConfig(request: Request, siteFromConfig: URL | undefined) {
 	const stripeSecretKey = workerEnv.STRIPE_SECRET_KEY;
 	const stripeWebhookSecret = workerEnv.STRIPE_WEBHOOK_SECRET;
 
+	// Turnstile env fallbacks (saved admin settings win over these).
+	const turnstileSiteKey = workerEnv.TURNSTILE_SITE_KEY;
+	const turnstileSecretKey = workerEnv.TURNSTILE_SECRET;
+
 	return {
 		baseURL,
 		secret,
@@ -171,6 +175,8 @@ function readEnvConfig(request: Request, siteFromConfig: URL | undefined) {
 		trustedOrigins,
 		stripeSecretKey,
 		stripeWebhookSecret,
+		turnstileSiteKey,
+		turnstileSecretKey,
 	};
 }
 
@@ -252,6 +258,8 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		social: envConfig.social,
 		stripeSecretKey: envConfig.stripeSecretKey,
 		stripeWebhookSecret: envConfig.stripeWebhookSecret,
+		turnstileSiteKey: envConfig.turnstileSiteKey,
+		turnstileSecretKey: envConfig.turnstileSecretKey,
 		genericOAuthConfig: readGenericOAuthConfig(),
 	});
 
@@ -295,6 +303,9 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		multiSessionEnabled: settings.multiSessionEnabled,
 		genericOAuthConfig: settings.genericOAuthEnabled ? settings.genericOAuthConfig : [],
 		hibpEnabled: settings.hibpEnabled,
+		// Turnstile: resolveSettings only sets the secret when the toggle is on
+		// AND both keys resolved, so passing it straight through is safe.
+		turnstileSecretKey: settings.turnstileSecretKey,
 		deleteAccountEnabled: settings.deleteAccountEnabled,
 		// Audit logging + its retention window (both from settings).
 		auditLogEnabled: settings.auditLogEnabled,

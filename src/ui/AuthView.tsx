@@ -41,6 +41,7 @@ import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
 
 import { authClient } from "../client.js";
+import { setTurnstileToken } from "../turnstile-token.js";
 
 // One QueryClient per island mount. Auth pages are standalone, so a simple
 // per-mount client is enough (no SSR hydration boundary needed here).
@@ -142,6 +143,64 @@ function GuestButton({ redirectTo }: { redirectTo: string }) {
 	);
 }
 
+/** Views whose submit the server's captcha plugin protects, so the widget is shown on them. */
+const CAPTCHA_VIEWS = new Set(["sign-in", "sign-up", "forgot-password", "magic-link", "email-otp"]);
+
+const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+
+/**
+ * Cloudflare Turnstile widget. Loads the Turnstile script once, renders a widget, and stashes the
+ * token (via setTurnstileToken) so the auth client sends it as `x-captcha-response`. Managed mode:
+ * the widget may show a challenge or stay invisible; on expiry it clears the token and re-runs.
+ */
+function Turnstile({ siteKey }: { siteKey: string }) {
+	const ref = React.useRef<HTMLDivElement>(null);
+	React.useEffect(() => {
+		let widgetId: string | undefined;
+		let cancelled = false;
+		// biome-ignore lint/suspicious/noExplicitAny: the Turnstile global is injected by the script.
+		const api = () => (window as any).turnstile;
+		const render = () => {
+			if (cancelled || !ref.current || !api()) return;
+			widgetId = api().render(ref.current, {
+				sitekey: siteKey,
+				callback: (token: string) => setTurnstileToken(token),
+				"expired-callback": () => setTurnstileToken(null),
+				"error-callback": () => setTurnstileToken(null),
+			});
+		};
+		if (api()) {
+			render();
+		} else if (!document.querySelector(`script[src="${TURNSTILE_SRC}"]`)) {
+			const s = document.createElement("script");
+			s.src = TURNSTILE_SRC;
+			s.async = true;
+			s.defer = true;
+			s.addEventListener("load", render);
+			document.head.appendChild(s);
+		} else {
+			// Script tag exists but not ready yet: poll briefly.
+			const t = setInterval(() => {
+				if (api()) {
+					clearInterval(t);
+					render();
+				}
+			}, 100);
+			setTimeout(() => clearInterval(t), 5000);
+		}
+		return () => {
+			cancelled = true;
+			setTurnstileToken(null);
+			try {
+				if (widgetId && api()) api().remove(widgetId);
+			} catch {
+				// widget already gone
+			}
+		};
+	}, [siteKey]);
+	return <div ref={ref} className="mt-4 flex w-full max-w-sm justify-center" />;
+}
+
 export interface AuthViewProps {
 	/** Better Auth UI view path, e.g. "sign-in" | "sign-up". */
 	path: string;
@@ -229,6 +288,13 @@ export interface AuthViewProps {
 	 * select-account view for the OIDC flow. Defaults to false.
 	 */
 	multiSessionEnabled?: boolean;
+	/**
+	 * Cloudflare Turnstile site key, or null when the captcha is off. When set, a
+	 * Turnstile widget is shown on the pages whose submit the server protects
+	 * (sign-in, sign-up, forgot-password, and the passwordless request forms),
+	 * and its token rides on those requests as `x-captcha-response`.
+	 */
+	turnstileSiteKey?: string | null;
 }
 
 /** Page heading for assistive tech (the visible card has its own title). */
@@ -259,6 +325,7 @@ export default function AuthView({
 	emailOtpEnabled = false,
 	anonymousEnabled = false,
 	multiSessionEnabled = false,
+	turnstileSiteKey = null,
 }: AuthViewProps) {
 	const queryClient = getQueryClient();
 
@@ -340,6 +407,7 @@ export default function AuthView({
 							</Link>
 							<h1 className="sr-only">{PAGE_TITLES[path] ?? "Sign in"}</h1>
 							<Auth path={path} />
+							{turnstileSiteKey && CAPTCHA_VIEWS.has(path) ? <Turnstile siteKey={turnstileSiteKey} /> : null}
 							{path === "sign-in" && <EmDashLoginButton redirectTo={redirectTo} />}
 							{path === "sign-in" && anonymousEnabled && (
 								<GuestButton redirectTo={redirectTo} />

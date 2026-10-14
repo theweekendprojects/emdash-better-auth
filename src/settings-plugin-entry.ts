@@ -57,7 +57,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.12.2";
+export const SETTINGS_PLUGIN_VERSION = "0.13.0";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -306,6 +306,21 @@ function buildSettingsPage(
 				},
 				{
 					type: "toggle",
+					action_id: SETTINGS_KEYS.turnstileEnabled,
+					label: "Bot protection on auth pages (Cloudflare Turnstile)",
+					description:
+						"Show a Turnstile check on sign-up, sign-in and password reset. Free from Cloudflare. Needs both the site key below and the secret key (under Edit secrets); the check only turns on when both are set.",
+					initial_value: flagValue(saved, SETTINGS_KEYS.turnstileEnabled),
+				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.turnstileSiteKey,
+					label: "Turnstile site key (public)",
+					placeholder: "0x4AAAAAAA...",
+					initial_value: str(saved[SETTINGS_KEYS.turnstileSiteKey]),
+				},
+				{
+					type: "toggle",
 					action_id: SETTINGS_KEYS.deleteAccountEnabled,
 					label: "Let users delete their own account",
 					description:
@@ -401,7 +416,7 @@ function buildSettingsPage(
 				{
 					type: "toggle",
 					action_id: EDIT_SECRETS,
-					label: "🔓 Edit secrets (session key + Stripe keys)",
+					label: "🔓 Edit secrets (session key, Turnstile, Stripe keys)",
 					description:
 						"Off by default so stored secrets can't be accidentally overwritten. Turn on to reveal and change the fields below.",
 					initial_value: false,
@@ -411,6 +426,13 @@ function buildSettingsPage(
 					action_id: SETTINGS_KEYS.betterAuthSecret,
 					label: "Better Auth secret (session signing key — blank keeps the stored/Worker value)",
 					has_value: hasVal(saved[SETTINGS_KEYS.betterAuthSecret]),
+					condition: cond(EDIT_SECRETS),
+				},
+				{
+					type: "secret_input",
+					action_id: SETTINGS_KEYS.turnstileSecretKey,
+					label: "Turnstile secret key",
+					has_value: hasVal(saved[SETTINGS_KEYS.turnstileSecretKey]),
 					condition: cond(EDIT_SECRETS),
 				},
 				{

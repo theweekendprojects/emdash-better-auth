@@ -1,12 +1,13 @@
 /**
- * Users table, Accounts page and Add User dialog.
+ * Users table and the read-only Accounts page (search, export, per-row premium/delete).
+ * Creating users lives on the admin "User management" page (Better Auth UI's Admin view), not here.
  * Port of the nextui-dashboard-template table/accounts (MIT) to HeroUI v3, fed by
  * the Better Auth admin API (admin role required; the server enforces it).
  *
  * A plain <table>: HeroUI v3's Table is a react-aria collection and throws when
  * server-rendered (see the note in AuditLogView.tsx).
  */
-import { Avatar, Button, Chip, Input, Label, Modal, TextField } from "@heroui/react";
+import { Avatar, Button, Chip, Input, TextField } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { authClient } from "../../client.js";
@@ -132,70 +133,6 @@ export function UsersTable({ users, loading, denied }: { users: AdminUser[]; loa
 	);
 }
 
-function AddUser() {
-	const qc = useQueryClient();
-	const [open, setOpen] = React.useState(false);
-	const [error, setError] = React.useState("");
-	const [busy, setBusy] = React.useState(false);
-	const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		const f = new FormData(e.currentTarget);
-		const password = String(f.get("password"));
-		if (password !== String(f.get("confirm"))) return setError("Passwords do not match.");
-		setBusy(true);
-		setError("");
-		const r = await admin.createUser({ email: String(f.get("email")), name: String(f.get("name")), password, role: "user" });
-		setBusy(false);
-		if (r?.error) return setError(r.error.message ?? "Could not add the user.");
-		await qc.invalidateQueries({ queryKey: ["dash", "users"] });
-		setOpen(false);
-	};
-	return (
-		<Modal state={{ isOpen: open, setOpen, open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen((o) => !o) }}>
-			<Button variant="primary" onPress={() => setOpen(true)}>
-				Add User
-			</Button>
-			<Modal.Backdrop>
-				<Modal.Container placement="top">
-					<Modal.Dialog>
-						<form onSubmit={submit}>
-							<Modal.Header>
-								<Modal.Heading>Add User</Modal.Heading>
-							</Modal.Header>
-							<Modal.Body className="flex flex-col gap-3">
-								{[
-									["email", "Email", "email"],
-									["name", "Name", "text"],
-									["password", "Password", "password"],
-									["confirm", "Confirm Password", "password"],
-								].map(([name, label, type]) => (
-									<TextField key={name} name={name} type={type} isRequired fullWidth autoComplete={type === "password" ? "new-password" : "off"}>
-										<Label>{label}</Label>
-										<Input variant="secondary" />
-									</TextField>
-								))}
-								{error ? (
-									<p role="alert" className="text-sm text-danger">
-										{error}
-									</p>
-								) : null}
-							</Modal.Body>
-							<Modal.Footer>
-								<Button variant="danger-soft" onPress={() => setOpen(false)}>
-									Close
-								</Button>
-								<Button variant="primary" type="submit" isDisabled={busy}>
-									Add User
-								</Button>
-							</Modal.Footer>
-						</form>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
-	);
-}
-
 /** CSV with the columns the table shows. Quotes doubled, so commas in names are safe. */
 function toCsv(users: AdminUser[]) {
 	const q = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
@@ -244,7 +181,7 @@ export function Accounts() {
 					<DotsIcon />
 				</div>
 				<div className="flex flex-row flex-wrap gap-3.5">
-					<AddUser />
+					{/* No "Add user" here: this is the read-only account list. Creating a user lives on the admin "User management" page. */}
 					<Button variant="primary" onPress={exportCsv}>
 						<ExportIcon /> Export to CSV
 					</Button>

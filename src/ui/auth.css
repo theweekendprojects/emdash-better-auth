@@ -86,6 +86,17 @@ body {
 	display: none;
 }
 
+/*
+ * Tall dialogs (e.g. the admin "Create user" form) must scroll. Better Auth UI's alert dialog ships
+ * `max-height: 100%; overflow: clip`, so on a short viewport the fields past the fold — including the
+ * submit button — were unreachable. Cap the height and let the body scroll. The dialog portals to
+ * <body>, outside `.admin-view`, so this is global; it only changes dialogs that would overflow.
+ */
+.alert-dialog__dialog {
+	max-height: 90vh;
+	overflow-y: auto;
+}
+
 /* Links and accent text on dark surfaces: the default accent (#0066cc) is 3.2:1 on near-black, under the 4.5:1 minimum.
    Lighten it toward white in dark mode only; the accent itself (buttons, focus rings) is untouched. */
 .dark .text-accent,

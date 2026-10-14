@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-14
+### Added
+- **Bot protection on the auth pages (Cloudflare Turnstile).** New setting "Bot protection on auth pages" plus a public site
+  key and a secret key (under Edit secrets), or the `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` env vars. When on, Better Auth's
+  `captcha` plugin verifies a Turnstile token on sign-up, email sign-in and password reset; the auth UI renders the widget and
+  sends the token as `x-captcha-response`. The check only activates when both keys are set, so it is off by default. Free.
+### Changed
+- **Admin sidebar rows match the source template** (44px tall instead of 36px) for the roomier look.
+### Fixed
+- **Tall dialogs (e.g. admin "Create user") now scroll** instead of being clipped on short screens, so the submit button is
+  always reachable.
+- **Removed the redundant "Add User" button on the read-only Users page.** Creating a user lives on the admin "User
+  management" page.
+
 ## [0.12.2] - 2026-10-12
 ### Fixed
 - RSS and sitemap items whose link has a doubled slash (`https://site//posts/a`, from a feed that joins a base URL ending in `/`)

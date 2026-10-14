@@ -103,6 +103,9 @@ export const SETTINGS_KEYS = {
 	multiSessionEnabled: "multiSessionEnabled",
 	genericOAuthEnabled: "genericOAuthEnabled",
 	hibpEnabled: "hibpEnabled",
+	turnstileEnabled: "turnstileEnabled",
+	turnstileSiteKey: "turnstileSiteKey",
+	turnstileSecretKey: "turnstileSecretKey",
 	deleteAccountEnabled: "deleteAccountEnabled",
 	contentAccessEnabled: "contentAccessEnabled",
 	siteLoginRequired: "siteLoginRequired",
@@ -138,6 +141,8 @@ export const SETTINGS_DEFAULTS = {
 	multiSessionEnabled: false,
 	genericOAuthEnabled: false,
 	hibpEnabled: false,
+	// Cloudflare Turnstile on sign-up / sign-in / password reset. Off until the site + secret keys are set.
+	turnstileEnabled: false,
 	deleteAccountEnabled: false,
 	// On: an `access` field on a collection gates its entries. Off: every entry is public.
 	contentAccessEnabled: true,
@@ -174,6 +179,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.multiSessionEnabled,
 	SETTINGS_KEYS.genericOAuthEnabled,
 	SETTINGS_KEYS.hibpEnabled,
+	SETTINGS_KEYS.turnstileEnabled,
 	SETTINGS_KEYS.deleteAccountEnabled,
 	SETTINGS_KEYS.contentAccessEnabled,
 	SETTINGS_KEYS.siteLoginRequired,
@@ -184,6 +190,7 @@ const BOOLEAN_KEYS = [
 /** Secret-typed setting keys (masked in UI; preserved on save when blank). */
 const SECRET_KEYS: readonly string[] = [
 	SETTINGS_KEYS.betterAuthSecret,
+	SETTINGS_KEYS.turnstileSecretKey,
 	SETTINGS_KEYS.stripeSecretKey,
 	SETTINGS_KEYS.stripeWebhookSecret,
 	...SOCIAL_PROVIDERS.map((p) => providerClientSecretKey(p.id)),
@@ -193,6 +200,7 @@ const SECRET_KEYS: readonly string[] = [
 const TEXT_KEYS: readonly string[] = [
 	SETTINGS_KEYS.baseUrl,
 	SETTINGS_KEYS.accentColor,
+	SETTINGS_KEYS.turnstileSiteKey,
 	...SOCIAL_PROVIDERS.map((p) => providerClientIdKey(p.id)),
 ];
 
@@ -428,6 +436,12 @@ export interface ResolvedAuthSettings {
 	 * known breaches at sign-up / password change.
 	 */
 	hibpEnabled: boolean;
+	/** Cloudflare Turnstile active: the toggle is on AND both the site key and the secret resolved. */
+	turnstileEnabled: boolean;
+	/** Turnstile site key (public, for the widget), or undefined. */
+	turnstileSiteKey?: string;
+	/** Turnstile secret key (server verify), or undefined. */
+	turnstileSecretKey?: string;
 	/** Let users delete their own account (blocked while they still own an organization). */
 	deleteAccountEnabled: boolean;
 	/** Members-only and premium entries (the `access` field) are enforced by the theme helpers. */
@@ -485,6 +499,9 @@ export interface AuthEnvFallback {
 	/** Stripe env fallbacks (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET). */
 	stripeSecretKey?: string;
 	stripeWebhookSecret?: string;
+	/** Turnstile env fallbacks (TURNSTILE_SITE_KEY / TURNSTILE_SECRET). */
+	turnstileSiteKey?: string;
+	turnstileSecretKey?: string;
 	/**
 	 * Generic OAuth provider configs, parsed by the caller from the
 	 * GENERIC_OAUTH_CONFIG env var (a JSON array). Operator config rather than a
@@ -621,6 +638,16 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.deleteAccountEnabled],
 		SETTINGS_DEFAULTS.deleteAccountEnabled,
 	);
+	// Turnstile: the toggle only takes effect when BOTH keys resolve (saved or env),
+	// otherwise it is inert, so the status shown mirrors the plugin that is actually registered.
+	const turnstileSiteKey =
+		trimOrUndefined(saved[SETTINGS_KEYS.turnstileSiteKey]) ?? trimOrUndefined(env.turnstileSiteKey);
+	const turnstileSecretKey =
+		trimOrUndefined(saved[SETTINGS_KEYS.turnstileSecretKey]) ?? trimOrUndefined(env.turnstileSecretKey);
+	const turnstileEnabled =
+		coerceBool(saved[SETTINGS_KEYS.turnstileEnabled], SETTINGS_DEFAULTS.turnstileEnabled) &&
+		!!turnstileSiteKey &&
+		!!turnstileSecretKey;
 	const contentAccessEnabled = coerceBool(
 		saved[SETTINGS_KEYS.contentAccessEnabled],
 		SETTINGS_DEFAULTS.contentAccessEnabled,
@@ -718,6 +745,9 @@ export function resolveSettings(
 		genericOAuthEnabled,
 		genericOAuthConfig,
 		hibpEnabled,
+		turnstileEnabled,
+		turnstileSiteKey: turnstileEnabled ? turnstileSiteKey : undefined,
+		turnstileSecretKey: turnstileEnabled ? turnstileSecretKey : undefined,
 		deleteAccountEnabled,
 		contentAccessEnabled,
 		siteLoginRequired,

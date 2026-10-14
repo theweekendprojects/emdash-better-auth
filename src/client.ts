@@ -8,6 +8,7 @@
  */
 
 import { createAuthClient } from "better-auth/react";
+import { takeTurnstileToken } from "./turnstile-token.js";
 import { usernameClient } from "better-auth/client/plugins";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { adminClient } from "better-auth/client/plugins";
@@ -61,10 +62,24 @@ async function holdUntilSiblingsSettle(): Promise<void> {
 	}
 }
 
+/** Auth endpoints the Better Auth captcha plugin enforces (its default set). */
+const CAPTCHA_PATHS = ["/sign-up/email", "/sign-in/email", "/request-password-reset"];
+
+/** Add the Turnstile token (if any) as x-captcha-response on the captcha-protected endpoints. */
+function withCaptcha(url: string, init?: RequestInit): RequestInit | undefined {
+	if (!CAPTCHA_PATHS.some((p) => url.includes(p))) return init;
+	const token = takeTurnstileToken();
+	if (!token) return init;
+	const headers = new Headers(init?.headers);
+	headers.set("x-captcha-response", token);
+	return { ...init, headers };
+}
+
 const orderedFetch: typeof fetch = async (input, init) => {
 	const url =
 		typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-	if (!url.includes("/organization/")) return fetch(input, init); // unrelated: untouched
+	init = withCaptcha(url, init);
+	if (!url.includes("/organization/")) return fetch(input, init); // unrelated (captcha header already applied)
 	if (!url.includes("has-permission")) {
 		otherInFlight++;
 		try {

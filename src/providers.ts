@@ -139,6 +139,22 @@ export async function apiKeyEnabled(): Promise<boolean> {
 	}
 	return resolveSettings(saved, {}).apiKeyEnabled;
 }
+/**
+ * The Turnstile site key the auth UI should render, or null when Turnstile is off.
+ * Only returns a key when the toggle is on AND both keys resolve (saved admin settings
+ * or the TURNSTILE_SITE_KEY / TURNSTILE_SECRET env vars). Never throws.
+ */
+export async function turnstileSiteKey(): Promise<string | null> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — treat as off.
+	}
+	const w = env as Record<string, string | undefined>;
+	const s = resolveSettings(saved, { turnstileSiteKey: w.TURNSTILE_SITE_KEY, turnstileSecretKey: w.TURNSTILE_SECRET });
+	return s.turnstileEnabled ? (s.turnstileSiteKey ?? null) : null;
+}
 
 /**
  * Whether the passkey (WebAuthn) plugin is enabled site-wide, for the auth +

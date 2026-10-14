@@ -255,4 +255,19 @@ import { flagValue, resolveSettings } from "../src/settings.js";
 	equal(flagValue({ signUpEnabled: "false" }, "signUpEnabled"), false);
 	equal(flagValue({ twoFactorEnabled: "true" }, "twoFactorEnabled"), true);
 }
+// Turnstile: active only when the toggle is on AND both keys resolve (saved or env).
+{
+	equal(resolveSettings({}, {}).turnstileEnabled, false);
+	equal(resolveSettings({ turnstileEnabled: true }, {}).turnstileEnabled, false); // keys missing
+	equal(resolveSettings({ turnstileEnabled: true, turnstileSiteKey: "site", turnstileSecretKey: "sec" }, {}).turnstileEnabled, true);
+	// Secret via env, site key saved:
+	const viaEnv = resolveSettings({ turnstileEnabled: true, turnstileSiteKey: "site" }, { turnstileSecretKey: "sec" });
+	equal(viaEnv.turnstileEnabled, true);
+	equal(viaEnv.turnstileSiteKey, "site");
+	// Off hides the keys from the resolved result:
+	const off = resolveSettings({ turnstileSiteKey: "site", turnstileSecretKey: "sec" }, {});
+	equal(off.turnstileEnabled, false);
+	equal(off.turnstileSiteKey, undefined);
+	equal(off.turnstileSecretKey, undefined);
+}
 console.log("settings-resolve self-check: all cases passed");

@@ -19,6 +19,7 @@ import { anonymous } from "better-auth/plugins";
 import { multiSession } from "better-auth/plugins";
 import { genericOAuth } from "better-auth/plugins";
 import { haveIBeenPwned } from "better-auth/plugins";
+import { captcha } from "better-auth/plugins";
 import { apiKey } from "@better-auth/api-key";
 import { passkey } from "@better-auth/passkey";
 import { stripe as stripePlugin } from "@better-auth/stripe";
@@ -224,6 +225,16 @@ export interface BetterAuthOptions {
 	 * leaves the Worker). No storage, no UI.
 	 */
 	hibpEnabled?: boolean;
+	/**
+	 * Cloudflare Turnstile secret key. When set, the `captcha` plugin verifies a
+	 * Turnstile token on sign-up, email sign-in and password-reset requests
+	 * (`/sign-up/email`, `/sign-in/email`, `/request-password-reset`). The
+	 * browser must send the token in the `x-captcha-response` header — the auth
+	 * UI does this when `turnstileSiteKey` is set (see client.ts / AuthView).
+	 * Unset = no captcha (unchanged behaviour). The free Turnstile keys come from
+	 * the Cloudflare dashboard; keep the secret as a Worker secret, not in the DB.
+	 */
+	turnstileSecretKey?: string;
 	/** Users may delete their own account (refused while they own an organization). */
 	deleteAccountEnabled?: boolean;
 	/**
@@ -740,6 +751,13 @@ export function createBetterAuth(
 			// Have I Been Pwned: reject breached passwords at sign-up / change.
 			// Pure server, no storage, no UI. Only when the flag is on.
 			...(options.hibpEnabled ? [haveIBeenPwned()] : []),
+			// Cloudflare Turnstile on sign-up / email sign-in / password reset.
+			// Only when a secret is configured; the browser sends the token in
+			// x-captcha-response (default endpoints are those three). The widget
+			// is rendered by the auth UI when the matching site key is set.
+			...(options.turnstileSecretKey
+				? [captcha({ provider: "cloudflare-turnstile", secretKey: options.turnstileSecretKey })]
+				: []),
 			// Audit log: capture auth events to EmDash plugin storage via a custom
 			// storage backend (no migration). Non-blocking so it never delays an
 			// auth response; PII hash-redacted so raw secrets/bodies aren't stored

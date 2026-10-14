@@ -26,6 +26,7 @@ import {
 	genericOAuthProviderIds,
 	accentColor,
 	siteLogoUrl,
+	turnstileSiteKey,
 } from "../providers.ts";
 import { rebridgeSession } from "../route.ts";
 import { extraViews } from "../ui-plugin-views.ts";
@@ -52,6 +53,9 @@ const isMagicLinkEnabled = await magicLinkEnabled();
 const isEmailOtpEnabled = await emailOtpEnabled();
 const isAnonymousEnabled = await anonymousEnabled();
 const isMultiSessionEnabled = await multiSessionEnabled();
+// Turnstile site key, or null when the captcha is off. The island renders the
+// widget and sends its token on sign-up / sign-in / password-reset requests.
+const turnstileKey = await turnstileSiteKey();
 
 // The base `viewPaths.auth` from @better-auth-ui/core does NOT include plugin
 // view segments (they're augmented at the TYPE level only, not the runtime
@@ -161,6 +165,7 @@ const logoUrl = await siteLogoUrl();
 			emailOtpEnabled={isEmailOtpEnabled}
 			anonymousEnabled={isAnonymousEnabled}
 			multiSessionEnabled={isMultiSessionEnabled}
+			turnstileSiteKey={turnstileKey}
 			client:load
 		/>
 		<script is:inline>
