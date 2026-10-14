@@ -12,8 +12,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   key and a secret key (under Edit secrets), or the `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` env vars. When on, Better Auth's
   `captcha` plugin verifies a Turnstile token on sign-up, email sign-in and password reset; the auth UI renders the widget and
   sends the token as `x-captcha-response`. The check only activates when both keys are set, so it is off by default. Free.
+- **Sign-in page image.** New "Sign-in page image" setting puts a background photo behind the brand panel on the
+  sign-in / sign-up pages (desktop), with a dark overlay so the text stays readable; blank falls back to the accent
+  gradient. The panel is hidden on small screens, so it is a desktop enhancement.
 ### Changed
-- **Admin sidebar rows match the source template** (44px tall instead of 36px) for the roomier look.
+- **Admin sidebar spacing copied from the source template**: 44px rows, `gap-6`/`mt-9` between groups, `gap-2` within a
+  group, `py-6` wrapper — the roomier look of the original.
 ### Fixed
 - **Tall dialogs (e.g. admin "Create user") now scroll** instead of being clipped on short screens, so the submit button is
   always reachable.

@@ -27,6 +27,7 @@ import {
 	accentColor,
 	siteLogoUrl,
 	turnstileSiteKey,
+	authPanelImageUrl,
 } from "../providers.ts";
 import { rebridgeSession } from "../route.ts";
 import { extraViews } from "../ui-plugin-views.ts";
@@ -125,6 +126,7 @@ const socialProviders = [...builtinSocial, ...genericSocial];
 // Brand theming: accent color (operator setting) + optional site logo.
 const accent = await accentColor();
 const logoUrl = await siteLogoUrl();
+const panelImageUrl = await authPanelImageUrl();
 ---
 
 <!doctype html>
@@ -166,6 +168,7 @@ const logoUrl = await siteLogoUrl();
 			anonymousEnabled={isAnonymousEnabled}
 			multiSessionEnabled={isMultiSessionEnabled}
 			turnstileSiteKey={turnstileKey}
+			panelImageUrl={panelImageUrl}
 			client:load
 		/>
 		<script is:inline>

@@ -116,6 +116,7 @@ export const SETTINGS_KEYS = {
 	stripeSecretKey: "stripeSecretKey",
 	stripeWebhookSecret: "stripeWebhookSecret",
 	accentColor: "accentColor",
+	authPanelImageUrl: "authPanelImageUrl",
 } as const;
 
 /**
@@ -200,6 +201,7 @@ const SECRET_KEYS: readonly string[] = [
 const TEXT_KEYS: readonly string[] = [
 	SETTINGS_KEYS.baseUrl,
 	SETTINGS_KEYS.accentColor,
+	SETTINGS_KEYS.authPanelImageUrl,
 	SETTINGS_KEYS.turnstileSiteKey,
 	...SOCIAL_PROVIDERS.map((p) => providerClientIdKey(p.id)),
 ];
@@ -256,6 +258,7 @@ function isHttpUrl(value: string): boolean {
 const TEXT_VALIDATORS: Record<string, (v: string) => boolean> = {
 	[SETTINGS_KEYS.accentColor]: isCssColor,
 	[SETTINGS_KEYS.baseUrl]: isHttpUrl,
+	[SETTINGS_KEYS.authPanelImageUrl]: isHttpUrl,
 };
 
 /**
@@ -477,6 +480,8 @@ export interface ResolvedAuthSettings {
 	 * built-in default.
 	 */
 	accentColor?: string;
+	/** Background image URL for the auth-page side panel, or undefined (gradient fallback). */
+	authPanelImageUrl?: string;
 	/** Session signing secret, or undefined to fall back to env. */
 	secret?: string;
 	/**
@@ -706,6 +711,7 @@ export function resolveSettings(
 	// before write-time validation existed) so it can't break the theme.
 	const accentRaw = trimOrUndefined(saved[SETTINGS_KEYS.accentColor]);
 	const accentColor = accentRaw && isCssColor(accentRaw) ? accentRaw : undefined;
+	const authPanelImageUrl = trimOrUndefined(saved[SETTINGS_KEYS.authPanelImageUrl]);
 
 	const secret =
 		trimOrUndefined(saved[SETTINGS_KEYS.betterAuthSecret]) ??
@@ -759,6 +765,7 @@ export function resolveSettings(
 		stripeWebhookSecret,
 		baseUrl,
 		accentColor,
+		authPanelImageUrl,
 		secret,
 		socialProviders,
 	};

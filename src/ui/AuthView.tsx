@@ -295,6 +295,13 @@ export interface AuthViewProps {
 	 * and its token rides on those requests as `x-captcha-response`.
 	 */
 	turnstileSiteKey?: string | null;
+	/**
+	 * Background image URL for the right-hand brand panel. When set, it covers the
+	 * panel (with a dark scrim so the brand text stays readable); unset falls back
+	 * to the accent gradient. On small screens the panel is hidden, so the image is
+	 * a desktop enhancement.
+	 */
+	panelImageUrl?: string | null;
 }
 
 /** Page heading for assistive tech (the visible card has its own title). */
@@ -326,6 +333,7 @@ export default function AuthView({
 	anonymousEnabled = false,
 	multiSessionEnabled = false,
 	turnstileSiteKey = null,
+	panelImageUrl = null,
 }: AuthViewProps) {
 	const queryClient = getQueryClient();
 
@@ -414,20 +422,28 @@ export default function AuthView({
 							)}
 						</main>
 						<aside
-							className="hidden flex-col justify-center gap-4 border-l border-border p-12 md:flex"
-							style={{
-								background:
-									"linear-gradient(135deg, color-mix(in oklab, var(--accent) 22%, var(--background)), var(--background) 70%)",
-							}}
+							className="relative hidden flex-col justify-center gap-4 overflow-hidden border-l border-border p-12 md:flex"
+							style={
+								panelImageUrl
+									? { backgroundImage: `url(${JSON.stringify(panelImageUrl)})`, backgroundSize: "cover", backgroundPosition: "center" }
+									: {
+											background:
+												"linear-gradient(135deg, color-mix(in oklab, var(--accent) 22%, var(--background)), var(--background) 70%)",
+										}
+							}
 						>
-							<Link href="/" className="no-underline text-foreground">
-								{logoUrl ? (
-									<img src={logoUrl} alt={siteName} className="h-10 w-auto max-w-56 object-contain" />
-								) : (
-									<span className="text-4xl font-bold">{siteName}</span>
-								)}
-							</Link>
-							{tagline && <p className="max-w-md text-lg text-muted">{tagline}</p>}
+							{/* Scrim: a dark overlay only when an image is set, so the brand name and tagline stay legible on any photo. */}
+							{panelImageUrl ? <div aria-hidden="true" className="absolute inset-0 bg-black/45" /> : null}
+							<div className="relative z-10 flex flex-col gap-4">
+								<Link href="/" className={`no-underline ${panelImageUrl ? "text-white" : "text-foreground"}`}>
+									{logoUrl ? (
+										<img src={logoUrl} alt={siteName} className="h-10 w-auto max-w-56 object-contain" />
+									) : (
+										<span className="text-4xl font-bold">{siteName}</span>
+									)}
+								</Link>
+								{tagline && <p className={`max-w-md text-lg ${panelImageUrl ? "text-white/85" : "text-muted"}`}>{tagline}</p>}
+							</div>
 						</aside>
 					</div>
 

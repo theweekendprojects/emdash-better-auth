@@ -378,6 +378,20 @@ export async function siteLogoUrl(): Promise<string | null> {
 }
 
 /**
+ * Background image URL for the auth-page side panel, or null when unset
+ * (the island then shows the accent gradient). From the admin setting. Never throws.
+ */
+export async function authPanelImageUrl(): Promise<string | null> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — no image, gradient fallback.
+	}
+	return resolveSettings(saved, {}).authPanelImageUrl ?? null;
+}
+
+/**
  * Resolve each plan's Stripe price ids from env, keyed by plan id. Mirrors
  * `readPlanPriceIds` in route.ts (same `STRIPE_PRICE_<PLAN>_MONTH/_YEAR`
  * convention) so the account page's Billing tab shows exactly the plans the

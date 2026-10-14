@@ -406,6 +406,15 @@ function buildSettingsPage(
 						"A hex or rgb()/hsl()/oklch() colour. Themes the login, account, admin, and organization pages to match your brand. Leave blank for the default blue.",
 					initial_value: str(saved[SETTINGS_KEYS.accentColor]),
 				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.authPanelImageUrl,
+					label: "Sign-in page image",
+					placeholder: "https://.../cover.jpg",
+					description:
+						"Background image for the panel beside the sign-in / sign-up form (desktop). A dark overlay keeps the text readable. Leave blank for the accent gradient.",
+					initial_value: str(saved[SETTINGS_KEYS.authPanelImageUrl]),
+				},
 				// --- Secrets (LOCKED by default) ----------------------------------
 				// All credential fields are hidden behind this one unlock toggle so
 				// browser autofill / a stray Save can't overwrite a good secret with
@@ -705,7 +714,7 @@ export function createPlugin() {
 						const saved = await readKvSettings(routeCtx.kv);
 						if (rejected.length > 0) {
 							return buildSettingsPage(saved, {
-								message: `Not saved, invalid value: ${rejected.join(", ")}. Accent must be a hex or rgb()/hsl()/oklch() colour; the site URL must start with http(s)://.`,
+								message: `Not saved, invalid value: ${rejected.join(", ")}. Accent must be a hex or rgb()/hsl()/oklch() colour; the site URL and sign-in image URL must start with http(s)://.`,
 								type: "error",
 							});
 						}

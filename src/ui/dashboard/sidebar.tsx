@@ -122,7 +122,7 @@ export function Sidebar(props: {
 				/>
 			) : null}
 			<div
-				className={`fixed z-[202] h-full w-64 shrink-0 -translate-x-full flex-col overflow-y-auto border-r border-border bg-background px-3 py-4 transition-transform md:static md:ml-0 md:flex md:h-screen md:translate-x-0 ${
+				className={`fixed z-[202] h-full w-64 shrink-0 -translate-x-full flex-col overflow-y-auto border-r border-border bg-background px-3 py-6 transition-transform md:static md:ml-0 md:flex md:h-screen md:translate-x-0 ${
 					open ? "ml-0 translate-x-0 pt-20 [display:inherit]" : ""
 				}`}
 			>
@@ -130,9 +130,10 @@ export function Sidebar(props: {
 					<Brand {...props.brand} orgEnabled={props.orgEnabled} />
 				</div>
 				<div className="flex h-full flex-col justify-between">
-					<nav aria-label="Main" className="mt-4 flex min-h-0 flex-col gap-3 px-2">
+					{/* Spacing copied from the template's sidebar (Body: gap-6 mt-9 px-2; menu group: gap-2). */}
+					<nav aria-label="Main" className="mt-9 flex min-h-0 flex-col gap-6 px-2">
 						{groups.map((g, n) => (
-							<div key={g.title ?? n} className="flex flex-col gap-1">
+							<div key={g.title ?? n} className="flex flex-col gap-2">
 								{g.title ? <span className="text-xs font-normal text-muted">{g.title}</span> : null}
 								{g.items.map((i) => (
 									<SidebarItem key={i.href} {...i} />
@@ -141,7 +142,7 @@ export function Sidebar(props: {
 						))}
 					</nav>
 					{props.settingsHref ? (
-						<div className="flex items-center justify-center gap-6 px-8 pb-4 pt-6 [@media(max-height:800px)]:hidden">
+						<div className="flex items-center justify-center gap-6 px-8 pb-8 pt-16 md:pb-0 md:pt-10 [@media(max-height:800px)]:hidden">
 							<a href={props.settingsHref} aria-label="Profile settings" title="Profile settings" className="max-w-fit">
 								<SettingsIcon />
 							</a>

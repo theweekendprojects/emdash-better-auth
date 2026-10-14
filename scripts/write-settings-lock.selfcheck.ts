@@ -146,6 +146,13 @@ const GSK = `settings:${providerClientSecretKey("google")}`;
 	equal(store.get(AK), "rgb(0, 102, 204)");
 	await writeKvSettings(kv, { [SETTINGS_KEYS.accentColor]: "" });
 	equal(store.has(AK), false, "blank clears accent");
+	// Sign-in panel image: must be an http(s) URL, same validator as baseUrl.
+	const IK = `settings:${SETTINGS_KEYS.authPanelImageUrl}`;
+	const badImg = await writeKvSettings(kv, { [SETTINGS_KEYS.authPanelImageUrl]: "javascript:alert(1)" });
+	deepEqual(badImg, [SETTINGS_KEYS.authPanelImageUrl], "non-http image url rejected");
+	equal(store.has(IK), false, "junk image url not written");
+	await writeKvSettings(kv, { [SETTINGS_KEYS.authPanelImageUrl]: "https://cdn.example.com/cover.jpg" });
+	equal(store.get(IK), "https://cdn.example.com/cover.jpg", "valid image url stored");
 }
 
 console.log("write-settings-lock self-check: all cases passed");
