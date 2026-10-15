@@ -155,6 +155,9 @@ const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
  */
 function Turnstile({ siteKey }: { siteKey: string }) {
 	const ref = React.useRef<HTMLDivElement>(null);
+	// Match the page: `theme: "auto"` lets Turnstile follow the OS, but next-themes may force light/dark,
+	// so pass the resolved theme when we have one.
+	const { resolvedTheme } = useTheme();
 	React.useEffect(() => {
 		let widgetId: string | undefined;
 		let cancelled = false;
@@ -164,6 +167,7 @@ function Turnstile({ siteKey }: { siteKey: string }) {
 			if (cancelled || !ref.current || !api()) return;
 			widgetId = api().render(ref.current, {
 				sitekey: siteKey,
+				theme: resolvedTheme === "dark" ? "dark" : resolvedTheme === "light" ? "light" : "auto",
 				callback: (token: string) => setTurnstileToken(token),
 				"expired-callback": () => setTurnstileToken(null),
 				"error-callback": () => setTurnstileToken(null),
@@ -197,7 +201,7 @@ function Turnstile({ siteKey }: { siteKey: string }) {
 				// widget already gone
 			}
 		};
-	}, [siteKey]);
+	}, [siteKey, resolvedTheme]);
 	return <div ref={ref} className="mt-4 flex w-full max-w-sm justify-center" />;
 }
 

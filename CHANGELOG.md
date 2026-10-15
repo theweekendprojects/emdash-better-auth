@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-15
+### Fixed
+- The Turnstile widget now follows the page theme (dark/light/auto) instead of always rendering light.
+
 ## [0.13.0] - 2026-10-14
 ### Added
 - **Bot protection on the auth pages (Cloudflare Turnstile).** New setting "Bot protection on auth pages" plus a public site
