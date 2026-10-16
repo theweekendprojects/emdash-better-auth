@@ -319,6 +319,12 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		stripeSecretKey: settings.stripeSecretKey,
 		stripeWebhookSecret: settings.stripeWebhookSecret,
 		planPriceIds: readPlanPriceIds(),
+		// Email hygiene + terms acceptance (all from settings, off by default).
+		emailDedupeEnabled: settings.emailDedupeEnabled,
+		blockDisposableEmail: settings.blockDisposableEmail,
+		emailAllowlist: settings.emailAllowlist,
+		termsRequired: settings.termsRequired,
+		termsVersion: settings.termsVersion,
 		// Pass the EmDash email pipeline to Better Auth for password reset
 		// and email verification emails. This plugin stays provider-agnostic
 		// — it depends only on EmDash's runtime.email, never on a specific

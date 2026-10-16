@@ -138,6 +138,10 @@ const ADDITIONAL_DATA_FIELDS = new Set<string>([
 	// so it rides users.data JSON. Routed here so a guest create/read round-trips
 	// and the username create hook can detect it.
 	"isAnonymous",
+	// terms acceptance proof (set server-side in the create hook when
+	// termsRequired is on). No `users` column, so it rides users.data JSON.
+	"termsAcceptedAt",
+	"termsVersion",
 ]);
 
 /**

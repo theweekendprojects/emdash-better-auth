@@ -6,6 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-16
+### Added
+- **Email hygiene at sign-up (issue #27).** Three new admin toggles, all off by default, each with its own
+  help text:
+  - **Collapse Gmail dot/plus aliases** (`emailDedupeEnabled`): treats `j.doe+tag@gmail.com` and
+    `jdoe@gmail.com` as one person so a single mailbox can't open several accounts. Dots are stripped only
+    for `gmail.com`/`googlemail.com` (and the two are folded together); a `+tag` suffix is stripped for
+    Gmail, Outlook/Hotmail/Live, Fastmail and Proton. The real address is still used for login and email —
+    only the uniqueness check uses the normalized key. A matching new sign-up is refused with a clear
+    "already registered (ignoring dots and +tags)" message.
+  - **Block disposable email** (`blockDisposableEmail`): rejects sign-ups from ~9,900 known throwaway
+    providers (Mailinator, Guerrilla Mail, …) with a clear "use a permanent email" message. The blocklist
+    ships as a separate tree-shakeable data module, pulled in only when the toggle is on.
+  - **Allowlist** (`emailAllowlist`): comma/newline domains that override the disposable block, for privacy
+    relays the operator trusts.
+- **Terms-of-service acceptance** (`termsRequired`, off by default). Shows a required "I agree to the terms"
+  checkbox on the sign-up form (linking to the configurable `termsUrl` / `privacyUrl`) and stores proof —
+  `termsAcceptedAt` + `termsVersion` — on the user. Sign-up is refused until it's ticked, enforced
+  server-side on `/sign-up/email` as well as in the UI.
+
 ## [0.13.3] - 2026-10-16
 ### Added
 - **Username on/off switch.** The username plugin was the one Better Auth plugin with no toggle — a hard

@@ -29,6 +29,7 @@ import {
 	siteLogoUrl,
 	turnstileSiteKey,
 	authPanelImageUrl,
+	termsAcceptance,
 } from "../providers.ts";
 import { rebridgeSession } from "../route.ts";
 import { extraViews } from "../ui-plugin-views.ts";
@@ -129,6 +130,8 @@ const socialProviders = [...builtinSocial, ...genericSocial];
 const accent = await accentColor();
 const logoUrl = await siteLogoUrl();
 const panelImageUrl = await authPanelImageUrl();
+// Terms-of-service acceptance checkbox config (required flag + links).
+const terms = await termsAcceptance();
 ---
 
 <!doctype html>
@@ -172,6 +175,9 @@ const panelImageUrl = await authPanelImageUrl();
 			multiSessionEnabled={isMultiSessionEnabled}
 			turnstileSiteKey={turnstileKey}
 			panelImageUrl={panelImageUrl}
+			termsRequired={terms.required}
+			termsUrl={terms.termsUrl}
+			privacyUrl={terms.privacyUrl}
 			client:load
 		/>
 		<script is:inline>

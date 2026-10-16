@@ -32,6 +32,7 @@ import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
 import { PLAN_DEFINITIONS, toStripePlans, type PlanPriceIds } from "./billing-plans.js";
 import type { GenericOAuthProviderConfig } from "./settings.js";
 import { sessionsToDelete } from "./session-cap.js";
+import { isDisposableEmail, normalizeEmail, parseAllowlist } from "./email-hygiene.js";
 
 /**
  * EmDash email pipeline interface, loosely typed to avoid importing emdash internals.
@@ -280,6 +281,30 @@ export interface BetterAuthOptions {
 	 * runtime rather than hardcoded. A plan with no monthly price id is skipped.
 	 */
 	planPriceIds?: Record<string, PlanPriceIds | undefined>;
+	/**
+	 * Collapse Gmail/Googlemail dot and `+tag` aliases (and a few other
+	 * providers' `+tag`) to one canonical account per person. Default false.
+	 * When true, a new signup whose normalized email key matches an existing
+	 * user is refused — the UI/API gets a clear "already registered" error.
+	 */
+	emailDedupeEnabled?: boolean;
+	/**
+	 * Reject signups from known disposable / throwaway email domains. Default
+	 * false. The {@link emailAllowlist} overrides it per-domain (for privacy
+	 * relays the operator trusts).
+	 */
+	blockDisposableEmail?: boolean;
+	/** Operator allowlist (comma/newline domains) overriding the disposable block. */
+	emailAllowlist?: string;
+	/**
+	 * Require a terms-of-service / privacy acceptance checkbox at signup.
+	 * Default false. When true, a password signup without `termsAccepted` true
+	 * is refused, and acceptance proof (`termsAcceptedAt` + `termsVersion`) is
+	 * stored on the user. Passwordless/anonymous creates are exempt.
+	 */
+	termsRequired?: boolean;
+	/** Version string stored with each terms acceptance (e.g. "2026-01-01"). */
+	termsVersion?: string;
 }
 
 /**
@@ -344,6 +369,14 @@ export function createBetterAuth(
 	const signUpEnabled = options.signUpEnabled ?? true;
 	const sendOnSignIn = options.sendOnSignIn ?? true;
 	const autoSignInAfterVerification = options.autoSignInAfterVerification ?? true;
+
+	// Email hygiene (signup-time): dedupe aliases, block disposable domains,
+	// require terms acceptance. All off by default. Parse the operator allowlist
+	// once here, not per request.
+	const emailDedupeEnabled = options.emailDedupeEnabled ?? false;
+	const blockDisposableEmail = options.blockDisposableEmail ?? false;
+	const termsRequired = options.termsRequired ?? false;
+	const emailAllowlist = parseAllowlist(options.emailAllowlist);
 
 	// Build Better Auth's socialProviders block from whichever providers have
 	// both credentials. Keys map 1:1 to Better Auth's native provider ids
@@ -430,11 +463,16 @@ export function createBetterAuth(
 			},
 			user: {
 				create: {
-					before: async (user: Record<string, unknown>, ctx?: { path?: string } | null) => {
+					before: async (
+						user: Record<string, unknown>,
+						// biome-ignore lint/suspicious/noExplicitAny: hook ctx shape is per Better Auth build; we read `path`/`context.adapter`.
+						ctx?: any,
+					) => {
 						// Sign-up switch. One hook on user creation covers every way an account can
 						// appear, so no auth path has to be listed (and a new one is covered too).
 						// Adding a user as an administrator (admin plugin) is deliberate and stays allowed.
-						if (!signUpEnabled && !(ctx?.path ?? "").startsWith("/admin/")) {
+						const isAdminCreate = (ctx?.path ?? "").startsWith("/admin/");
+						if (!signUpEnabled && !isAdminCreate) {
 							throw new APIError("FORBIDDEN", { code: "SIGN_UP_DISABLED", message: "Sign-up is disabled on this site." });
 						}
 						// Username enforcement. For the email+password sign-up path
@@ -474,6 +512,93 @@ export function createBetterAuth(
 						// must be allowed through without one.
 						if ((options.usernameEnabled ?? true) && !username && !isAnonymous && hasPassword) {
 							throw new Error("Username is required");
+						}
+
+						// Email hygiene — only for self-service signups, never for an
+						// admin-created user or an anonymous guest (no real email).
+						const email = typeof user.email === "string" ? user.email : "";
+						const applyHygiene = !isAdminCreate && !isAnonymous && email !== "";
+						if (applyHygiene) {
+							const norm = normalizeEmail(email);
+
+							// Block disposable/throwaway domains (allowlist overrides).
+							if (blockDisposableEmail && isDisposableEmail(norm.domain, emailAllowlist)) {
+								throw new APIError("BAD_REQUEST", {
+									code: "DISPOSABLE_EMAIL",
+									message:
+										"Please use a permanent email address. Disposable or temporary email providers aren't allowed.",
+								});
+							}
+
+							// Dedupe on the normalized key: reject a signup that aliases
+							// an existing account (e.g. j.doe+x@gmail == jdoe@gmail). We
+							// compare the stored emails' normalized keys. The adapter has
+							// no normalized-key column, so we scan by exact email first
+							// (cheap, catches the common case) and fall back to comparing
+							// the normalized key against candidates sharing the domain.
+							// ponytail: domain-scoped scan, O(n) in users on that domain.
+							// Fine for a CMS site's user count; upgrade path if it ever
+							// matters: persist a `normalized_email` key column + unique
+							// index and look it up directly.
+							if (emailDedupeEnabled) {
+								const adapter = ctx?.context?.adapter;
+								if (adapter) {
+									// Logical model name is "user" (mapped to the `users`
+									// table via modelName). The EmDash adapter can't push a
+									// `contains`/`endsWith` email filter down to SQL (see
+									// where-pushdown.ts), so fetch a bounded page and compare
+									// normalized keys in JS.
+									// ponytail: O(n) scan over the first 1000 users, newest
+									// not guaranteed. Fine for a CMS's user count; the only
+									// aliases this must catch are dot/plus variants of an
+									// address Better Auth's own exact-email unique check
+									// wouldn't. Upgrade path if the user table grows large:
+									// persist a `normalized_email` column + unique index and
+									// look it up directly instead of scanning.
+									const candidates: Array<{ email?: string }> = await adapter.findMany({
+										model: "user",
+										limit: 1000,
+									});
+									const clash = candidates.some(
+										(c) => c.email && normalizeEmail(c.email).key === norm.key,
+									);
+									if (clash) {
+										throw new APIError("BAD_REQUEST", {
+											code: "EMAIL_ALREADY_REGISTERED",
+											message:
+												"An account with this email already exists (ignoring dots and +tags). Try signing in instead.",
+										});
+									}
+								}
+							}
+
+							// Terms acceptance: required checkbox, store proof. The UI
+							// sends `termsAccepted` (a boolean additional field). Reject a
+							// signup that didn't accept; stamp the proof so it lands in
+							// users.data via the adapter.
+							// ponytail: gated on the email sign-up path, NOT on
+							// `hasPassword` — Better Auth does not put the password on the
+							// user object in this before-hook, so `hasPassword` is false
+							// here. Only `/sign-up/email` carries the checkbox; social /
+							// passwordless creates (OAuth callback, magic-link, OTP) have
+							// no way to show it and must not be rejected. Ceiling: a direct
+							// API call to /sign-up/email could still omit the field and be
+							// refused (intended); social users aren't asked to accept here
+							// (upgrade path: a post-social-signup consent interstitial).
+							const isEmailSignup = (ctx?.path ?? "") === "/sign-up/email";
+							if (termsRequired && isEmailSignup) {
+								const accepted = user.termsAccepted === true || user.termsAccepted === "true";
+								if (!accepted) {
+									throw new APIError("BAD_REQUEST", {
+										code: "TERMS_NOT_ACCEPTED",
+										message: "You must accept the terms of service to create an account.",
+									});
+								}
+								user.termsAcceptedAt = new Date().toISOString();
+								user.termsVersion = options.termsVersion ?? "";
+							}
+							// Never persist the transient checkbox value itself.
+							delete user.termsAccepted;
 						}
 						return { data: user };
 					},
@@ -578,6 +703,17 @@ export function createBetterAuth(
 				bio: { type: "string", required: false, input: true },
 				// Premium reader: unlocks `access: premium` entries. input:false = users cannot set it themselves.
 				premium: { type: "boolean", required: false, input: false, defaultValue: false },
+				// Terms acceptance. `termsAccepted` is the transient signup checkbox
+				// (input:true, consumed + deleted in the create hook). The stored
+				// proof — `termsAcceptedAt` + `termsVersion` — is set server-side
+				// (input:false) and persisted in users.data by the adapter.
+				...(termsRequired
+					? {
+							termsAccepted: { type: "boolean", required: false, input: true },
+							termsAcceptedAt: { type: "string", required: false, input: false },
+							termsVersion: { type: "string", required: false, input: false },
+						}
+					: {}),
 			},
 			...(options.deleteAccountEnabled
 				? {

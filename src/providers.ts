@@ -403,6 +403,31 @@ export async function authPanelImageUrl(): Promise<string | null> {
 }
 
 /**
+ * Terms-of-service acceptance config for the signup form: whether the required
+ * checkbox is shown, and the terms / privacy URLs its label links to. Same
+ * source of truth as the auth route (the server enforces the required flag too).
+ * Never throws — degrades to "not required".
+ */
+export async function termsAcceptance(): Promise<{
+	required: boolean;
+	termsUrl: string | null;
+	privacyUrl: string | null;
+}> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// Settings unavailable — default off.
+	}
+	const s = resolveSettings(saved, {});
+	return {
+		required: s.termsRequired,
+		termsUrl: s.termsUrl ?? null,
+		privacyUrl: s.privacyUrl ?? null,
+	};
+}
+
+/**
  * Resolve each plan's Stripe price ids from env, keyed by plan id. Mirrors
  * `readPlanPriceIds` in route.ts (same `STRIPE_PRICE_<PLAN>_MONTH/_YEAR`
  * convention) so the account page's Billing tab shows exactly the plans the

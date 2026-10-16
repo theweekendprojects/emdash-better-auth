@@ -118,6 +118,13 @@ export const SETTINGS_KEYS = {
 	stripeWebhookSecret: "stripeWebhookSecret",
 	accentColor: "accentColor",
 	authPanelImageUrl: "authPanelImageUrl",
+	emailDedupeEnabled: "emailDedupeEnabled",
+	blockDisposableEmail: "blockDisposableEmail",
+	emailAllowlist: "emailAllowlist",
+	termsRequired: "termsRequired",
+	termsVersion: "termsVersion",
+	termsUrl: "termsUrl",
+	privacyUrl: "privacyUrl",
 } as const;
 
 /**
@@ -163,6 +170,16 @@ export const SETTINGS_DEFAULTS = {
 	// Newest sessions kept per user (the oldest are deleted at sign-in). 0 = keep all.
 	maxSessionsPerUser: 25,
 	billingEnabled: false,
+	// Collapse Gmail dot/plus aliases to one account per person. Off by default
+	// so existing sites are unchanged; turning it on blocks only NEW signups
+	// that alias an existing account.
+	emailDedupeEnabled: false,
+	// Reject signups from known disposable/throwaway email providers. Off by
+	// default. The allowlist below overrides it per-domain.
+	blockDisposableEmail: false,
+	// Require a terms-of-service / privacy acceptance checkbox at signup, stored
+	// as proof. Off by default (opt-in for sites with a ToS).
+	termsRequired: false,
 } as const;
 
 /** Boolean-typed setting keys (rendered as toggles, coerced on read). */
@@ -191,6 +208,9 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.siteLoginRequired,
 	SETTINGS_KEYS.auditLogEnabled,
 	SETTINGS_KEYS.billingEnabled,
+	SETTINGS_KEYS.emailDedupeEnabled,
+	SETTINGS_KEYS.blockDisposableEmail,
+	SETTINGS_KEYS.termsRequired,
 ] as const;
 
 /** Secret-typed setting keys (masked in UI; preserved on save when blank). */
@@ -208,6 +228,10 @@ const TEXT_KEYS: readonly string[] = [
 	SETTINGS_KEYS.accentColor,
 	SETTINGS_KEYS.authPanelImageUrl,
 	SETTINGS_KEYS.turnstileSiteKey,
+	SETTINGS_KEYS.emailAllowlist,
+	SETTINGS_KEYS.termsVersion,
+	SETTINGS_KEYS.termsUrl,
+	SETTINGS_KEYS.privacyUrl,
 	...SOCIAL_PROVIDERS.map((p) => providerClientIdKey(p.id)),
 ];
 
@@ -264,6 +288,8 @@ const TEXT_VALIDATORS: Record<string, (v: string) => boolean> = {
 	[SETTINGS_KEYS.accentColor]: isCssColor,
 	[SETTINGS_KEYS.baseUrl]: isHttpUrl,
 	[SETTINGS_KEYS.authPanelImageUrl]: isHttpUrl,
+	[SETTINGS_KEYS.termsUrl]: isHttpUrl,
+	[SETTINGS_KEYS.privacyUrl]: isHttpUrl,
 };
 
 /**
@@ -475,6 +501,20 @@ export interface ResolvedAuthSettings {
 	genericOAuthConfig: GenericOAuthProviderConfig[];
 	/** Stripe subscription billing enabled. */
 	billingEnabled: boolean;
+	/** Collapse Gmail dot/plus aliases to one account; blocks aliased duplicate signups. */
+	emailDedupeEnabled: boolean;
+	/** Reject signups from known disposable email domains (allowlist overrides). */
+	blockDisposableEmail: boolean;
+	/** Operator allowlist (comma/newline domains) that overrides the disposable block. */
+	emailAllowlist?: string;
+	/** Require a ToS/privacy acceptance checkbox at signup; stores proof. */
+	termsRequired: boolean;
+	/** Version string for the current terms (stored with each acceptance). */
+	termsVersion?: string;
+	/** URL to the terms of service shown next to the acceptance checkbox. */
+	termsUrl?: string;
+	/** URL to the privacy policy shown next to the acceptance checkbox. */
+	privacyUrl?: string;
 	/** Stripe secret key, or undefined to fall back to env. */
 	stripeSecretKey?: string;
 	/** Stripe webhook signing secret, or undefined to fall back to env. */
@@ -724,6 +764,23 @@ export function resolveSettings(
 	const accentColor = accentRaw && isCssColor(accentRaw) ? accentRaw : undefined;
 	const authPanelImageUrl = trimOrUndefined(saved[SETTINGS_KEYS.authPanelImageUrl]);
 
+	const emailDedupeEnabled = coerceBool(
+		saved[SETTINGS_KEYS.emailDedupeEnabled],
+		SETTINGS_DEFAULTS.emailDedupeEnabled,
+	);
+	const blockDisposableEmail = coerceBool(
+		saved[SETTINGS_KEYS.blockDisposableEmail],
+		SETTINGS_DEFAULTS.blockDisposableEmail,
+	);
+	const emailAllowlist = trimOrUndefined(saved[SETTINGS_KEYS.emailAllowlist]);
+	const termsRequired = coerceBool(
+		saved[SETTINGS_KEYS.termsRequired],
+		SETTINGS_DEFAULTS.termsRequired,
+	);
+	const termsVersion = trimOrUndefined(saved[SETTINGS_KEYS.termsVersion]);
+	const termsUrl = trimOrUndefined(saved[SETTINGS_KEYS.termsUrl]);
+	const privacyUrl = trimOrUndefined(saved[SETTINGS_KEYS.privacyUrl]);
+
 	const secret =
 		trimOrUndefined(saved[SETTINGS_KEYS.betterAuthSecret]) ??
 		trimOrUndefined(env.secret);
@@ -773,6 +830,13 @@ export function resolveSettings(
 		auditLogRetentionDays,
 		maxSessionsPerUser,
 		billingEnabled,
+		emailDedupeEnabled,
+		blockDisposableEmail,
+		emailAllowlist,
+		termsRequired,
+		termsVersion,
+		termsUrl,
+		privacyUrl,
 		stripeSecretKey,
 		stripeWebhookSecret,
 		baseUrl,

@@ -57,7 +57,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.13.3";
+export const SETTINGS_PLUGIN_VERSION = "0.14.0";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -311,6 +311,65 @@ function buildSettingsPage(
 					description:
 						"Block passwords found in known data breaches at sign-up and password change. Only the first 5 characters of the password's SHA-1 hash are sent to the HIBP range API — the password itself never leaves the server.",
 					initial_value: flagValue(saved, SETTINGS_KEYS.hibpEnabled),
+				},
+				// --- Email hygiene ------------------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.emailDedupeEnabled,
+					label: "Collapse Gmail dot/plus aliases (one account per person)",
+					description:
+						"Treats j.doe+tag@gmail.com and jdoe@gmail.com as the same person, so one email can't open several accounts. Blocks only NEW sign-ups that alias an existing account; the real address is still used for login and email.",
+					initial_value: flagValue(saved, SETTINGS_KEYS.emailDedupeEnabled),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.blockDisposableEmail,
+					label: "Block disposable / throwaway email addresses",
+					description:
+						"Reject sign-ups from thousands of known temporary-email providers (Mailinator, Guerrilla Mail, 10MinuteMail, …). Users see a clear 'use a permanent email' message. Add trusted domains to the allowlist below to let specific ones through (e.g. a privacy relay).",
+					initial_value: flagValue(saved, SETTINGS_KEYS.blockDisposableEmail),
+				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.emailAllowlist,
+					label: "Disposable-block allowlist (domains)",
+					placeholder: "duck.com, relay.firefox.com",
+					initial_value: str(saved[SETTINGS_KEYS.emailAllowlist]),
+					// Only meaningful when the disposable block is on.
+					condition: cond(SETTINGS_KEYS.blockDisposableEmail),
+				},
+				// --- Terms of service --------------------------------------------
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.termsRequired,
+					label: "Require accepting terms at sign-up",
+					description:
+						"Show a required 'I agree to the terms' checkbox on the sign-up form and store proof (timestamp + version) on each account. Sign-up is refused until it's ticked. Add the links and bump the version below.",
+					initial_value: flagValue(saved, SETTINGS_KEYS.termsRequired),
+				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.termsUrl,
+					label: "Terms of service URL",
+					placeholder: "https://example.com/terms",
+					initial_value: str(saved[SETTINGS_KEYS.termsUrl]),
+					condition: cond(SETTINGS_KEYS.termsRequired),
+				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.privacyUrl,
+					label: "Privacy policy URL",
+					placeholder: "https://example.com/privacy",
+					initial_value: str(saved[SETTINGS_KEYS.privacyUrl]),
+					condition: cond(SETTINGS_KEYS.termsRequired),
+				},
+				{
+					type: "text_input",
+					action_id: SETTINGS_KEYS.termsVersion,
+					label: "Terms version",
+					placeholder: "2026-01-01",
+					initial_value: str(saved[SETTINGS_KEYS.termsVersion]),
+					condition: cond(SETTINGS_KEYS.termsRequired),
 				},
 				{
 					type: "toggle",
