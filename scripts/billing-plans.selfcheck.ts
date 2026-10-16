@@ -15,6 +15,8 @@ import {
 	planLimits,
 	FREE_PLAN_LIMITS,
 	PLAN_DEFINITIONS,
+	parsePlanEntitlements,
+	mergeEntitlements,
 } from "../src/billing-plans.js";
 
 const defs: PlanDefinition[] = [
@@ -99,4 +101,24 @@ equal(toBillingPlans(defs, {}).length, 0);
 	deepEqual(server[0]!.freeTrial, { days: 7 });
 }
 
-console.log("billing-plans self-check: all 6 cases passed");
+// 7. parsePlanEntitlements: strings → numbers, ignore unknown, reject malformed.
+{
+	deepEqual(parsePlanEntitlements(null), {});
+	deepEqual(parsePlanEntitlements({ sitesPerUser: "3", aiCredits: "500" }), { sitesPerUser: 3, aiCredits: 500 });
+	// a real number is tolerated, not only strings
+	deepEqual(parsePlanEntitlements({ customDomains: 2 }), { customDomains: 2 });
+	// unknown keys ignored (a stray metadata entry can't widen anything)
+	deepEqual(parsePlanEntitlements({ sitesPerUser: "1", whatever: "9" }), { sitesPerUser: 1 });
+	// malformed values skipped (never silently 0)
+	deepEqual(parsePlanEntitlements({ sitesPerUser: "abc", mediaBytesPerSite: "-5", aiCredits: "1.5" }), {});
+	deepEqual(parsePlanEntitlements({ maxEntriesPerSite: "" }), {});
+}
+
+// 8. mergeEntitlements: per-subscription override wins per key; others preserved.
+{
+	const plan = parsePlanEntitlements({ sitesPerUser: "3", mediaBytesPerSite: "100", aiCredits: "500" });
+	const sub = parsePlanEntitlements({ sitesPerUser: "50", aiCredits: "5000" }); // one enterprise's custom caps
+	deepEqual(mergeEntitlements(plan, sub), { sitesPerUser: 50, mediaBytesPerSite: 100, aiCredits: 5000 });
+}
+
+console.log("billing-plans self-check: all 8 cases passed");

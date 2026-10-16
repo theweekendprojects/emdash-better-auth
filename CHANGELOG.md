@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-10-16
+### Added
+- **Generic plan-entitlements parser.** `parsePlanEntitlements(metadata)` reads a known set of
+  numeric keys from Stripe metadata (`sitesPerUser`, `mediaBytesPerSite`, `maxEntriesPerSite`,
+  `customDomains`, `aiCredits`), coercing strings to validated non-negative integers and ignoring
+  unknown keys. `mergeEntitlements(plan, sub)` lets a per-subscription value override the per-plan
+  default. This is the foundation for driving platform packages entirely from Stripe metadata —
+  adding a future entitlement is one line here, then a new plan/value is metadata-only, no deploy.
+  Pure + self-checked. (The webhook that stashes these on the user + the AI-credit meter come with
+  the live Stripe wiring.)
+
 ## [0.15.1] - 2026-10-16
 ### Changed
 - **Plan catalog trimmed to Pro + Enterprise, Pro gains a 7-day trial.** The ladder is now Free

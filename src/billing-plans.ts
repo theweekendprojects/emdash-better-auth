@@ -208,3 +208,81 @@ export function toBillingPlans(
 	}
 	return out;
 }
+
+/**
+ * A subscriber's resolved entitlements, parsed from Stripe metadata (plan price
+ * metadata, overridden by per-subscription metadata). All optional: a key absent
+ * from the metadata is left undefined so the caller can fall back to a built-in
+ * default or a lower tier. Two kinds live here:
+ *   - CAPS: read-and-block (sites, storage, entries, custom domains).
+ *   - ALLOWANCES: metered-and-reset per billing period (ai credits). The number
+ *     here is only the monthly ALLOWANCE; the usage counter + reset live
+ *     elsewhere (see emdash-plan/product/better-auth-stripe-features.md).
+ * Feature-flag keys are intentionally NOT here yet (add when a feature reads one).
+ */
+export interface PlanEntitlements {
+	/** Cap: sites a user may own. */
+	sitesPerUser?: number;
+	/** Cap: media bytes per site. */
+	mediaBytesPerSite?: number;
+	/** Cap: posts/entries per site (guards a huge import). */
+	maxEntriesPerSite?: number;
+	/** Cap: number of custom domains allowed. */
+	customDomains?: number;
+	/** Allowance: AI operations per billing period (metered + reset elsewhere). */
+	aiCredits?: number;
+}
+
+/**
+ * The numeric metadata keys we recognize, and the entitlement field each maps
+ * to. Extending the platform's packages is a ONE-LINE change here (plus an
+ * enforcement point for the new key) — after that a new plan or a changed value
+ * is Stripe-metadata-only, no deploy. Unknown keys are ignored on purpose, so a
+ * stray metadata entry can never widen a limit.
+ */
+const NUMERIC_ENTITLEMENT_KEYS = [
+	"sitesPerUser",
+	"mediaBytesPerSite",
+	"maxEntriesPerSite",
+	"customDomains",
+	"aiCredits",
+] as const;
+
+/**
+ * Parse a Stripe metadata record (values are always strings in Stripe) into a
+ * typed {@link PlanEntitlements}. Only recognized keys are read; each must be a
+ * finite, non-negative integer or it is skipped (a malformed value never
+ * silently becomes 0, which could wrongly block or wrongly unlock). Pure and
+ * dependency-free so it is unit-testable without Stripe.
+ *
+ * Merge order is the CALLER's job: parse the plan (price) metadata, then parse
+ * the subscription metadata, then spread sub over price so a per-customer value
+ * wins. This function parses ONE record.
+ */
+export function parsePlanEntitlements(
+	metadata: Record<string, unknown> | null | undefined,
+): PlanEntitlements {
+	const out: PlanEntitlements = {};
+	if (!metadata) return out;
+	for (const key of NUMERIC_ENTITLEMENT_KEYS) {
+		const raw = metadata[key];
+		if (raw === undefined || raw === null || raw === "") continue;
+		// Stripe stores strings; tolerate a real number too.
+		const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+		if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) continue;
+		out[key] = n;
+	}
+	return out;
+}
+
+/**
+ * Merge two parsed entitlement objects, with `override` winning per key (a
+ * per-subscription value over the plan default). A key absent from both stays
+ * absent. Pure.
+ */
+export function mergeEntitlements(
+	base: PlanEntitlements,
+	override: PlanEntitlements,
+): PlanEntitlements {
+	return { ...base, ...override };
+}
