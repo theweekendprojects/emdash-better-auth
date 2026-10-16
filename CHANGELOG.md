@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-16
+### Fixed
+- **Sign-up page rendered blank when terms acceptance was enabled.** The 0.14.0 terms checkbox was passed
+  to Better Auth UI as an object, but `additionalFields` is an array of field configs — the mismatch threw
+  "object is not iterable" during SSR and the auth island never mounted. Pass the correct array shape
+  (`[{ name, type, inputType, label, required, signUp, render }]`), with a `render` that keeps the terms /
+  privacy links clickable. Verified live: the checkbox renders and a blocked signup shows the error toast.
+
 ## [0.14.0] - 2026-10-16
 ### Added
 - **Email hygiene at sign-up (issue #27).** Three new admin toggles, all off by default, each with its own

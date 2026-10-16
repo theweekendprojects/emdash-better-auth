@@ -300,10 +300,12 @@ export default function AuthView({
 	const TurnstileWidget = React.useMemo(() => (turnstileSiteKey ? makeTurnstileWidget(turnstileSiteKey) : null), [turnstileSiteKey]);
 
 	// Terms-of-service acceptance: a required checkbox rendered on sign-up via
-	// Better Auth UI's additionalFields. Its label links to the terms / privacy
-	// pages when their URLs are configured. The field is named `termsAccepted`
-	// to match the server create-hook check; the server stamps the proof.
-	const termsLabel = React.useMemo(() => {
+	// Better Auth UI's `additionalFields` (an ARRAY of field configs). The field
+	// is named `termsAccepted` to match the server create-hook check; the server
+	// stamps the proof. `render` supplies the label so the terms / privacy URLs
+	// are clickable links (the default label type is a plain string).
+	const additionalFields = React.useMemo(() => {
+		if (!termsRequired) return undefined;
 		const terms = termsUrl ? (
 			<a href={termsUrl} target="_blank" rel="noopener noreferrer" className="underline">
 				terms of service
@@ -312,27 +314,51 @@ export default function AuthView({
 			"terms of service"
 		);
 		const privacy = privacyUrl ? (
-			<a href={privacyUrl} target="_blank" rel="noopener noreferrer" className="underline">
-				privacy policy
-			</a>
+			<>
+				{" "}
+				and{" "}
+				<a href={privacyUrl} target="_blank" rel="noopener noreferrer" className="underline">
+					privacy policy
+				</a>
+			</>
 		) : null;
-		return (
-			<span>
-				I agree to the {terms}
-				{privacy ? <> and {privacy}</> : null}
-			</span>
-		);
-	}, [termsUrl, privacyUrl]);
-
-	const additionalFields = termsRequired
-		? {
-				termsAccepted: {
-					label: termsLabel,
-					type: "boolean" as const,
-					required: true,
-				},
-			}
-		: undefined;
+		return [
+			{
+				name: "termsAccepted",
+				type: "boolean" as const,
+				inputType: "checkbox" as const,
+				label: "I agree to the terms of service",
+				required: true,
+				signUp: "below" as const,
+				profile: false,
+				// Clickable links next to the checkbox. Falls back to the plain
+				// `label` above if the host ignores `render`.
+				render: ({
+					value,
+					onChange,
+					onBlur,
+				}: {
+					value: unknown;
+					onChange: (v: boolean) => void;
+					onBlur: () => void;
+				}) => (
+					<label className="flex items-start gap-2 text-sm">
+						<input
+							type="checkbox"
+							checked={value === true}
+							onChange={(e) => onChange(e.target.checked)}
+							onBlur={onBlur}
+							className="mt-1"
+						/>
+						<span>
+							I agree to the {terms}
+							{privacy}
+						</span>
+					</label>
+				),
+			},
+		];
+	}, [termsRequired, termsUrl, privacyUrl]);
 
 	return (
 		<QueryClientProvider client={queryClient}>
@@ -342,10 +368,11 @@ export default function AuthView({
 					redirectTo={redirectTo}
 					socialProviders={socialProviders}
 					emailAndPassword={{ requireEmailVerification }}
-					// Extra sign-up fields. When terms acceptance is required, a
-					// required `termsAccepted` checkbox is rendered and must be ticked
-					// (the server enforces it too). No extra fields otherwise.
-					{...(additionalFields ? { additionalFields, signUp: { fields: ["termsAccepted"] } } : {})}
+					// Extra sign-up fields (an ARRAY of field configs). When terms
+					// acceptance is required, a required `termsAccepted` checkbox is
+					// rendered on sign-up and must be ticked (the server enforces it
+					// too). Omitted entirely otherwise.
+					{...(additionalFields ? { additionalFields } : {})}
 					// Point the `settings` base path at /account so the UserButton
 					// dropdown's "Settings" link (and any settings link from the auth
 					// flow) resolves to our mounted account page, not the default
