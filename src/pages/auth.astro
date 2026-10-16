@@ -16,6 +16,7 @@ import { getSiteSettings } from "emdash";
 import {
 	configuredSocialProviders,
 	twoFactorEnabled,
+	usernameEnabled,
 	orgEnabled,
 	passkeyEnabled,
 	oidcProviderEnabled,
@@ -39,6 +40,7 @@ const view = path ?? "sign-in";
 // Whether 2FA is enabled site-wide — gates both the two-factor plugin on the
 // island and the challenge view path below (same setting the auth route reads).
 const is2faEnabled = await twoFactorEnabled();
+const isUsernameEnabled = await usernameEnabled();
 // Whether organizations are enabled — gates the org UI plugin on the island
 // and the invitation-acceptance view path below.
 const isOrgEnabled = await orgEnabled();
@@ -160,6 +162,7 @@ const panelImageUrl = await authPanelImageUrl();
 			logoUrl={logoUrl}
 			socialProviders={socialProviders}
 			twoFactorEnabled={is2faEnabled}
+			usernameEnabled={isUsernameEnabled}
 			orgEnabled={isOrgEnabled}
 			passkeyEnabled={isPasskeyEnabled}
 			oidcProviderEnabled={isOidcEnabled}

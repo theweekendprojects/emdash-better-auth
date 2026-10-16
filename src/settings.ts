@@ -91,6 +91,7 @@ export const SETTINGS_KEYS = {
 	baseUrl: "baseUrl",
 	betterAuthSecret: "betterAuthSecret",
 	twoFactorEnabled: "twoFactorEnabled",
+	usernameEnabled: "usernameEnabled",
 	apiKeyEnabled: "apiKeyEnabled",
 	passkeyEnabled: "passkeyEnabled",
 	adminEnabled: "adminEnabled",
@@ -130,6 +131,9 @@ export const SETTINGS_DEFAULTS = {
 	sendOnSignIn: true,
 	autoSignInAfterVerification: true,
 	twoFactorEnabled: false,
+	// On by default: usernames have always shipped, so defaulting to true keeps
+	// existing sites unchanged. Operators can turn public usernames off.
+	usernameEnabled: true,
 	apiKeyEnabled: false,
 	passkeyEnabled: false,
 	adminEnabled: false,
@@ -168,6 +172,7 @@ const BOOLEAN_KEYS = [
 	SETTINGS_KEYS.sendOnSignIn,
 	SETTINGS_KEYS.autoSignInAfterVerification,
 	SETTINGS_KEYS.twoFactorEnabled,
+	SETTINGS_KEYS.usernameEnabled,
 	SETTINGS_KEYS.apiKeyEnabled,
 	SETTINGS_KEYS.passkeyEnabled,
 	SETTINGS_KEYS.adminEnabled,
@@ -403,6 +408,8 @@ export interface ResolvedAuthSettings {
 	sendOnSignIn: boolean;
 	autoSignInAfterVerification: boolean;
 	twoFactorEnabled: boolean;
+	/** Username plugin (public handle, username sign-in) enabled. Default true. */
+	usernameEnabled: boolean;
 	/** API key plugin enabled. */
 	apiKeyEnabled: boolean;
 	/** Passkey (WebAuthn) plugin enabled. */
@@ -595,6 +602,10 @@ export function resolveSettings(
 		saved[SETTINGS_KEYS.twoFactorEnabled],
 		SETTINGS_DEFAULTS.twoFactorEnabled,
 	);
+	const usernameEnabled = coerceBool(
+		saved[SETTINGS_KEYS.usernameEnabled],
+		SETTINGS_DEFAULTS.usernameEnabled,
+	);
 	const apiKeyEnabled = coerceBool(
 		saved[SETTINGS_KEYS.apiKeyEnabled],
 		SETTINGS_DEFAULTS.apiKeyEnabled,
@@ -738,6 +749,7 @@ export function resolveSettings(
 		sendOnSignIn,
 		autoSignInAfterVerification,
 		twoFactorEnabled,
+		usernameEnabled,
 		apiKeyEnabled,
 		passkeyEnabled,
 		adminEnabled,

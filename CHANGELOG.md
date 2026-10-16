@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-10-16
+### Added
+- **Username on/off switch.** The username plugin was the one Better Auth plugin with no toggle — a hard
+  rule here is that every one must be switchable. New `usernameEnabled` setting (admin toggle, default on
+  so existing sites are unchanged). Off: no username field on sign-up or in account settings, username
+  sign-in is not registered, and a password sign-up no longer requires a username. Wired through the
+  server, client, all three UI views (auth / account / audit log) and the create-user hook.
+
 ## [0.13.2] - 2026-10-16
 ### Fixed
 - **Bot protection broke every attempt after the first.** A failed sign-up or sign-in (taken username, wrong

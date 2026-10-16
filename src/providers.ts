@@ -94,6 +94,17 @@ export async function twoFactorEnabled(): Promise<boolean> {
 	return resolveSettings(saved, {}).twoFactorEnabled;
 }
 
+/** Whether the username plugin is on (public handle + username sign-in). Default true. */
+export async function usernameEnabled(): Promise<boolean> {
+	let saved: Record<string, unknown> = {};
+	try {
+		saved = await getPluginSettings(SETTINGS_PLUGIN_ID);
+	} catch {
+		// No DB / settings unavailable — fall back to the built-in default (on).
+	}
+	return resolveSettings(saved, {}).usernameEnabled;
+}
+
 /**
  * Whether the API key plugin is enabled site-wide, for the account UI's
  * `apiKeyPlugin` gating. Same source of truth and precedence as the auth route,

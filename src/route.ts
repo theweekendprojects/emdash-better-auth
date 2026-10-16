@@ -284,6 +284,7 @@ export async function createAuthForRequest(request: Request, site: URL | undefin
 		// Two-factor authentication is a feature flag; only enable when
 		// the admin has opted in via settings.
 		twoFactorEnabled: settings.twoFactorEnabled,
+		usernameEnabled: settings.usernameEnabled,
 		// API key + passkey feature flags, same opt-in pattern as 2FA.
 		apiKeyEnabled: settings.apiKeyEnabled,
 		passkeyEnabled: settings.passkeyEnabled,

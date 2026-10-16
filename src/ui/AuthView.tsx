@@ -179,6 +179,8 @@ export interface AuthViewProps {
 	 * when its `twoFactor` plugin is registered (same flag). Defaults to false.
 	 */
 	twoFactorEnabled?: boolean;
+	/** Whether username sign-in / public handles are on (mirrors `usernameEnabled`). Default true. */
+	usernameEnabled?: boolean;
 	/**
 	 * Whether organizations are enabled site-wide (mirrors the `orgEnabled`
 	 * admin setting). When true, the Better Auth UI organization plugin is
@@ -269,6 +271,7 @@ export default function AuthView({
 	logoUrl = null,
 	requireEmailVerification = true,
 	twoFactorEnabled = false,
+	usernameEnabled = true,
 	orgEnabled = false,
 	passkeyEnabled = false,
 	oidcProviderEnabled = false,
@@ -313,7 +316,7 @@ export default function AuthView({
 					// plugin is registered). TOTP-only for now.
 					plugins={[
 						themePlugin({ useTheme }),
-						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+						...(usernameEnabled ? [usernamePlugin({ displayUsername: false, isUsernameAvailable: true })] : []),
 						...(twoFactorEnabled
 							? [twoFactorPlugin({ enrollmentMethods: ["totp"] })]
 							: []),

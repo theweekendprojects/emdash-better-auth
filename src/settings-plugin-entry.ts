@@ -57,7 +57,7 @@ import {
 
 // Keep in sync with the version reported by the descriptor factory
 // (betterAuthSettingsPlugin in index.ts) and the package version.
-export const SETTINGS_PLUGIN_VERSION = "0.13.2";
+export const SETTINGS_PLUGIN_VERSION = "0.13.3";
 
 /** Block Kit form submit action ids. */
 const SAVE_ACTION_ID = "save_auth";
@@ -207,6 +207,14 @@ function buildSettingsPage(
 					description:
 						"Allow users to enable TOTP 2FA via their account settings. When enabled, users can enroll with an authenticator app and use backup codes for recovery.",
 					initial_value: flagValue(saved, SETTINGS_KEYS.twoFactorEnabled),
+				},
+				{
+					type: "toggle",
+					action_id: SETTINGS_KEYS.usernameEnabled,
+					label: "Enable usernames",
+					description:
+						"Public handles and username sign-in. On by default. Off: no username field on sign-up or in account settings, and users sign in with e-mail only.",
+					initial_value: flagValue(saved, SETTINGS_KEYS.usernameEnabled),
 				},
 				{
 					type: "toggle",

@@ -129,6 +129,12 @@ export interface BetterAuthOptions {
 	 */
 	twoFactorEnabled?: boolean;
 	/**
+	 * Whether the username plugin is enabled. Default true (usernames have
+	 * always shipped). When false, no public handle / username sign-in: the UI
+	 * drops the username field and the client/server stop registering it.
+	 */
+	usernameEnabled?: boolean;
+	/**
 	 * Whether the admin plugin is enabled. Default false. When true, the
 	 * `admin()` plugin is registered, adding user-management APIs (create user,
 	 * ban/unban, impersonate, list/filter users, set string role). The admin
@@ -463,7 +469,10 @@ export function createBetterAuth(
 							typeof user.passwordHash === "string";
 						const username =
 							typeof user.username === "string" ? user.username.trim() : "";
-						if (!username && !isAnonymous && hasPassword) {
+						// Only enforce a username when the username plugin is on; with it
+						// off there is no username field to fill, so a password signup
+						// must be allowed through without one.
+						if ((options.usernameEnabled ?? true) && !username && !isAnonymous && hasPassword) {
 							throw new Error("Username is required");
 						}
 						return { data: user };
@@ -812,7 +821,10 @@ export function createBetterAuth(
 						}),
 					]
 				: []),
-			username(),
+			// Username plugin: public handle + username sign-in. On by default
+			// (always shipped); operators can turn it off. The captcha endpoints
+			// list above includes /sign-in/username only matters while this is on.
+			...((options.usernameEnabled ?? true) ? [username()] : []),
 		],
 		advanced: {
 			// Cloudflare sends the client address in cf-connecting-ip; the default (x-forwarded-for)

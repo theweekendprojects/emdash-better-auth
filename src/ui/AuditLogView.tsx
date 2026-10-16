@@ -274,6 +274,8 @@ export interface AuditLogViewProps {
 	orgEnabled?: boolean;
 	/** Multi-session on (adds the "Switch Account" menu item, as on /account). */
 	multiSessionEnabled?: boolean;
+	/** Username plugin on (mirrors `usernameEnabled`). Default true. */
+	usernameEnabled?: boolean;
 }
 
 /**
@@ -297,6 +299,7 @@ export default function AuditLogView({
 	adminEnabled = false,
 	orgEnabled = false,
 	multiSessionEnabled = false,
+	usernameEnabled = true,
 }: AuditLogViewProps) {
 	const queryClient = getQueryClient();
 	// The admin page is only served to EmDash admins with audit logging on
@@ -331,7 +334,7 @@ export default function AuditLogView({
 								}}
 								plugins={[
 									themePlugin({ useTheme }),
-									usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+									...(usernameEnabled ? [usernamePlugin({ displayUsername: false, isUsernameAvailable: true })] : []),
 									...(multiSessionEnabled ? [multiSessionPlugin()] : []),
 									...extraUiPlugins,
 								]}

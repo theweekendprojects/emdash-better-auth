@@ -21,6 +21,7 @@ import {
 	planPriceIds,
 	teamsEnabled,
 	twoFactorEnabled,
+	usernameEnabled,
 } from "./providers.ts";
 
 /** EmDash ADMIN role level (numeric RBAC: SUBSCRIBER=10 … ADMIN=50). */
@@ -30,13 +31,14 @@ export const ROLE_STAFF = 20;
 
 export async function accountProps(role: number | undefined) {
 	// Every flag is its own settings read; run them together instead of one after another.
-	const [siteSettings, accent, billing, social, twoFactor, org, teams, apiKey, passkey, oidc, audit, emailOtp, multiSession, admin, deleteAccount, contentAccess] =
+	const [siteSettings, accent, billing, social, twoFactor, username, org, teams, apiKey, passkey, oidc, audit, emailOtp, multiSession, admin, deleteAccount, contentAccess] =
 		await Promise.all([
 			getSiteSettings().catch(() => null),
 			accentColor(),
 			billingEnabled(),
 			configuredSocialProviders(),
 			twoFactorEnabled(),
+			usernameEnabled(),
 			orgEnabled(),
 			teamsEnabled(),
 			apiKeyEnabled(),
@@ -57,6 +59,7 @@ export async function accountProps(role: number | undefined) {
 			logoUrl: siteSettings?.logo?.url ?? null,
 			socialProviders: social,
 			twoFactorEnabled: twoFactor,
+			usernameEnabled: username,
 			orgEnabled: org,
 			teamsEnabled: teams,
 			apiKeyEnabled: apiKey,

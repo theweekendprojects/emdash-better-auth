@@ -109,6 +109,8 @@ export interface AccountViewProps {
 	 * `twoFactor` plugin when the flag is on. Defaults to false.
 	 */
 	twoFactorEnabled?: boolean;
+	/** Username sign-in / public handles on (mirrors `usernameEnabled`). Default true. */
+	usernameEnabled?: boolean;
 	/**
 	 * Whether organizations are enabled site-wide (mirrors `orgEnabled`). When
 	 * true, the org UI plugin adds an "Organizations" tab to Settings (list the
@@ -185,6 +187,7 @@ export default function AccountView({
 	tagline = "",
 	logoUrl = null,
 	twoFactorEnabled = false,
+	usernameEnabled = true,
 	orgEnabled = false,
 	apiKeyEnabled = false,
 	passkeyEnabled = false,
@@ -258,7 +261,7 @@ export default function AccountView({
 						// lead the sidebar (a host's own pages).
 						...extraUiPlugins,
 						themePlugin({ useTheme }),
-						usernamePlugin({ displayUsername: false, isUsernameAvailable: true }),
+						...(usernameEnabled ? [usernamePlugin({ displayUsername: false, isUsernameAvailable: true })] : []),
 						...(twoFactorEnabled
 							? [twoFactorPlugin({ enrollmentMethods: ["totp"] })]
 							: []),
