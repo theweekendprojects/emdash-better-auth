@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-16
+### Changed
+- **Plan catalog trimmed to Pro + Enterprise, Pro gains a 7-day trial.** The ladder is now Free
+  (no subscription) → Pro ($20/mo, `trialDays: 7`, 3 sites / 10 GB) → Enterprise (contact-us; a high
+  built-in ceiling, with the real per-customer caps coming from the metadata on a manually-created
+  Stripe subscription). Dropped the Business/Agency tiers. See
+  `emdash-plan/product/better-auth-stripe-features.md` for the metadata-driven plan design.
+
 ## [0.15.0] - 2026-10-16
 ### Added
 - **Subscription plan ladder with per-plan limits.** The billing catalog now ships four tiers — Pro, Business,

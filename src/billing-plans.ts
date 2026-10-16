@@ -85,33 +85,14 @@ export const PLAN_DEFINITIONS: readonly PlanDefinition[] = [
 	{
 		id: "pro",
 		name: "Pro",
-		description: "For individuals shipping real work.",
-		features: ["3 sites", "10 GB media per site", "Priority support"],
+		description: "For individuals and creators shipping real work.",
+		features: ["3 sites", "10 GB media per site", "7-day free trial", "Priority support"],
 		highlighted: true,
 		monthlyAmount: 2000,
 		annualAmount: 19200,
 		currency: "USD",
+		trialDays: 7,
 		limits: { sitesPerUser: 3, mediaBytesPerSite: 10 * GiB },
-	},
-	{
-		id: "business",
-		name: "Business",
-		description: "For small teams running several sites.",
-		features: ["10 sites", "50 GB media per site", "Priority support"],
-		monthlyAmount: 6000,
-		annualAmount: 57600,
-		currency: "USD",
-		limits: { sitesPerUser: 10, mediaBytesPerSite: 50 * GiB },
-	},
-	{
-		id: "agency",
-		name: "Agency",
-		description: "For agencies managing many client sites.",
-		features: ["30 sites", "150 GB media per site", "Priority support"],
-		monthlyAmount: 15000,
-		annualAmount: 144000,
-		currency: "USD",
-		limits: { sitesPerUser: 30, mediaBytesPerSite: 150 * GiB },
 	},
 	{
 		id: "enterprise",
@@ -119,7 +100,8 @@ export const PLAN_DEFINITIONS: readonly PlanDefinition[] = [
 		description: "Custom limits, SLA and support. Contact us.",
 		features: ["Custom site limit", "Custom storage", "SLA + dedicated support"],
 		// A high built-in ceiling so a subscribed enterprise customer is never
-		// blocked by the generic guard; real caps are negotiated out of band.
+		// blocked by the generic guard; the REAL caps come from the metadata on
+		// their manually-created Stripe subscription (negotiated per customer).
 		monthlyAmount: 50000,
 		annualAmount: 480000,
 		currency: "USD",

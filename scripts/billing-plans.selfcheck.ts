@@ -80,7 +80,7 @@ equal(toBillingPlans(defs, {}).length, 0);
 // 5. planLimits: known plan → its caps; unknown/empty → free baseline.
 {
 	deepEqual(planLimits("pro"), { sitesPerUser: 3, mediaBytesPerSite: 10 * 1024 ** 3 });
-	deepEqual(planLimits("agency"), { sitesPerUser: 30, mediaBytesPerSite: 150 * 1024 ** 3 });
+	deepEqual(planLimits("enterprise"), { sitesPerUser: 1000, mediaBytesPerSite: 1000 * 1024 ** 3 });
 	deepEqual(planLimits("PRO"), planLimits("pro")); // case-insensitive
 	deepEqual(planLimits("nope"), FREE_PLAN_LIMITS); // unknown → free
 	deepEqual(planLimits(null), FREE_PLAN_LIMITS); // no subscription → free
@@ -91,10 +91,12 @@ equal(toBillingPlans(defs, {}).length, 0);
 
 // 6. The real catalog carries limits through to the Stripe plan shape.
 {
-	const ids = { business: { month: "price_biz_m" } };
+	const ids = { pro: { month: "price_pro_m" } };
 	const server = toStripePlans(PLAN_DEFINITIONS, ids);
 	equal(server.length, 1);
-	deepEqual(server[0]!.limits, { sitesPerUser: 10, mediaBytesPerSite: 50 * 1024 ** 3 });
+	deepEqual(server[0]!.limits, { sitesPerUser: 3, mediaBytesPerSite: 10 * 1024 ** 3 });
+	// Pro now carries a 7-day trial.
+	deepEqual(server[0]!.freeTrial, { days: 7 });
 }
 
 console.log("billing-plans self-check: all 6 cases passed");
