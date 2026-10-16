@@ -191,6 +191,9 @@ Feature toggles (all **off** by default except email verification):
 | Multiple accounts per browser | off | Hold several accounts, switch between them. |
 | Extra OAuth / OIDC providers | off | Keycloak, Okta, Auth0, … via `GENERIC_OAUTH_CONFIG`. |
 | Breached-password check (HIBP) | off | Reject passwords found in known breaches. |
+| Collapse Gmail dot/plus aliases | off | Dedupe sign-ups: `j.doe+tag@gmail.com` and `jdoe@gmail.com` count as one person. Gmail/Googlemail dots are ignored (and the two folded together); a `+tag` is dropped for Gmail, Outlook, Fastmail and Proton. The real address is still used for login/email — only the uniqueness check uses the normalized key. |
+| Block disposable email | off | Reject ~9.9k known throwaway domains (Mailinator, Guerrilla Mail, …) with a clear "use a permanent email" message. A per-site **allowlist** (comma/newline domains) overrides it, e.g. for privacy relays. |
+| Require accepting terms at sign-up | off | A required "I agree to the terms" checkbox on sign-up (links to a `termsUrl` / `privacyUrl`), enforced server-side. Stores proof — `termsAcceptedAt` + a `termsVersion` — on each account. |
 | Audit logging (+ retention) | off | `/audit-log` — auth events with IP, UA, severity. |
 | Stripe billing | off | Subscription billing + a Billing tab per account. |
 | Let users delete their own account | off | A Delete account card on the profile page. Refused while the user still owns an organization. |
