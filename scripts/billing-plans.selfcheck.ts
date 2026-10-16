@@ -12,6 +12,9 @@ import {
 	type PlanDefinition,
 	toStripePlans,
 	toBillingPlans,
+	planLimits,
+	FREE_PLAN_LIMITS,
+	PLAN_DEFINITIONS,
 } from "../src/billing-plans.js";
 
 const defs: PlanDefinition[] = [
@@ -74,4 +77,24 @@ equal(toBillingPlans(defs, {}).length, 0);
 	equal(toStripePlans(defs, ids)[0]!.name, "pro");
 }
 
-console.log("billing-plans self-check: all 4 cases passed");
+// 5. planLimits: known plan → its caps; unknown/empty → free baseline.
+{
+	deepEqual(planLimits("pro"), { sitesPerUser: 3, mediaBytesPerSite: 10 * 1024 ** 3 });
+	deepEqual(planLimits("agency"), { sitesPerUser: 30, mediaBytesPerSite: 150 * 1024 ** 3 });
+	deepEqual(planLimits("PRO"), planLimits("pro")); // case-insensitive
+	deepEqual(planLimits("nope"), FREE_PLAN_LIMITS); // unknown → free
+	deepEqual(planLimits(null), FREE_PLAN_LIMITS); // no subscription → free
+	deepEqual(planLimits(undefined), FREE_PLAN_LIMITS);
+	// Free tier is stricter than any paid plan.
+	equal(FREE_PLAN_LIMITS.sitesPerUser, 1);
+}
+
+// 6. The real catalog carries limits through to the Stripe plan shape.
+{
+	const ids = { business: { month: "price_biz_m" } };
+	const server = toStripePlans(PLAN_DEFINITIONS, ids);
+	equal(server.length, 1);
+	deepEqual(server[0]!.limits, { sitesPerUser: 10, mediaBytesPerSite: 50 * 1024 ** 3 });
+}
+
+console.log("billing-plans self-check: all 6 cases passed");

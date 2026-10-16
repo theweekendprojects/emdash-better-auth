@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-16
+### Added
+- **Subscription plan ladder with per-plan limits.** The billing catalog now ships four tiers — Pro, Business,
+  Agency, Enterprise — each with a `limits` object (`sitesPerUser`, `mediaBytesPerSite`) that is carried
+  through to the Stripe plan shape so a hosting product can map a subscription to how many sites / how much
+  storage a customer gets. New `planLimits(planId)` helper and `FREE_PLAN_LIMITS` baseline (the no-subscription
+  tier), exported from the new `emdash-better-auth/billing` entry point. The plugin never enforces these itself
+  (it has no concept of "sites"); it only carries the numbers for a host to read.
+
 ## [0.14.1] - 2026-10-16
 ### Fixed
 - **Sign-up page rendered blank when terms acceptance was enabled.** The 0.14.0 terms checkbox was passed
