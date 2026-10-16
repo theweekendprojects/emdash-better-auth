@@ -756,7 +756,22 @@ export function createBetterAuth(
 			// x-captcha-response (default endpoints are those three). The widget
 			// is rendered by the auth UI when the matching site key is set.
 			...(options.turnstileSecretKey
-				? [captcha({ provider: "cloudflare-turnstile", secretKey: options.turnstileSecretKey })]
+				? [
+						captcha({
+							provider: "cloudflare-turnstile",
+							secretKey: options.turnstileSecretKey,
+							// Defaults are the three below minus /sign-in/username. The username
+							// plugin is always registered, so without it a bot could skip the
+							// check by signing in with a username instead of an e-mail. The UI
+							// captcha plugin sends the token on every request from these forms.
+							endpoints: [
+								"/sign-up/email",
+								"/sign-in/email",
+								"/sign-in/username",
+								"/request-password-reset",
+							],
+						}),
+					]
 				: []),
 			// Audit log: capture auth events to EmDash plugin storage via a custom
 			// storage backend (no migration). Non-blocking so it never delays an

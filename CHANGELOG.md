@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-10-16
+### Fixed
+- **Bot protection broke every attempt after the first.** A failed sign-up or sign-in (taken username, wrong
+  password, ...) left every later attempt on the same page failing with "Missing CAPTCHA response" until a
+  reload. A Turnstile token is single-use and is spent even by a rejected request; our own widget + fetch
+  wrapper never reset it. Replaced with Better Auth UI's official `captchaPlugin` (the documented standard):
+  the forms send the token and reset the widget after a failed submit.
+- The captcha now also covers `/sign-in/username` (the username plugin is always on, so a bot could
+  previously skip the check by signing in with a username).
+- The Turnstile widget no longer appears on the magic-link and e-mail-code pages, whose requests the server
+  never verified (it was friction with no protection).
+- The widget is now part of the form (above the submit button) instead of sitting below it.
+
 ## [0.13.1] - 2026-10-15
 ### Fixed
 - The Turnstile widget now follows the page theme (dark/light/auto) instead of always rendering light.
