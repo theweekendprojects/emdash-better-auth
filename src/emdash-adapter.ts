@@ -142,6 +142,10 @@ const ADDITIONAL_DATA_FIELDS = new Set<string>([
 	// termsRequired is on). No `users` column, so it rides users.data JSON.
 	"termsAcceptedAt",
 	"termsVersion",
+	// billing: resolved plan entitlements (sites/storage/aiCredits...) stashed by
+	// the stripe subscription webhook from Stripe metadata. No `users` column, so
+	// it rides users.data JSON. A host reads it to resolve per-user limits.
+	"planEntitlements",
 ]);
 
 /**

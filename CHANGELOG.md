@@ -6,7 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.15.2] - 2026-10-16
+## [0.16.0] - 2026-10-16
+### Added
+- **Metadata-driven entitlements wired into the Stripe subscription lifecycle.** The stripe plugin's
+  `onSubscriptionComplete` / `onSubscriptionCreated` / `onSubscriptionUpdate` hooks now parse the
+  entitlement keys from the Stripe PRICE metadata (per-plan) and SUBSCRIPTION metadata (per-customer
+  override), merge them (sub wins), and stash the result on the user's `data.planEntitlements`;
+  `onSubscriptionCancel` / `onSubscriptionDeleted` clear it. A host reads `planEntitlements` at
+  request time with no Stripe call. Reuses the plugin's own subscription tracking + the Better Auth
+  UI billing tab — this is only the thin metadata→user bridge. `planEntitlements` added to the
+  adapter's users.data field set. The webhook path itself is verified by a clean consuming-site
+  build; live behaviour needs Stripe test keys + a configured price.
 ### Added
 - **Generic plan-entitlements parser.** `parsePlanEntitlements(metadata)` reads a known set of
   numeric keys from Stripe metadata (`sitesPerUser`, `mediaBytesPerSite`, `maxEntriesPerSite`,

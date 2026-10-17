@@ -29,7 +29,15 @@ import { createAuditLogStorage } from "./audit-log-storage.js";
 import Stripe from "stripe";
 import type { Kysely } from "kysely";
 import { emdashAdapter, type BetterAuthStorage } from "./emdash-adapter.js";
-import { PLAN_DEFINITIONS, toStripePlans, type PlanPriceIds } from "./billing-plans.js";
+import {
+	PLAN_DEFINITIONS,
+	toStripePlans,
+	parsePlanEntitlements,
+	mergeEntitlements,
+	type PlanPriceIds,
+	type PlanEntitlements,
+} from "./billing-plans.js";
+import { mergeAdditionalData } from "./additional-data.js";
 import type { GenericOAuthProviderConfig } from "./settings.js";
 import { sessionsToDelete } from "./session-cap.js";
 import { isDisposableEmail, normalizeEmail, parseAllowlist } from "./email-hygiene.js";
@@ -329,7 +337,10 @@ export interface BetterAuthOptions {
  * module, so the SDK's default (Node) client would throw on Cloudflare. This is
  * the one Workers-specific line and must not be removed.
  */
-function buildStripePlugins(options: BetterAuthOptions): ReturnType<typeof stripePlugin>[] {
+function buildStripePlugins(
+	options: BetterAuthOptions,
+	db: Kysely<{ users: Record<string, unknown> }>,
+): ReturnType<typeof stripePlugin>[] {
 	if (!options.billingEnabled) return [];
 	if (!options.stripeSecretKey || !options.stripeWebhookSecret) return [];
 
@@ -351,9 +362,89 @@ function buildStripePlugins(options: BetterAuthOptions): ReturnType<typeof strip
 			subscription: {
 				enabled: true,
 				plans,
+				// Metadata-driven entitlements. The plugin hands us the raw Stripe
+				// subscription on every lifecycle change; we parse the entitlement
+				// keys from the PRICE metadata (per-plan) and the SUBSCRIPTION
+				// metadata (per-customer override), merge sub over price, and stash
+				// the result on the user's `data.planEntitlements`. A host (e.g.
+				// emdash-multisite) then reads that at request time with no Stripe
+				// call. See emdash-plan/product/better-auth-stripe-features.md.
+				//
+				// We deliberately do NOT reinvent subscription tracking — the plugin
+				// owns the `subscription` row, status, trial, portal and the Better
+				// Auth UI billing tab. This hook is the one thin bridge from Stripe
+				// metadata to our per-user entitlement cache.
+				onSubscriptionComplete: async ({ stripeSubscription, subscription }) => {
+					await writeUserEntitlements(db, subscription.referenceId, entitlementsOf(stripeSubscription));
+				},
+				// Subscriptions created outside checkout (e.g. an Enterprise sub you
+				// make by hand in the Stripe dashboard) — same stash path.
+				onSubscriptionCreated: async ({ stripeSubscription, subscription }) => {
+					await writeUserEntitlements(db, subscription.referenceId, entitlementsOf(stripeSubscription));
+				},
+				onSubscriptionUpdate: async ({ stripeSubscription, subscription }) => {
+					await writeUserEntitlements(db, subscription.referenceId, entitlementsOf(stripeSubscription));
+				},
+				// On cancel/delete, clear the entitlements so the user falls back to
+				// the free baseline. (Respecting cancel-at-period-end is the host's
+				// job via the subscription row's periodEnd; here we only clear once
+				// the subscription is actually gone.)
+				onSubscriptionCancel: async ({ subscription }) => {
+					await writeUserEntitlements(db, subscription.referenceId, null);
+				},
+				onSubscriptionDeleted: async ({ subscription }) => {
+					await writeUserEntitlements(db, subscription.referenceId, null);
+				},
 			},
 		}),
 	];
+}
+
+/**
+ * Entitlements for a raw Stripe subscription: price metadata (per-plan) merged
+ * under subscription metadata (per-customer override wins). Pure — the parsing
+ * and merge come from billing-plans.ts; this only pulls the two metadata records
+ * off the Stripe object. The price lives on the first subscription item.
+ */
+function entitlementsOf(sub: Stripe.Subscription): PlanEntitlements {
+	const priceMeta = (sub.items?.data?.[0]?.price?.metadata ?? undefined) as
+		| Record<string, unknown>
+		| undefined;
+	const subMeta = (sub.metadata ?? undefined) as Record<string, unknown> | undefined;
+	return mergeEntitlements(parsePlanEntitlements(priceMeta), parsePlanEntitlements(subMeta));
+}
+
+/**
+ * Write (or clear, with `null`) a user's resolved `planEntitlements` into the
+ * users.data JSON blob, keyed by the subscription's referenceId (the user id by
+ * default). Uses {@link mergeAdditionalData} so no other data-blob field is
+ * touched. Never throws into the webhook — a failed stash is logged; the plugin
+ * has already recorded the subscription, and a later update re-stamps it.
+ */
+async function writeUserEntitlements(
+	db: Kysely<{ users: Record<string, unknown> }>,
+	userId: string,
+	entitlements: PlanEntitlements | null,
+): Promise<void> {
+	try {
+		// biome-ignore lint/suspicious/noExplicitAny: cross-adapter Kysely row shape.
+		const anyDb = db as any;
+		const row = await anyDb
+			.selectFrom("users")
+			.select(["data"])
+			.where("id", "=", userId)
+			.executeTakeFirst();
+		const current = (row?.data ?? null) as string | null;
+		const next = mergeAdditionalData(current, {
+			planEntitlements: entitlements && Object.keys(entitlements).length > 0 ? entitlements : null,
+		});
+		await anyDb.updateTable("users").set({ data: next }).where("id", "=", userId).execute();
+	} catch (err) {
+		console.error(
+			`[better-auth] Failed to stash plan entitlements for ${userId}:`,
+			err instanceof Error ? err.message : String(err),
+		);
+	}
 }
 
 export function createBetterAuth(
@@ -755,7 +846,7 @@ export function createBetterAuth(
 		// the user model (stored in users.data JSON). Only enabled when the
 		// admin feature flag is set.
 		plugins: [
-			...buildStripePlugins(options),
+			...buildStripePlugins(options, db),
 			...(options.twoFactorEnabled ? [twoFactor()] : []),
 			// Admin plugin: user management (create/ban/impersonate/list, string
 			// role). It OWNS the user fields role/banned/banReason/banExpires
