@@ -158,7 +158,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tailwindcss": "^4.3.2",
-    "typescript": "^5.7.0"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@better-auth-ui/core": "~1.7.34",
