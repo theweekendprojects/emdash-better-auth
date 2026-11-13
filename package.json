@@ -186,7 +186,7 @@
     "kysely": "^0.29.5",
     "kysely-d1": "^0.4.0",
     "next-themes": "^0.4.6",
-    "stripe": "^22.0.0",
+    "stripe": "^23.1.0",
     "tailwind-merge": "^3.5.0",
     "ulidx": "^2.4.1",
     "zod": "^4.4.3"
