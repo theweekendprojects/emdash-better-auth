@@ -1,0 +1,43 @@
+name: CI
+
+# Runs the plugin's self-checks on every push and PR — including the ones
+# Dependabot opens. The key gate for a dependency bump is the Better Auth UI
+# source patch (scripts/ui-patches.selfcheck.ts): it loads the *installed*
+# @better-auth-ui/heroui build and fails here if ORG_PROFILE_RESET no longer
+# matches, so a bump that breaks the regex patch is caught in the PR instead of
+# silently in a consuming site's build.
+#
+# Note: a standalone `tsc --noEmit` over src/ is intentionally NOT run — the
+# package ships source that only type-checks inside a consuming Astro site
+# (astro:*, cloudflare:workers and EmDash Locals types are absent here). The
+# self-checks are the real dependency-free gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  selfcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # >= 22.18 for native TypeScript execution of the .selfcheck.ts files.
+          node-version: "22"
+
+      - name: Install dependencies
+        # No lockfile is committed, so `npm ci` is not usable; a plain install
+        # resolves the ranges in package.json (which is what a Dependabot PR edits).
+        run: npm install --no-audit --no-fund
+
+      - name: tsc-compiled self-checks
+        run: npm run selfcheck
+
+      - name: native self-checks (incl. Better Auth UI patch vs installed build)
+        run: npm run selfcheck:native

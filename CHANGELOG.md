@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Dependency pins refreshed and automated (issue #26).** The Better Auth UI packages
+  (`@better-auth-ui/{core,heroui,react}`) moved off the exact `1.7.19` pin to `~1.7.34`, and the
+  Better Auth family (`better-auth` + every `@better-auth/*`) was unified from mixed `^1.7.2`/`^1.7.7`
+  ranges to `~1.7.23`. Tilde ranges let patch releases flow into consuming sites without a plugin
+  release, while a new minor still requires review (the `src/ui-patches.ts` regex patch targets the
+  BA-UI build output). The families are kept in lockstep because each is released together and mixing
+  minors can fail at runtime.
+
+### Added
+- **Dependabot + CI.** `.github/dependabot.yml` opens one grouped weekly PR per family (`better-auth-ui`,
+  `better-auth`) with a 3-day cooldown, plus GitHub Actions updates. `.github/workflows/ci.yml` runs the
+  self-checks on every push/PR (including Dependabot's); the Better Auth UI patch self-check
+  (`scripts/ui-patches.selfcheck.ts`) loads the *installed* BA-UI build, so a bump that breaks the
+  `ORG_PROFILE_RESET` patch fails in the PR instead of silently in a consuming site. New
+  `selfcheck:native` / `selfcheck:all` npm scripts run the native-TS self-checks.
+
 ## [0.16.0] - 2026-10-16
 ### Added
 - **Metadata-driven entitlements wired into the Stripe subscription lifecycle.** The stripe plugin's

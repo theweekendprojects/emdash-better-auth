@@ -1,0 +1,31 @@
+# Dependabot keeps the Better Auth and Better Auth UI dependencies current.
+#
+# The Better Auth UI packages are tilde-pinned (~1.7.x) because src/ui-patches.ts
+# patches their compiled output with a regex (ORG_PROFILE_RESET). A patch release
+# flows in automatically; a new MINOR needs a human to confirm the patch still
+# matches (or that upstream fixed the bug it works around). Grouping keeps the
+# three @better-auth-ui/* versions — and the better-auth + @better-auth/* set —
+# always in lockstep, since each family is released together and mixing minors
+# can fail at runtime.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      better-auth-ui:
+        patterns:
+          - "@better-auth-ui/*"
+      better-auth:
+        patterns:
+          - "better-auth"
+          - "@better-auth/*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

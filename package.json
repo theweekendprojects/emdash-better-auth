@@ -30,7 +30,9 @@
     "id": "better-auth"
   },
   "scripts": {
-    "selfcheck": "bash scripts/selfcheck.sh"
+    "selfcheck": "bash scripts/selfcheck.sh",
+    "selfcheck:native": "node --no-warnings scripts/access.selfcheck.ts && node --no-warnings scripts/chart.selfcheck.ts && node --no-warnings scripts/device.selfcheck.ts && node --no-warnings scripts/session-cap.selfcheck.ts && node --no-warnings scripts/ui-patches.selfcheck.ts",
+    "selfcheck:all": "npm run selfcheck && npm run selfcheck:native"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -159,14 +161,14 @@
     "typescript": "^5.7.0"
   },
   "dependencies": {
-    "@better-auth-ui/core": "1.7.19",
-    "@better-auth-ui/heroui": "1.7.19",
-    "@better-auth-ui/react": "1.7.19",
-    "@better-auth/api-key": "^1.7.2",
-    "@better-auth/kysely-adapter": "^1.7.2",
-    "@better-auth/oauth-provider": "^1.7.7",
-    "@better-auth/passkey": "^1.7.2",
-    "@better-auth/stripe": "^1.7.2",
+    "@better-auth-ui/core": "~1.7.34",
+    "@better-auth-ui/heroui": "~1.7.34",
+    "@better-auth-ui/react": "~1.7.34",
+    "@better-auth/api-key": "~1.7.23",
+    "@better-auth/kysely-adapter": "~1.7.23",
+    "@better-auth/oauth-provider": "~1.7.23",
+    "@better-auth/passkey": "~1.7.23",
+    "@better-auth/stripe": "~1.7.23",
     "@fontsource-variable/inter": "5.3.0",
     "@gravity-ui/icons": "^2.20.0",
     "@heroui/react": "^3.2.4",
@@ -177,7 +179,7 @@
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-store": "^0.11.1",
     "@tanstack/react-table": "^9.2.4",
-    "better-auth": "^1.7.2",
+    "better-auth": "~1.7.23",
     "better-auth-audit-logs": "^0.4.0",
     "bowser": "^2.11.0",
     "clsx": "^2.1.1",
