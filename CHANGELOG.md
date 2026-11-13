@@ -22,6 +22,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`scripts/ui-patches.selfcheck.ts`) loads the *installed* BA-UI build, so a bump that breaks the
   `ORG_PROFILE_RESET` patch fails in the PR instead of silently in a consuming site. New
   `selfcheck:native` / `selfcheck:all` npm scripts run the native-TS self-checks.
+- **Committed `pnpm-lock.yaml` (issue #26, addition 3).** The repo now standardizes on pnpm
+  (`packageManager: pnpm@10.34.5`), so CI, Dependabot and contributors resolve a byte-identical,
+  integrity-hashed dependency tree. CI installs with `pnpm install --frozen-lockfile`. An `engines`
+  floor of Node `>=22.18` is declared — the native-TS self-checks run `.ts` directly and need it.
+  The lockfile is not published (it is outside the `files` allowlist).
 
 ## [0.16.0] - 2026-10-16
 ### Added

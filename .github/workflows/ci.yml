@@ -26,18 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Uses the pnpm version from package.json "packageManager".
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           # >= 22.18 for native TypeScript execution of the .selfcheck.ts files.
           node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
-        # No lockfile is committed, so `npm ci` is not usable; a plain install
-        # resolves the ranges in package.json (which is what a Dependabot PR edits).
-        run: npm install --no-audit --no-fund
+        # Frozen lockfile: fail if pnpm-lock.yaml and package.json disagree. A
+        # Dependabot PR updates both, so the install stays reproducible.
+        run: pnpm install --frozen-lockfile
 
       - name: tsc-compiled self-checks
-        run: npm run selfcheck
+        run: pnpm run selfcheck
 
       - name: native self-checks (incl. Better Auth UI patch vs installed build)
-        run: npm run selfcheck:native
+        run: pnpm run selfcheck:native
