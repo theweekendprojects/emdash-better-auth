@@ -6,18 +6,21 @@
  * document surface to HeroUI's semantic theme tokens so light/dark backgrounds
  * come from the theme (not hardcoded colors).
  *
- * Compiled by `@tailwindcss/vite`. Imported only by the auth island, so the
- * resulting CSS is page-scoped to /auth and never touches the site theme.
+ * Precompiled by `pnpm run build:css` into dist/auth.css (shipped as
+ * `emdash-better-auth/auth.css`), so consuming sites need no Tailwind. Imported
+ * only by the auth islands, so the resulting CSS is page-scoped to /auth and
+ * never touches the site theme. The Inter webfont is imported by the islands,
+ * not here: a precompiled file cannot rewrite the font file URLs.
  */
 
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "@better-auth-ui/heroui/styles";
-@import "@fontsource-variable/inter";
 
-/* Scan the component packages so Tailwind emits every utility/variant class
-   HeroUI and Better Auth UI reference at runtime. */
+/* Scan the package's own markup (islands and .astro pages) and the component
+   packages, so Tailwind emits every utility/variant class they use at runtime. */
 @source "./";
+@source "../pages";
 @source "../../node_modules/@heroui/react/dist";
 @source "../../node_modules/@better-auth-ui/heroui/dist";
 @source "../../node_modules/@better-auth-ui/react/dist";

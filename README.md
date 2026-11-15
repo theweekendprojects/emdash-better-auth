@@ -61,19 +61,16 @@ The package is one repo with five cooperating parts. You register the first two;
 
 ```bash
 pnpm add emdash-better-auth
-pnpm add -D @tailwindcss/vite            # required — compiles the auth-page styles
 wrangler secret put BETTER_AUTH_SECRET   # required — openssl rand -base64 32
 ```
 
 ```js
 // astro.config.mjs
 import react from "@astrojs/react";
-import tailwindcss from "@tailwindcss/vite";
 import { betterAuthProvider, betterAuthSettingsPlugin } from "emdash-better-auth";
 
 export default defineConfig({
   output: "server",
-  vite: { plugins: [tailwindcss()] },          // required for the HeroUI auth styles
   integrations: [
     react(),                                    // auth pages are React islands
     emdash({
@@ -94,7 +91,7 @@ Deploy, then open `/login` or `/signup`.
 ## Requirements
 
 - **EmDash** `>=0.30.0`, on **Cloudflare Workers** (D1 + R2). Other adapters are untested.
-- **`@astrojs/react`** and **`@tailwindcss/vite`** wired into your Astro config — both required. The auth pages are React islands, and HeroUI ships Tailwind v4 source that your site compiles. Without Tailwind the pages render unstyled.
+- **`@astrojs/react`** wired into your Astro config — required. The auth pages are React islands. Their styles ship precompiled (`emdash-better-auth/auth.css`), so your site does not need Tailwind.
 - **React** `>=19.2.6` / **react-dom** `>=19.2.6` (HeroUI peer).
 
 > **pnpm cooldown:** the `@better-auth-ui/*` packages release often. If you set a
@@ -409,7 +406,7 @@ cannot inject a page into this dashboard at runtime, and an EmDash plugin page d
   (`getAuthProviderStorage`, namespace `auth:better-auth`). No custom tables;
   indexes are created at runtime from the storage config.
 - **Auth pages are a React island** rendering Better Auth UI, pointed at
-  `/api/auth`. HeroUI styles compile via Tailwind and load **only** on these
+  `/api/auth`. Their HeroUI styles (precompiled `auth.css`) load **only** on these
   routes.
 - **Session bridge.** On sign-in the route writes EmDash's own session cookie,
   so the login is recognized site-wide (admin included, subject to role). With

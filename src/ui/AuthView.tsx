@@ -21,8 +21,9 @@
  * which would bounce them).
  */
 
-// Self-contained styles for the auth UI. Compiled by @tailwindcss/vite.
-import "./auth.css";
+// Self-contained styles for the auth UI: precompiled (dist/auth.css) plus the Inter webfont.
+import "emdash-better-auth/auth.css";
+import "@fontsource-variable/inter";
 import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
 import { Auth, AuthProvider } from "@better-auth-ui/heroui";

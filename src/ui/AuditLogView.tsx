@@ -22,7 +22,8 @@
  * Chip/Spinner (not collection components) are still HeroUI for visual parity.
  */
 
-import "./auth.css";
+import "emdash-better-auth/auth.css";
+import "@fontsource-variable/inter";
 import extraUiPlugins from "emdash-better-auth/ui-plugins";
 
 import { AuthProvider, UserButton } from "@better-auth-ui/heroui";

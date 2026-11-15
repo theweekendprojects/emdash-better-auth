@@ -34,8 +34,10 @@
     "id": "better-auth"
   },
   "scripts": {
+    "build:css": "tailwindcss -i src/ui/auth.css -o dist/auth.css --minify",
+    "prepack": "pnpm run build:css",
     "selfcheck": "bash scripts/selfcheck.sh",
-    "selfcheck:native": "node --no-warnings scripts/access.selfcheck.ts && node --no-warnings scripts/chart.selfcheck.ts && node --no-warnings scripts/device.selfcheck.ts && node --no-warnings scripts/session-cap.selfcheck.ts && node --no-warnings scripts/ui-patches.selfcheck.ts",
+    "selfcheck:native": "pnpm run build:css && node --no-warnings scripts/access.selfcheck.ts && node --no-warnings scripts/chart.selfcheck.ts && node --no-warnings scripts/device.selfcheck.ts && node --no-warnings scripts/session-cap.selfcheck.ts && node --no-warnings scripts/ui-patches.selfcheck.ts && node --no-warnings scripts/auth-css.selfcheck.ts",
     "selfcheck:all": "npm run selfcheck && npm run selfcheck:native"
   },
   "main": "./src/index.ts",
@@ -76,6 +78,10 @@
     "./ui": {
       "import": "./src/ui/AuthView.tsx",
       "default": "./src/ui/AuthView.tsx"
+    },
+    "./auth.css": {
+      "import": "./dist/auth.css",
+      "default": "./dist/auth.css"
     },
     "./pages/auth": {
       "import": "./src/pages/auth.astro",
@@ -144,6 +150,7 @@
   },
   "files": [
     "src",
+    "dist",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -151,15 +158,10 @@
   "peerDependencies": {
     "emdash": ">=0.30.0",
     "react": ">=19.2.6",
-    "react-dom": ">=19.2.6",
-    "tailwindcss": "^4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "tailwindcss": {
-      "optional": false
-    }
+    "react-dom": ">=19.2.6"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
     "@types/node": "^22.0.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.7.0"

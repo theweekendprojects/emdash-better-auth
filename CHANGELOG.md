@@ -15,6 +15,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   BA-UI build output). The families are kept in lockstep because each is released together and mixing
   minors can fail at runtime.
 
+### Changed
+- **Auth styles are precompiled; sites no longer need Tailwind (issue #24).** `pnpm run build:css` compiles
+  `src/ui/auth.css` into `dist/auth.css`, shipped as `emdash-better-auth/auth.css` and generated on `prepack`.
+  The `tailwindcss` peer dependency and the `@tailwindcss/vite` setup step are removed from the README. The
+  Inter webfont is now imported by the auth islands, because a precompiled file cannot rewrite the font URLs.
+  Sites that already use Tailwind are unaffected. Custom Better Auth UI plugins whose classes this package does
+  not scan may need their own Tailwind step.
+
 ### Added
 - **`getAuthSession(Astro)` helper (issue #23).** Exported from `emdash-better-auth/route`. Returns the
   Better Auth `{ user, session }` for the request, or `null` when signed out, so app code can read
