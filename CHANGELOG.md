@@ -16,6 +16,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   minors can fail at runtime.
 
 ### Changed
+- **`@better-auth-ui/core` is a peer dependency, not a bundled dependency.** The unreleased Better Auth UI
+  bump (#26) bundled its own copy of core, so a site that also pinned core got two copies and failed at
+  sign-in (`Cannot read properties of undefined (reading 'generic')`). Sites now install one core themselves,
+  and the plugin's UI packages share it. Consumers must add `@better-auth-ui/core` (`~1.7.34`) to their own
+  dependencies.
 - **Auth styles are precompiled; sites no longer need Tailwind (issue #24).** `pnpm run build:css` compiles
   `src/ui/auth.css` into `dist/auth.css`, shipped as `emdash-better-auth/auth.css` and generated on `prepack`.
   The `tailwindcss` peer dependency and the `@tailwindcss/vite` setup step are removed from the README. The

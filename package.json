@@ -156,18 +156,19 @@
     "LICENSE"
   ],
   "peerDependencies": {
+    "@better-auth-ui/core": "~1.7.34",
     "emdash": ">=0.30.0",
     "react": ">=19.2.6",
     "react-dom": ">=19.2.6"
   },
   "devDependencies": {
+    "@better-auth-ui/core": "1.7.34",
     "@tailwindcss/cli": "4.3.3",
     "@types/node": "^22.0.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.7.0"
   },
   "dependencies": {
-    "@better-auth-ui/core": "~1.7.34",
     "@better-auth-ui/heroui": "~1.7.34",
     "@better-auth-ui/react": "~1.7.34",
     "@better-auth/api-key": "~1.7.23",
