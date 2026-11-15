@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-15
+
 ### Changed
 - **Dependency pins refreshed and automated (issue #26).** The Better Auth UI packages
   (`@better-auth-ui/{core,heroui,react}`) moved off the exact `1.7.19` pin to `~1.7.34`, and the

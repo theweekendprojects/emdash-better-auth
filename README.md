@@ -59,6 +59,11 @@ The package is one repo with five cooperating parts. You register the first two;
 
 ## Quickstart
 
+> **0.17+ needs `@better-auth-ui/core` in your own dependencies** (`~1.7.34`). The plugin
+> declares it as a peer so your site and the plugin share one copy. npm installs it for you;
+> pnpm does not, so add it yourself: `pnpm add @better-auth-ui/core@~1.7.34`. Sites pinned to
+> 1.7.19 must bump to 1.7.34 first.
+
 ```bash
 pnpm add emdash-better-auth
 wrangler secret put BETTER_AUTH_SECRET   # required — openssl rand -base64 32
