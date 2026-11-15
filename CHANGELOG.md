@@ -16,6 +16,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   minors can fail at runtime.
 
 ### Added
+- **`getAuthSession(Astro)` helper (issue #23).** Exported from `emdash-better-auth/route`. Returns the
+  Better Auth `{ user, session }` for the request, or `null` when signed out, so app code can read
+  `session.activeOrganizationId` for tenant-scoped data. `getAuthUser` now delegates to it with no
+  behaviour change.
 - **Dependabot + CI.** `.github/dependabot.yml` opens one grouped weekly PR per family (`better-auth-ui`,
   `better-auth`) with a 3-day cooldown, plus GitHub Actions updates. `.github/workflows/ci.yml` runs the
   self-checks on every push/PR (including Dependabot's); the Better Auth UI patch self-check

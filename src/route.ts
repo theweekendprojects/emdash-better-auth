@@ -516,11 +516,27 @@ export async function rebridgeSession(Astro: AstroGlobal): Promise<Response | nu
  * null when signed out. Used by content access checks; never throws.
  */
 export async function getAuthUser(Astro: Pick<AstroGlobal, "request" | "site">): Promise<Record<string, unknown> | null> {
+	const session = await getAuthSession(Astro);
+	return session?.user ?? null;
+}
+
+/**
+ * The Better Auth `{ user, session }` of this request, or null when signed out. The
+ * session carries `activeOrganizationId` (organization plugin) for tenant-scoped app
+ * code; it is null until the user has an active organization. Never throws.
+ */
+export async function getAuthSession(
+	Astro: Pick<AstroGlobal, "request" | "site">,
+): Promise<{ user: Record<string, unknown>; session: Record<string, unknown> } | null> {
 	try {
 		return await withEmDashRuntime(async (runtime) => {
 			const { auth } = await createAuthForRequest(Astro.request, Astro.site, runtime);
 			const result = await auth.api.getSession({ headers: Astro.request.headers });
-			return (result?.user as Record<string, unknown> | undefined) ?? null;
+			if (!result?.user || !result.session) return null;
+			return {
+				user: result.user as Record<string, unknown>,
+				session: result.session as Record<string, unknown>,
+			};
 		});
 	} catch {
 		return null;
