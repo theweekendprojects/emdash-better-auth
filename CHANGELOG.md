@@ -12,12 +12,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Dependency pins refreshed and automated (issue #26).** The Better Auth UI packages
   (`@better-auth-ui/{core,heroui,react}`) moved off the exact `1.7.19` pin to `~1.7.34`, and the
   Better Auth family (`better-auth` + every `@better-auth/*`) was unified from mixed `^1.7.2`/`^1.7.7`
-  ranges to `~1.7.23`. Tilde ranges let patch releases flow into consuming sites without a plugin
+  ranges to `~1.7.25`. Tilde ranges let patch releases flow into consuming sites without a plugin
   release, while a new minor still requires review (the `src/ui-patches.ts` regex patch targets the
   BA-UI build output). The families are kept in lockstep because each is released together and mixing
   minors can fail at runtime.
-
-### Changed
 - **`@better-auth-ui/core` is a peer dependency, not a bundled dependency.** The unreleased Better Auth UI
   bump (#26) bundled its own copy of core, so a site that also pinned core got two copies and failed at
   sign-in (`Cannot read properties of undefined (reading 'generic')`). Sites now install one core themselves,
@@ -29,6 +27,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Inter webfont is now imported by the auth islands, because a precompiled file cannot rewrite the font URLs.
   Sites that already use Tailwind are unaffected. Custom Better Auth UI plugins whose classes this package does
   not scan may need their own Tailwind step.
+- **Removed the unused `@tanstack/react-pacer` dependency.** Nothing in the package imported it.
 
 ### Added
 - **`getAuthSession(Astro)` helper (issue #23).** Exported from `emdash-better-auth/route`. Returns the

@@ -47,9 +47,6 @@ importers:
       '@tanstack/react-form':
         specifier: ^1.33.5
         version: 1.33.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@tanstack/react-pacer':
-        specifier: ^0.22.1
-        version: 0.22.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: ^5.101.2
         version: 5.104.1(react@19.3.0)
