@@ -1,6 +1,6 @@
 {
   "name": "emdash-better-auth",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Full authentication for EmDash CMS, powered by Better Auth: email/password + social login, passwordless, 2FA, passkeys, organizations, OIDC provider, Stripe billing, and audit logging, with prebuilt themed UI, an admin settings page, and no database migrations.",
   "type": "module",
   "packageManager": "pnpm@10.34.5",
@@ -165,6 +165,7 @@
     "@better-auth-ui/core": "1.7.34",
     "@tailwindcss/cli": "4.3.3",
     "@types/node": "^22.0.0",
+    "emdash": "1.6.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.7.0"
   },

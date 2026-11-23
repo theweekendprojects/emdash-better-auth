@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-23
+### Added
+- **Premium switch on the admin user sheet.** Admins can set `premium` on a user from the Users admin
+  page. Users still cannot set it on their own profile (`input: false`).
+### Fixed
+- **Admin Roles default.** A user with no role showed the site's default role in the admin sheet, and
+  saving wrote that default onto them. The field now starts empty, and save sends a role only when one
+  is picked (`src/ui-patches.ts`, Better Auth UI admin build).
+- **Admin edits of a user who already has a username.** Better Auth 1.7.25 checked the handle against the
+  admin's own id, so saving any user with a username failed with `USERNAME_IS_ALREADY_TAKEN`. An unchanged
+  handle is now dropped from admin updates (`src/auth.ts`). Renames and taken-handle checks are unchanged.
+### Changed
+- **Tested against EmDash 1.6.0.** Dev dependency `emdash` moved from `1.4.0` to `1.6.0`. The
+  `getAuthProviderStorage`, `withEmDashRuntime`, `getPluginSettings` and `SchemaRegistry` imports this
+  plugin uses are unchanged in 1.6. Sign-up, sign-in, session, organization create and per-site
+  provisioning were run end to end on a 1.6 staging site. No runtime dependency changed.
+
 ## [0.17.0] - 2026-11-15
 
 ### Changed
