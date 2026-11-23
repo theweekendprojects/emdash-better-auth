@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format is based on
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.17.1] - 2026-11-23
 ### Added
 - **Premium switch on the admin user sheet.** Admins can set `premium` on a user from the Users admin
   page. Users still cannot set it on their own profile (`input: false`).
