@@ -316,6 +316,19 @@ export default function AccountView({
 							signUp: false,
 							profile: true,
 						},
+						// Premium switch for the admin user sheet only. The field is input:false on the
+						// server, so a user cannot set it on their own profile; the admin update writes it.
+						...(section === "admin"
+							? [
+									{
+										name: "premium",
+										type: "boolean" as const,
+										label: "Premium",
+										signUp: false,
+										profile: false,
+									},
+								]
+							: []),
 					]}
 					// Avatar: no `upload` handler is provided, so Better Auth UI
 					// resizes the image and stores a compact data URL directly in

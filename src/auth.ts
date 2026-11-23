@@ -7,7 +7,7 @@
  */
 
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
 import { admin } from "better-auth/plugins";
@@ -845,6 +845,24 @@ export function createBetterAuth(
 		// plugin storage (`twoFactors` collection) and `twoFactorEnabled` to
 		// the user model (stored in users.data JSON). Only enabled when the
 		// admin feature flag is set.
+		// Admin edits re-send the user's current handle. Better Auth 1.7.25's username plugin
+		// checks a claimed handle against the CALLER's id, so an admin saving another user
+		// who already has that handle got USERNAME_IS_ALREADY_TAKEN and nothing else saved
+		// (this blocked the Premium switch). Drop an unchanged handle so only real changes
+		// reach the plugin. Remove when Better Auth compares against the target user.
+		hooks: {
+			before: createAuthMiddleware(async (ctx) => {
+				if (ctx.path !== "/admin/update-user") return;
+				const body = ctx.body as { userId?: unknown; data?: Record<string, unknown> } | undefined;
+				const next = body?.data?.username;
+				if (typeof body?.userId !== "string" || typeof next !== "string") return;
+				const target = (await ctx.context.adapter.findOne({
+					model: "user",
+					where: [{ field: "id", value: body.userId }],
+				})) as { username?: string | null } | null;
+				if (target?.username && target.username === next.trim().toLowerCase()) delete body!.data!.username;
+			}),
+		},
 		plugins: [
 			...buildStripePlugins(options, db),
 			...(options.twoFactorEnabled ? [twoFactor()] : []),

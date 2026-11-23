@@ -15,7 +15,7 @@
  */
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
-import { patchOrgProfile } from "./ui-patches.ts";
+import { patchAdminRoles, patchOrgProfile } from "./ui-patches.ts";
 
 export interface BetterAuthUiOptions {
 	/** Module whose default export is an array of Better Auth UI plugins. Path (relative to the project root) or package specifier. */
@@ -30,8 +30,11 @@ export function betterAuthUi(options: BetterAuthUiOptions): Plugin {
 		config: () => ({
 			resolve: { alias: [{ find: /^emdash-better-auth\/ui-plugins$/, replacement: target }] },
 		}),
-		// See ui-patches.ts: fixes the blank organization profile form.
+		// See ui-patches.ts: fixes the blank organization profile form and the admin Roles default.
 		transform(code, id) {
+			if (/@better-auth-ui[\\/]heroui[\\/]dist[\\/]admin-[\w-]+\.js$/.test(id)) {
+				return patchAdminRoles(code);
+			}
 			if (!/@better-auth-ui[\\/]heroui[\\/]dist[\\/]organization-switcher/.test(id)) return null;
 			const out = patchOrgProfile(code);
 			if (out === null) this.warn("emdash-better-auth: organization profile patch no longer matches (upstream changed?)");
