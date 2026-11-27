@@ -188,7 +188,7 @@
     "@tanstack/react-table": "^9.2.4",
     "better-auth": "~1.7.25",
     "better-auth-audit-logs": "^0.4.0",
-    "bowser": "^2.11.0",
+    "bowser": "^2.15.1",
     "clsx": "^2.1.1",
     "kysely": "^0.29.5",
     "kysely-d1": "^0.4.0",
